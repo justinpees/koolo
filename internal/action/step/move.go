@@ -265,12 +265,12 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 					door, found := ctx.Data.Objects.FindByID(door.ID)
 					return found && !door.Selectable
 				})
-			} else if chest, found := ctx.PathFinder.GetClosestChest(ctx.Data.PlayerUnit.Position, true); found {
-				if !interactIfCloseEnough(*chest) {
-					continue
-				}
 			} else if grave, found := ctx.Data.Objects.FindOne(object.HoleAnim); found {
 				if !interactIfCloseEnough(grave) {
+					continue
+				}
+			} else if chest, found := ctx.PathFinder.GetClosestChest(ctx.Data.PlayerUnit.Position, true); found {
+				if !interactIfCloseEnough(*chest) {
 					continue
 				}
 			} else if !opts.ignoreShrines {
@@ -326,7 +326,8 @@ func interactIfCloseEnough(object data.Object) bool {
 
 	ctx := context.Get()
 
-	if utils.CalculateDistance(ctx.Data.PlayerUnit.Position, object.Position) > 5.0 {
+	distance := utils.CalculateDistance(ctx.Data.PlayerUnit.Position, object.Position)
+	if distance > 5.0 {
 		return false
 	}
 
@@ -338,6 +339,8 @@ func interactIfCloseEnough(object data.Object) bool {
 		obj, found := ctx.Data.Objects.FindByID(object.ID)
 		return !found || !obj.Selectable
 	})
+
+	utils.Sleep(100)
 
 	return err == nil
 }
