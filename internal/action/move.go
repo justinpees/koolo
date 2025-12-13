@@ -34,6 +34,7 @@ const (
 )
 
 var alwaysTakeShrines = []object.ShrineType{
+	object.GemShrine,
 	object.RefillShrine,
 	object.HealthShrine,
 	object.ManaShrine,
@@ -478,17 +479,28 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 			//Check shrine nearby
 			if !ignoreShrines && shrine.ID == 0 {
-				if closestShrine := findClosestShrine(50.0); closestShrine != nil {
-					blacklisted, exists := blacklistedInteractions[closestShrine.ID]
-					if !exists || !blacklisted {
-						shrine = *closestShrine
-						//ctx.Logger.Debug(fmt.Sprintf("MoveTo: Found shrine at %v, redirecting destination from %v", closestShrine.Position, targetPosition))
+    if closestShrine := findClosestShrine(50.0); closestShrine != nil {
+        blacklisted, exists := blacklistedInteractions[closestShrine.ID]
+        if !exists || !blacklisted {
+            shrine = *closestShrine
+            // Log when a Gem Shrine is found and will be interacted with
+            if shrine.Shrine.ShrineType == object.GemShrine {
+                ctx.Logger.Debug("GEM SHRINE FOUND AND WILL BE INTERACTED WITH", slog.String("position", fmt.Sprintf("(%d, %d)", shrine.Position.X, shrine.Position.Y)))
+				  utils.Sleep(400) // 300–500 ms works best
+				  // FORCE immediate pickup of the new Perfect Gem
+        lootErr := ItemPickup(40)
+        if lootErr != nil {
+            ctx.Logger.Warn("Error picking up gem shrine loot", slog.String("error", lootErr.Error()))
+        } else {
+            ctx.Logger.Debug("GEM SHRINE LOOT PICKED UP SUCCESSFULLY")
+        }
+            }
 
-						//Reset target chest
-						chest = (data.Object{})
-					}
-				}
-			}
+            // Reset target chest
+            chest = (data.Object{})
+        }
+    }
+}
 
 			//Check chests nearby
 			if ctx.CharacterCfg.Game.InteractWithChests && shrine.ID == 0 && chest.ID == 0 {
@@ -698,7 +710,7 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 		return nil
 	}
 
-	if ctx.Data.PlayerUnit.States.HasState(state.Amplifydamage) ||
+	/* if ctx.Data.PlayerUnit.States.HasState(state.Amplifydamage) ||
 		ctx.Data.PlayerUnit.States.HasState(state.Lowerresist) ||
 		ctx.Data.PlayerUnit.States.HasState(state.Decrepify) {
 
@@ -723,7 +735,7 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 		if closestCurseBreakingShrine != nil {
 			return closestCurseBreakingShrine
 		}
-	}
+	} */
 
 	var closestAlwaysTakeShrine *data.Object
 	minDistance := maxScanDistance

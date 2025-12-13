@@ -30,6 +30,8 @@ const (
 	maxTotalGoldForAggressiveLevelingStash     = 150000 // Trigger aggressive stashing if total gold (inventory + stashed) is below this
 )
 
+var lastSuccessfulStashTab = -1
+
 func Stash(forceStash bool) error {
 	ctx := context.Get()
 	ctx.SetLastAction("Stash")
@@ -195,53 +197,105 @@ func stashInventory(firstRun bool) {
 		if (i.Name == "grandcharm" || i.Name == "smallcharm" || i.Name == "largecharm") && i.Quality == item.QualityUnique {
 			targetStartTab = 2 // Force shared stash for unique charms
 		}
-
-		itemStashed := false
-		// Loop through tabs trying to stash the item
-		// For shared stash mode: try tabs 2, 3, 4, then fall back to 1 if all shared tabs are full
-		// For personal stash mode: try tab 1, then 2, 3, 4 if personal is full
-		maxTab := 4 // We only have 4 tabs total
-
-		for tabAttempt := targetStartTab; tabAttempt <= maxTab; tabAttempt++ {
-			SwitchStashTab(tabAttempt)
-
-			if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-				itemStashed = true
-				r, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i)
-
-				if res != nip.RuleResultFullMatch && firstRun {
-					ctx.Logger.Info(
-						fmt.Sprintf("Item %s [%s] stashed to tab %d because it was found in the inventory during the first run.", i.Desc().Name, i.Quality.ToString(), tabAttempt),
-					)
-				} else {
-					ctx.Logger.Info(
-						fmt.Sprintf("Item %s [%s] stashed to tab %d", i.Desc().Name, i.Quality.ToString(), tabAttempt),
-						slog.String("nipFile", fmt.Sprintf("%s:%d", r.Filename, r.LineNumber)),
-						slog.String("rawRule", r.RawLine),
-					)
-				}
-				break
-			}
-			ctx.Logger.Debug(fmt.Sprintf("Item %s could not be stashed on tab %d. Trying next.", i.Name, tabAttempt))
+		if i.Name == "wirt'sleg" || i.Name == "WirtsLeg" {
+			targetStartTab = 1 // Force personal stash for Wirt's Leg
 		}
 
-		// If we couldn't stash in shared tabs and started with shared, try personal as last resort
-		if !itemStashed && targetStartTab == 2 {
-			ctx.Logger.Debug(fmt.Sprintf("All shared stash tabs full for %s, trying personal stash as fallback", i.Name))
+		itemStashed := false
+			maxTab := 4
+		name := i.Desc().Name
+		lowerName := strings.ToLower(name)
+
+		// Priority items
+		isPriorityItem :=
+			strings.Contains(lowerName, "rune") ||
+				strings.Contains(lowerName, "jewel") ||
+				strings.Contains(lowerName, "ring") ||
+				strings.Contains(lowerName, "amulet") ||
+				strings.Contains(lowerName, "token of absolution") ||
+				strings.Contains(lowerName, "essence") ||
+				strings.Contains(lowerName, "amethyst") ||
+				strings.Contains(lowerName, "ruby") ||
+				strings.Contains(lowerName, "sapphire") ||
+				strings.Contains(lowerName, "topaz") ||
+				strings.Contains(lowerName, "emerald") ||
+				strings.Contains(lowerName, "diamond")
+
+		// 1. Priority items → try tab 2 first
+		if isPriorityItem {
+			priorityTab := 2
+			SwitchStashTab(priorityTab)
+			if stashItemAction(i, matchedRule, ruleFile, firstRun) {
+				lastSuccessfulStashTab = priorityTab
+				itemStashed = true
+				ctx.Logger.Info(fmt.Sprintf("Priority item %s stashed to tab %d", name, priorityTab))
+			}
+		}
+
+		// 2. Try last successful stash tab first (skip tab 2 for non-priority)
+		if !itemStashed && lastSuccessfulStashTab != -1 {
+			if !isPriorityItem && lastSuccessfulStashTab == 2 {
+				// skip
+			} else {
+				SwitchStashTab(lastSuccessfulStashTab)
+				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
+					itemStashed = true
+				}
+			}
+		}
+
+		// 3. Normal stash rotation (skip tab 2 for non-priority items)
+		if !itemStashed {
+			fallbackToTab2 := false
+
+			for tabAttempt := targetStartTab; tabAttempt <= maxTab; tabAttempt++ {
+				// Skip tab 2 for non-priority items for now
+				if !isPriorityItem && tabAttempt == 2 {
+					fallbackToTab2 = true
+					continue
+				}
+				// Skip last successful tab
+				if tabAttempt == lastSuccessfulStashTab {
+					continue
+				}
+
+				SwitchStashTab(tabAttempt)
+				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
+					if tabAttempt > 1 {
+						lastSuccessfulStashTab = tabAttempt
+					}
+					itemStashed = true
+					break
+				}
+			}
+
+			// Only fallback to tab 2 if no other tab worked
+			if !itemStashed && fallbackToTab2 {
+				SwitchStashTab(2)
+				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
+					lastSuccessfulStashTab = 2
+					itemStashed = true
+				}
+			}
+		}
+
+		// 4. Fallback to personal stash if nothing else worked
+		if !itemStashed {
 			SwitchStashTab(1)
 			if stashItemAction(i, matchedRule, ruleFile, firstRun) {
 				itemStashed = true
-				ctx.Logger.Info(fmt.Sprintf("Item %s [%s] stashed to personal stash (tab 1) as fallback", i.Desc().Name, i.Quality.ToString()))
 			}
 		}
 
+		// 5. Final warning
 		if !itemStashed {
-			ctx.Logger.Warn(fmt.Sprintf("ERROR: Item %s [%s] could not be stashed into any tab. All stash tabs might be full.", i.Desc().Name, i.Quality.ToString()))
-			// TODO: Potentially stop the bot or alert the user more critically here
+			ctx.Logger.Warn(fmt.Sprintf("ERROR: Item %s [%s] could not be stashed. All tabs full?", name, i.Quality.ToString()))
 		}
 	}
+
 	step.CloseAllMenus()
 }
+
 
 // shouldStashIt now returns stashIt, dropIt, matchedRule, ruleFile
 func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
@@ -259,6 +313,38 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		fmt.Printf("DEBUG: ABSOLUTELY PREVENTING stash for '%s' (Horadric Staff exclusion).\n", i.Name)
 		return false, false, "", "" // Explicitly do NOT stash the Horadric Staff
 	}
+	
+	
+	
+	
+	
+	
+	
+	
+	// Count flawless skulls currently in inventory
+invCount := 0
+
+// Loop through all items in the inventory to count the flawless skulls
+for _, itemInInventory := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+    if itemInInventory.Name == "FlawlessSkull" {
+        invCount++
+    }
+}
+
+// Check if the current item is a flawless skull
+if i.Name == "FlawlessSkull" {
+    if invCount <= 1 {
+        // If it's the first flawless skull, KEEP it in inventory
+        ctx.Logger.Debug("KEEPING FIRST FLAWLESS SKULL IN INVENTORY")
+        return false, false, "", "" // do NOT stash, do NOT drop
+    } else {
+        // If it's an extra flawless skull, STASH it, NEVER drop it
+        ctx.Logger.Debug("EXTRA SKULL DETECTED, STASHING THIS ONE")
+        return true, false, "", "" // stash=true, drop=false
+    }
+}
+
+
 
 	if i.Name == "TomeOfTownPortal" || i.Name == "TomeOfIdentify" || i.Name == "Key" || i.Name == "WirtsLeg" {
 		fmt.Printf("DEBUG: ABSOLUTELY PREVENTING stash for '%s' (Quest/Special item exclusion).\n", i.Name)

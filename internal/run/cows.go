@@ -9,6 +9,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
@@ -178,13 +179,57 @@ func (a Cows) preparePortal() error {
 		return err
 	}
 
+	
+	
+		//
+	//
+	//
+	//
+//
+//
+//
+// THIS IS WHERE WE CAN FILTER THE LEG BELOW
+//
+//
+//
+	//
+	//
+	//
+	//
+	
 	leg, found := a.ctx.Data.Inventory.Find("WirtsLeg",
 		item.LocationStash,
 		item.LocationInventory,
 		item.LocationCube)
 	if !found {
-		return errors.New("WirtsLeg could not be found, portal cannot be opened")
+		a.ctx.Logger.Info("WirtsLeg not found – skipping cow run")
+    return nil // just skip the run, do not error out
 	}
+	
+	// SKIP COWS IF MAGIC WIRTS LEG IS FOUND
+	if leg.Quality == item.QualityMagic {
+		a.ctx.Logger.Info("MAGIC WIRTS LEG FOUND IN STASH – SKIPPING COW RUN") // HERE IT IS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    return nil
+}
+
+	if leg.Quality == item.QualityCrafted {
+		if _, result := a.ctx.CharacterCfg.Runtime.Rules.EvaluateAll(leg); result == nip.RuleResultFullMatch {
+        a.ctx.Logger.Info("WIRTS LEG IS CRAFTED AND NIP RULE KEPT IT – SKIPPING COW RUN")
+        return nil
+    }
+}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 
 	// Track if we found a usable spare tome
 	var spareTome data.Item
@@ -268,21 +313,45 @@ func (a Cows) cleanupExtraPortalTomes() error {
 	}
 	return nil
 }
+
+
+
+
+
+
+
+
 func (a Cows) hasWristAndBookInCube() bool {
+	var legItem data.Item // variable to hold the Wirt's Leg
 	cubeItems := a.ctx.Data.Inventory.ByLocation(item.LocationCube)
 
 	var hasLeg, hasTome bool
-	for _, item := range cubeItems {
-		if strings.EqualFold(string(item.Name), "WirtsLeg") {
-			hasLeg = true
+	for _, invItem := range cubeItems { // renamed loop variable to avoid conflicts
+		if strings.EqualFold(string(invItem.Name), "WirtsLeg") {
+			legItem = invItem
+			
+			if legItem.Quality <= item.QualitySuperior { // correctly reference package constant
+				hasLeg = true
+			}
 		}
-		if strings.EqualFold(string(item.Name), "TomeOfTownPortal") {
+		if strings.EqualFold(string(invItem.Name), "TomeOfTownPortal") {
 			hasTome = true
 		}
 	}
 
 	return hasLeg && hasTome
 }
+
+
+
+
+
+
+
+
+
+
+
 
 func (a Cows) hasWirtsLeg() bool {
 	_, found := a.ctx.Data.Inventory.Find("WirtsLeg",
