@@ -519,10 +519,16 @@ var (
 			PurchaseItems:    []string{"Amulet"},
 		},
 		
-		// Crafting
+		// Reroll Grand Charms
 		{
 			Name:  "Reroll GrandCharms",
 			Items: []string{"GrandCharm", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
+		},
+		
+		// Reroll Monarch
+		{
+			Name:  "Reroll Monarch",
+			Items: []string{"Monarch", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
 		},
 		
 		
@@ -586,6 +592,7 @@ func CubeRecipes() error {
 
 				stashingRequired := false
 				stashingGrandCharm := false
+				stashingMonarch := false
 
 				// Check if the items that are not in the protected invetory slots should be stashed
 				for _, it := range itemsInInv {
@@ -598,42 +605,79 @@ func CubeRecipes() error {
 						shouldStash, _, reason, _ := shouldStashIt(it, false)
 
 						if shouldStash {
-							ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
-							stashingRequired = true
-						} else if it.Name == "GrandCharm" {
-							ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
-							// Check if we have a GrandCharm in stash that doesn't match any NIP rules
-							hasUnmatchedGrandCharm := false
-							for _, stashItem := range itemsInStash {
-								// Skip non‑magic grand charms (e.g., Gheeds Fortune) when checking for a reroll candidate
-								if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
-									if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
-										hasUnmatchedGrandCharm = true
-										break
-									}
-								}
-							}
-							if !hasUnmatchedGrandCharm {
+	ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
+	stashingRequired = true
 
-								ctx.Logger.Debug("GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.", "recipe", recipe.Name)
-								stashingRequired = true
-								stashingGrandCharm = true
+} else if it.Name == "GrandCharm" {
+	ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
 
-							} else {
-								DropInventoryItem(it)
-								utils.Sleep(500)
-							}
-						} else {
-							DropInventoryItem(it)
-							utils.Sleep(500)
-						}
+	hasUnmatchedGrandCharm := false
+	for _, stashItem := range itemsInStash {
+		// Skip non-magic grand charms (e.g., Gheeds Fortune)
+		if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
+				hasUnmatchedGrandCharm = true
+				break
+			}
+		}
+	}
+
+	if !hasUnmatchedGrandCharm {
+		ctx.Logger.Debug(
+			"GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
+			"recipe", recipe.Name,
+		)
+		stashingRequired = true
+		stashingGrandCharm = true
+	} else {
+		DropInventoryItem(it)
+		utils.Sleep(500)
+	}
+
+} else if it.Name == "Monarch" {
+	ctx.Logger.Debug("Checking if we need to stash a Monarch that doesn't match any NIP rules.", "recipe", recipe.Name)
+
+	hasUnmatchedMonarch := false
+	for _, stashItem := range itemsInStash {
+		if stashItem.Name == "Monarch" && stashItem.Quality == item.QualityMagic {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
+				hasUnmatchedMonarch = true
+				break
+			}
+		}
+	}
+
+	if !hasUnmatchedMonarch {
+		ctx.Logger.Debug(
+			"Monarch doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
+			"recipe", recipe.Name,
+		)
+		stashingRequired = true
+		stashingMonarch = true
+	} else {
+		DropInventoryItem(it)
+		utils.Sleep(500)
+	}
+
+} else {
+	DropInventoryItem(it)
+	utils.Sleep(500)
+}
 					}
 				}
 
-				// Add items to the stash if needed
+				// Add grand charm to the stash if needed
 				if stashingRequired && !stashingGrandCharm {
 					_ = Stash(false)
 				} else if stashingGrandCharm {
+					// Force stashing of the invetory
+					_ = Stash(true)
+				}
+				
+				// Add monarch to the stash if needed
+				if stashingRequired && !stashingMonarch {
+					_ = Stash(false)
+				} else if stashingMonarch {
 					// Force stashing of the invetory
 					_ = Stash(true)
 				}
@@ -661,6 +705,10 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	// Special handling for "Reroll GrandCharms" recipe
 	if recipe.Name == "Reroll GrandCharms" {
 		return hasItemsForGrandCharmReroll(ctx, items)
+	}
+	// Special handling for "Reroll Monarch" recipe
+	if recipe.Name == "Reroll Monarch" {
+		return hasItemsForMonarchReroll(ctx, items)
 	}
 	
 	if recipe.Name == "MagicWirtsLegStep1" {
@@ -977,7 +1025,7 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 		} else if isPerfectGem(itm) && len(perfectGems) < 3 {
 			// Skip perfect amethysts and rubies when i have less than 4 (if configured) AND skip perfect sapphires when I only have 2 
 			if (ctx.CharacterCfg.CubeRecipes.SkipPerfectAmethysts && itm.Name == "PerfectAmethyst" && countAmethyst <= 3) ||
-				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) {
+				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) || (itm.Name == "PerfectSapphire" && countSapphire <= 3) {
 				continue
 			}
 			perfectGems = append(perfectGems, itm)
@@ -990,6 +1038,53 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 
 	return nil, false
 }
+
+
+
+
+
+
+
+func hasItemsForMonarchReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
+	var monarch data.Item
+	perfectGems := make([]data.Item, 0, 3)
+// Count Perfect Amethyst and Perfect Ruby in inventory
+	countAmethyst := 0
+	countRuby := 0
+	countSapphire := 0
+	
+	for _, itm := range items {
+		
+		switch itm.Name {
+		case "PerfectAmethyst":
+			countAmethyst++
+		case "PerfectRuby":
+			countRuby++
+		case "PerfectSapphire":
+			countSapphire++
+		}
+		
+		if itm.Name == "Monarch" {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
+				monarch = itm
+			}
+		} else if isPerfectGem(itm) && len(perfectGems) < 3 {
+			// Skip perfect amethysts and rubies when i have less than 4 (if configured) AND skip perfect sapphires when I only have 2 
+			if (ctx.CharacterCfg.CubeRecipes.SkipPerfectAmethysts && itm.Name == "PerfectAmethyst" && countAmethyst <= 3) ||
+				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) || (itm.Name == "PerfectSapphire" && countSapphire <= 3) {
+				continue
+			}
+			perfectGems = append(perfectGems, itm)
+		}
+
+		if monarch.Name != "" && len(perfectGems) == 3 {
+			return append([]data.Item{monarch}, perfectGems...), true
+		}
+	}
+
+	return nil, false
+}
+
 
 func hasItemsForMagicWirtsLegReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
 	var magicwirtsleg data.Item
@@ -1047,7 +1142,7 @@ func hasItemsForCraftedWirtsLeg(ctx *context.Status, items []data.Item) ([]data.
 
 
 func isPerfectGem(item data.Item) bool {
-	perfectGems := []string{"PerfectDiamond", "PerfectEmerald", "PerfectRuby", "PerfectTopaz", "PerfectAmethyst"} //took out PerfectSkulls (keep for rolling) and Perfect Sapphires (for wirts leg)
+	perfectGems := []string{"PerfectDiamond", "PerfectEmerald", "PerfectRuby", "PerfectTopaz", "PerfectAmethyst", "PerfectSapphire"} //took out PerfectSkulls (keep for rolling) and Perfect Sapphires (for wirts leg)
 	for _, gemName := range perfectGems {
 		if string(item.Name) == gemName {
 			return true
