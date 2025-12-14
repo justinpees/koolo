@@ -34,6 +34,7 @@ const (
 )
 
 var alwaysTakeShrines = []object.ShrineType{
+	object.GemShrine,
 	object.RefillShrine,
 	object.HealthShrine,
 	object.ManaShrine,
@@ -79,11 +80,6 @@ func checkPlayerDeath(ctx *context.Status) error {
 }
 
 func ensureAreaSync(ctx *context.Status, expectedArea area.ID) error {
-	// Skip sync check if we're already in the expected area and have valid area data
-	if ctx.Data.PlayerUnit.Area == expectedArea {
-		return nil
-	}
-
 	// Wait for area data to sync
 	for attempts := 0; attempts < maxAreaSyncAttempts; attempts++ {
 		ctx.RefreshGameData()
@@ -94,7 +90,18 @@ func ensureAreaSync(ctx *context.Status, expectedArea area.ID) error {
 		}
 
 		if ctx.Data.PlayerUnit.Area == expectedArea {
-			return nil
+			// Area ID matches, now verify collision data is loaded
+			if ctx.Data.AreaData.Grid != nil && 
+				ctx.Data.AreaData.Grid.CollisionGrid != nil && 
+				len(ctx.Data.AreaData.Grid.CollisionGrid) > 0 {
+				// Additional check: ensure we have adjacent level data if this is a cross-area operation
+				// Give it one more refresh cycle to ensure all data is populated
+				if attempts > 0 {
+					time.Sleep(100 * time.Millisecond)
+					ctx.RefreshGameData()
+				}
+				return nil
+			}
 		}
 
 		time.Sleep(areaSyncDelay)
@@ -349,7 +356,10 @@ func getPathOffsets(to data.Position) (int, int) {
 
 	if !ctx.Data.AreaData.IsInside(to) {
 		for _, otherArea := range ctx.Data.AreaData.AdjacentLevels {
-			destination := ctx.Data.Areas[otherArea.Area]
+			destination, exists := ctx.Data.Areas[otherArea.Area]
+			if !exists {
+				continue
+			}
 			if destination.IsInside(to) {
 				minOffsetX = min(minOffsetX, destination.OffsetX)
 				minOffsetY = min(minOffsetY, destination.OffsetY)
@@ -469,17 +479,28 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 			//Check shrine nearby
 			if !ignoreShrines && shrine.ID == 0 {
-				if closestShrine := findClosestShrine(50.0); closestShrine != nil {
-					blacklisted, exists := blacklistedInteractions[closestShrine.ID]
-					if !exists || !blacklisted {
-						shrine = *closestShrine
-						//ctx.Logger.Debug(fmt.Sprintf("MoveTo: Found shrine at %v, redirecting destination from %v", closestShrine.Position, targetPosition))
+    if closestShrine := findClosestShrine(50.0); closestShrine != nil {
+        blacklisted, exists := blacklistedInteractions[closestShrine.ID]
+        if !exists || !blacklisted {
+            shrine = *closestShrine
+            // Log when a Gem Shrine is found and will be interacted with
+            if shrine.Shrine.ShrineType == object.GemShrine {
+                ctx.Logger.Debug("GEM SHRINE FOUND AND WILL BE INTERACTED WITH", slog.String("position", fmt.Sprintf("(%d, %d)", shrine.Position.X, shrine.Position.Y)))
+				  utils.Sleep(400) // 300–500 ms works best
+				  // FORCE immediate pickup of the new Perfect Gem
+        lootErr := ItemPickup(40)
+        if lootErr != nil {
+            ctx.Logger.Warn("Error picking up gem shrine loot", slog.String("error", lootErr.Error()))
+        } else {
+            ctx.Logger.Debug("GEM SHRINE LOOT PICKED UP SUCCESSFULLY")
+        }
+            }
 
-						//Reset target chest
-						chest = (data.Object{})
-					}
-				}
-			}
+            // Reset target chest
+            chest = (data.Object{})
+        }
+    }
+}
 
 			//Check chests nearby
 			if ctx.CharacterCfg.Game.InteractWithChests && shrine.ID == 0 && chest.ID == 0 {
@@ -689,7 +710,7 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 		return nil
 	}
 
-	if ctx.Data.PlayerUnit.States.HasState(state.Amplifydamage) ||
+	/* if ctx.Data.PlayerUnit.States.HasState(state.Amplifydamage) ||
 		ctx.Data.PlayerUnit.States.HasState(state.Lowerresist) ||
 		ctx.Data.PlayerUnit.States.HasState(state.Decrepify) {
 
@@ -714,7 +735,7 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 		if closestCurseBreakingShrine != nil {
 			return closestCurseBreakingShrine
 		}
-	}
+	} */
 
 	var closestAlwaysTakeShrine *data.Object
 	minDistance := maxScanDistance

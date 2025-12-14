@@ -252,6 +252,10 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 			if !shouldMatchRulesOnly(it) {
 				continue
 			}
+			// EXCLUDE SuperManaPotion and SuperHealthPotion by name
+if it.Desc().Name == "Super Mana Potion" || it.Desc().Name == "Super Healing Potion" {
+	continue
+}
 
 			coords := ui.GetScreenCoordsForItem(it)
 			perTab[tab] = append(perTab[tab], vendorSpot{SX: coords.X, SY: coords.Y})
@@ -311,6 +315,10 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 			if !typeMatch(it, plan.Types) || !shouldMatchRulesOnly(it) {
 				continue
 			}
+			// EXCLUDE SuperManaPotion and SuperHealthPotion by name
+if it.Desc().Name == "Super Mana Potion" || it.Desc().Name == "Super Healing Potion" {
+	continue
+}
 
 			prevGold := ctx.Data.PlayerUnit.TotalPlayerGold()
 

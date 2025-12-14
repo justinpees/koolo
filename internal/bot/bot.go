@@ -199,7 +199,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 				// Sometimes when we switch areas, monsters are not loaded yet, and we don't properly detect the Merc
 				// let's add some small delay (just few ms) when this happens, and recheck the merc status
 				if b.ctx.CharacterCfg.BackToTown.MercDied && b.ctx.Data.MercHPPercent() <= 0 && b.ctx.CharacterCfg.Character.UseMerc {
-					time.Sleep(200 * time.Millisecond)
+					time.Sleep(2000 * time.Millisecond)
 				}
 
 				// extra RefreshGameData not needed for Legacygraphics/Portraits since Background loop will automatically refresh after 100ms

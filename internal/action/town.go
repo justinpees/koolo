@@ -183,7 +183,8 @@ func InRunReturnTownRoutine() error {
 		AutoEquip()
 		ctx.PauseIfNotPriority() // Check after AutoEquip
 	}
-
+	CubeRecipes()
+	ctx.PauseIfNotPriority() // Check after CubeRecipes
 	VendorRefill(false, true)
 	ctx.PauseIfNotPriority() // Check after VendorRefill
 	Stash(false)
@@ -192,8 +193,6 @@ func InRunReturnTownRoutine() error {
 	ctx.PauseIfNotPriority() // Check after Gamble
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after Stash
-	CubeRecipes()
-	ctx.PauseIfNotPriority() // Check after CubeRecipes
 	MakeRunewords()
 
 	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
