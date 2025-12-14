@@ -23,29 +23,140 @@ var (
 
 		// Perfects
 		{
+			Name:  "Flawed Amethyst",
+			Items: []string{"ChippedAmethyst", "ChippedAmethyst", "ChippedAmethyst"},
+		},
+		
+		{
+			Name:  "Flawed Diamond",
+			Items: []string{"ChippedDiamond", "ChippedDiamond", "ChippedDiamond"},
+		},
+		
+		{
+			Name:  "Flawed Emerald",
+			Items: []string{"ChippedEmerald", "ChippedEmerald", "ChippedEmerald"},
+		},
+		
+		{
+			Name:  "Flawed Ruby",
+			Items: []string{"ChippedRuby", "ChippedRuby", "ChippedRuby"},
+		},
+		
+		{
+			Name:  "Flawed Sapphire",
+			Items: []string{"ChippedSapphire", "ChippedSapphire", "ChippedSapphire"},
+		},
+		
+		{
+			Name:  "Flawed Topaz",
+			Items: []string{"ChippedTopaz", "ChippedTopaz", "ChippedTopaz"},
+		},
+		
+		{
+			Name:  "Flawed Skull",
+			Items: []string{"ChippedSkull", "ChippedSkull", "ChippedSkull"},
+		},
+		
+		{
+			Name:  "Amethyst",
+			Items: []string{"FlawedAmethyst", "FlawedAmethyst", "FlawedAmethyst"},
+		},
+		
+		{
+			Name:  "Diamond",
+			Items: []string{"FlawedDiamond", "FlawedDiamond", "FlawedDiamond"},
+		},
+		
+		{
+			Name:  "Emerald",
+			Items: []string{"FlawedEmerald", "FlawedEmerald", "FlawedEmerald"},
+		},
+		
+		{
+			Name:  "Ruby",
+			Items: []string{"FlawedRuby", "FlawedRuby", "FlawedRuby"},
+		},
+		
+		{
+			Name:  "Sapphire",
+			Items: []string{"FlawedSapphire", "FlawedSapphire", "FlawedSapphire"},
+		},
+		
+		{
+			Name:  "Topaz",
+			Items: []string{"FlawedTopaz", "FlawedTopaz", "FlawedTopaz"},
+		},
+		
+		{
+			Name:  "Skull",
+			Items: []string{"FlawedSkull", "FlawedSkull", "FlawedSkull"},
+		},
+		
+		{
+			Name:  "Flawless Amethyst",
+			Items: []string{"Amethyst", "Amethyst", "Amethyst"},
+		},
+		
+		{
+			Name:  "Flawless Diamond",
+			Items: []string{"Diamond", "Diamond", "Diamond"},
+		},
+		
+		{
+			Name:  "Flawless Emerald",
+			Items: []string{"Emerald", "Emerald", "Emerald"},
+		},
+		
+		{
+			Name:  "Flawless Ruby",
+			Items: []string{"Ruby", "Ruby", "Ruby"},
+		},
+		
+		{
+			Name:  "Flawless Sapphire",
+			Items: []string{"Sapphire", "Sapphire", "Sapphire"},
+		},
+		
+		{
+			Name:  "Flawless Topaz",
+			Items: []string{"Topaz", "Topaz", "Topaz"},
+		},
+		
+		{
+			Name:  "Flawless Skull",
+			Items: []string{"Skull", "Skull", "Skull"},
+		},
+		
+		{
 			Name:  "Perfect Amethyst",
 			Items: []string{"FlawlessAmethyst", "FlawlessAmethyst", "FlawlessAmethyst"},
 		},
+		
 		{
 			Name:  "Perfect Diamond",
 			Items: []string{"FlawlessDiamond", "FlawlessDiamond", "FlawlessDiamond"},
 		},
+		
 		{
 			Name:  "Perfect Emerald",
 			Items: []string{"FlawlessEmerald", "FlawlessEmerald", "FlawlessEmerald"},
 		},
+		
 		{
 			Name:  "Perfect Ruby",
 			Items: []string{"FlawlessRuby", "FlawlessRuby", "FlawlessRuby"},
 		},
+		
 		{
 			Name:  "Perfect Sapphire",
 			Items: []string{"FlawlessSapphire", "FlawlessSapphire", "FlawlessSapphire"},
 		},
+		
 		{
 			Name:  "Perfect Topaz",
 			Items: []string{"FlawlessTopaz", "FlawlessTopaz", "FlawlessTopaz"},
 		},
+		
 		{
 			Name:  "Perfect Skull",
 			Items: []string{"FlawlessSkull", "FlawlessSkull", "FlawlessSkull"},
@@ -186,6 +297,23 @@ var (
 			Name:  "Upgrade Cham",
 			Items: []string{"ChamRune", "ChamRune", "FlawlessEmerald"},
 		},
+		
+		
+// STEP 1: MAKE WIRTSLEG MAGIC
+		{
+			Name: "MagicWirtsLegStep1",
+			Items: []string{"WirtsLeg", "", "", ""},
+			PurchaseRequired: false,
+		},
+    
+
+
+// STEP 2: MAKE WIRTSLEG CRAFTED
+		{
+            Name:             "MagicWirtsLegStep2",
+            Items:            []string{"WirtsLeg", "TirRune", "PerfectSapphire", "Jewel"},
+            PurchaseRequired: false,
+        },
 
 		// add sockets
 		{
@@ -205,203 +333,205 @@ var (
 			Items: []string{"TalRune", "AmnRune", "PerfectRuby", "NormalShield"},
 		},
 
-		// Crafting
-		{
-			Name:  "Reroll GrandCharms",
-			Items: []string{"GrandCharm", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
-		},
-
-		// Caster Amulet
-		{
-			Name:             "Caster Amulet",
-			Items:            []string{"RalRune", "PerfectAmethyst", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"Amulet"},
-		},
+		
 
 		// Caster Ring
 		{
 			Name:             "Caster Ring",
-			Items:            []string{"AmnRune", "PerfectAmethyst", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"AmnRune", "PerfectAmethyst", "Jewel", "Ring"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"Ring"},
 		},
-
+		
 		// Caster Belt
 		{
-			Name:             "Caster Belt",
-			Items:            []string{"IthRune", "PerfectAmethyst", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"LightBelt", "SharkskinBelt", "VampirefangBelt"},
+			Name:             "Caster Belt (VampirefangBelt)",
+			Items:            []string{"VampirefangBelt", "IthRune", "PerfectAmethyst", "Jewel"},
+			PurchaseRequired: false,
+			PurchaseItems:    []string{"SharkskinBelt", "VampirefangBelt"},
 		},
 
 		// Caster Boots
 		{
 			Name:             "Caster Boots",
-			Items:            []string{"ThulRune", "PerfectAmethyst", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"Boots", "DemonhideBoots", "WyrmhideBoots"},
+			Items:            []string{"ThulRune", "PerfectAmethyst", "Jewel", "WyrmhideBoots"},
+			PurchaseRequired: false,
+			PurchaseItems:    []string{"DemonhideBoots", "WyrmhideBoots"},
 		},
-
+		
 		// Blood Amulet
 		{
 			Name:             "Blood Amulet",
 			Items:            []string{"AmnRune", "PerfectRuby", "Jewel"},
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Amulet"},
-		},
+		},	
 
 		// Blood Ring
 		{
 			Name:             "Blood Ring",
-			Items:            []string{"SolRune", "PerfectRuby", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"SolRune", "PerfectRuby", "Jewel", "Ring"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"Ring"},
-		},
+		},	
 
 		// Blood Gloves
 		{
-			Name:             "Blood Gloves",
-			Items:            []string{"NefRune", "PerfectRuby", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"HeavyGloves", "SharkskinGloves", "VampireboneGloves"},
+			Name:             "Blood Gloves (VampireboneGloves)",
+			Items:            []string{"VampireboneGloves", "NefRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: false,
+			PurchaseItems:    []string{"VampireboneGloves"},
 		},
 
 		// Blood Boots
 		{
 			Name:             "Blood Boots",
-			Items:            []string{"EthRune", "PerfectRuby", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"LightPlatedBoots", "BattleBoots", "MirroredBoots"},
+			Items:            []string{"EthRune", "PerfectRuby", "Jewel", "BattleBoots"},
+			PurchaseRequired: false,
+			PurchaseItems:    []string{"BattleBoots"},
 		},
 
 		// Blood Belt
 		{
-			Name:             "Blood Belt",
-			Items:            []string{"TalRune", "PerfectRuby", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"Belt", "MeshBelt", "MithrilCoil"},
+			Name:             "Blood Belt (MithrilCoil)",
+			Items:            []string{"MithrilCoil", "TalRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: false,
+			PurchaseItems:    []string{"MeshBelt", "MithrilCoil"},
 		},
 
 		// Blood Helm
 		{
-			Name:             "Blood Helm",
-			Items:            []string{"RalRune", "PerfectRuby", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"Helm", "Casque", "Armet"},
+			Name:             "Blood Helm (Armet)",
+			Items:            []string{"Armet", "RalRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: false,
+			PurchaseItems:    []string{"Armet"},
 		},
 
 		// Blood Armor
 		{
 			Name:             "Blood Armor",
-			Items:            []string{"ThulRune", "PerfectRuby", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"ThulRune", "PerfectRuby", "Jewel", "HellforgePlate"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"PlateMail", "TemplarPlate", "HellforgePlate"},
 		},
 
 		// Blood Weapon
 		{
 			Name:             "Blood Weapon",
-			Items:            []string{"OrtRune", "PerfectRuby", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"Axe"},
+			Items:            []string{"OrtRune", "PerfectRuby", "Jewel", "BerserkerAxe"},
+			PurchaseRequired: false,
+			PurchaseItems:    []string{"BerserkerAxe"},
 		},
 
 		// Safety Shield
 		{
 			Name:             "Safety Shield",
-			Items:            []string{"NefRune", "PerfectEmerald", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"NefRune", "PerfectEmerald", "Jewel", "Monarch"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"KiteShield", "DragonShield", "Monarch"},
 		},
 
 		// Safety Armor
 		{
 			Name:             "Safety Armor",
-			Items:            []string{"EthRune", "PerfectEmerald", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"EthRune", "PerfectEmerald", "Jewel", "GreatHauberk"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"BreastPlate", "Curiass", "GreatHauberk"},
 		},
 
 		// Safety Boots
 		{
 			Name:             "Safety Boots",
-			Items:            []string{"OrtRune", "PerfectEmerald", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"OrtRune", "PerfectEmerald", "Jewel", "WarBoots"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"Greaves", "WarBoots", "MyrmidonBoots"},
 		},
 
-		// Safety Gloves
+		// Blood Gloves
 		{
-			Name:             "Safety Gloves",
-			Items:            []string{"RalRune", "PerfectEmerald", "Jewel"},
-			PurchaseRequired: true,
+			Name:             "Blood Gloves (SharkskinGloves)",
+			Items:            []string{"SharkskinGloves", "NefRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"Gauntlets", "WarGauntlets", "OgreGauntlets"},
 		},
 
-		// Safety Belt
+		// Blood Belt
 		{
-			Name:             "Safety Belt",
-			Items:            []string{"TalRune", "PerfectEmerald", "Jewel"},
-			PurchaseRequired: true,
+			Name:             "Blood Belt (MeshBelt)",
+			Items:            []string{"MeshBelt", "TalRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"Sash", "DemonhideSash", "SpiderwebSash"},
 		},
 
 		// Safety Helm
 		{
 			Name:             "Safety Helm",
-			Items:            []string{"IthRune", "PerfectEmerald", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"IthRune", "PerfectEmerald", "Jewel", "GrandCrown"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"Crown", "GrandCrown", "Corona"},
 		},
 
 		// Hitpower Gloves
 		{
 			Name:             "Hitpower Gloves",
-			Items:            []string{"OrtRune", "PerfectSapphire", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"OrtRune", "PerfectSapphire", "Jewel", "Vambraces"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"ChainGloves", "HeavyBracers", "Vambraces"},
 		},
 
 		// Hitpower Boots
 		{
 			Name:             "Hitpower Boots",
-			Items:            []string{"RalRune", "PerfectSapphire", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"RalRune", "PerfectSapphire", "Jewel", "MeshBoots"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"ChainBoots", "MeshBoots", "Boneweave"},
 		},
 
-		// Hitpower Belt
+		// Caster Belt
 		{
-			Name:             "Hitpower Belt",
-			Items:            []string{"TalRune", "PerfectSapphire", "Jewel"},
-			PurchaseRequired: true,
+			Name:             "Caster Belt (SharkskinBelt)",
+			Items:            []string{"SharkskinBelt", "IthRune", "PerfectAmethyst", "Jewel"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"HeavyBelt", "BattleBelt", "TrollBelt"},
 		},
 
 		// Hitpower Helm
 		{
 			Name:             "Hitpower Helm",
-			Items:            []string{"NefRune", "PerfectSapphire", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"NefRune", "PerfectSapphire", "Jewel", "GiantConch"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"FullHelm", "Basinet", "GiantConch"},
 		},
 
 		// Hitpower Armor
 		{
 			Name:             "Hitpower Armor",
-			Items:            []string{"EthRune", "PerfectSapphire", "Jewel"},
-			PurchaseRequired: true,
+			Items:            []string{"EthRune", "PerfectSapphire", "Jewel", "KrakenShell"},
+			PurchaseRequired: false,
 			PurchaseItems:    []string{"FieldPlate", "Sharktooth", "KrakenShell"},
 		},
-
-		// Hitpower Shield
+		
+		// Caster Amulet
 		{
-			Name:             "Hitpower Shield",
-			Items:            []string{"IthRune", "PerfectSapphire", "Jewel"},
-			PurchaseRequired: true,
-			PurchaseItems:    []string{"GothicShield", "AncientShield", "Ward"},
+			Name:             "Caster Amulet",
+			Items:            []string{"RalRune", "PerfectAmethyst", "Jewel", "Amulet"},
+			PurchaseRequired: false,
+			PurchaseItems:    []string{"Amulet"},
 		},
+		
+		// Reroll Grand Charms
+		{
+			Name:  "Reroll GrandCharms",
+			Items: []string{"GrandCharm", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
+		},
+		
+		// Reroll Monarch
+		{
+			Name:  "Reroll Monarch",
+			Items: []string{"Monarch", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
+		},
+		
+		
 	}
 )
 
@@ -462,6 +592,7 @@ func CubeRecipes() error {
 
 				stashingRequired := false
 				stashingGrandCharm := false
+				stashingMonarch := false
 
 				// Check if the items that are not in the protected invetory slots should be stashed
 				for _, it := range itemsInInv {
@@ -474,42 +605,79 @@ func CubeRecipes() error {
 						shouldStash, _, reason, _ := shouldStashIt(it, false)
 
 						if shouldStash {
-							ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
-							stashingRequired = true
-						} else if it.Name == "GrandCharm" {
-							ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
-							// Check if we have a GrandCharm in stash that doesn't match any NIP rules
-							hasUnmatchedGrandCharm := false
-							for _, stashItem := range itemsInStash {
-								// Skip non‑magic grand charms (e.g., Gheeds Fortune) when checking for a reroll candidate
-								if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
-									if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
-										hasUnmatchedGrandCharm = true
-										break
-									}
-								}
-							}
-							if !hasUnmatchedGrandCharm {
+	ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
+	stashingRequired = true
 
-								ctx.Logger.Debug("GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.", "recipe", recipe.Name)
-								stashingRequired = true
-								stashingGrandCharm = true
+} else if it.Name == "GrandCharm" {
+	ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
 
-							} else {
-								DropInventoryItem(it)
-								utils.Sleep(500)
-							}
-						} else {
-							DropInventoryItem(it)
-							utils.Sleep(500)
-						}
+	hasUnmatchedGrandCharm := false
+	for _, stashItem := range itemsInStash {
+		// Skip non-magic grand charms (e.g., Gheeds Fortune)
+		if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
+				hasUnmatchedGrandCharm = true
+				break
+			}
+		}
+	}
+
+	if !hasUnmatchedGrandCharm {
+		ctx.Logger.Debug(
+			"GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
+			"recipe", recipe.Name,
+		)
+		stashingRequired = true
+		stashingGrandCharm = true
+	} else {
+		DropInventoryItem(it)
+		utils.Sleep(500)
+	}
+
+} else if it.Name == "Monarch" {
+	ctx.Logger.Debug("Checking if we need to stash a Monarch that doesn't match any NIP rules.", "recipe", recipe.Name)
+
+	hasUnmatchedMonarch := false
+	for _, stashItem := range itemsInStash {
+		if stashItem.Name == "Monarch" && stashItem.Quality == item.QualityMagic {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
+				hasUnmatchedMonarch = true
+				break
+			}
+		}
+	}
+
+	if !hasUnmatchedMonarch {
+		ctx.Logger.Debug(
+			"Monarch doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
+			"recipe", recipe.Name,
+		)
+		stashingRequired = true
+		stashingMonarch = true
+	} else {
+		DropInventoryItem(it)
+		utils.Sleep(500)
+	}
+
+} else {
+	DropInventoryItem(it)
+	utils.Sleep(500)
+}
 					}
 				}
 
-				// Add items to the stash if needed
+				// Add grand charm to the stash if needed
 				if stashingRequired && !stashingGrandCharm {
 					_ = Stash(false)
 				} else if stashingGrandCharm {
+					// Force stashing of the invetory
+					_ = Stash(true)
+				}
+				
+				// Add monarch to the stash if needed
+				if stashingRequired && !stashingMonarch {
+					_ = Stash(false)
+				} else if stashingMonarch {
 					// Force stashing of the invetory
 					_ = Stash(true)
 				}
@@ -538,11 +706,144 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	if recipe.Name == "Reroll GrandCharms" {
 		return hasItemsForGrandCharmReroll(ctx, items)
 	}
+	// Special handling for "Reroll Monarch" recipe
+	if recipe.Name == "Reroll Monarch" {
+		return hasItemsForMonarchReroll(ctx, items)
+	}
+	
+	if recipe.Name == "MagicWirtsLegStep1" {
+		return hasItemsForMagicWirtsLegReroll(ctx, items)
+	}
+	
+	if recipe.Name == "MagicWirtsLegStep2" {
+		return hasItemsForCraftedWirtsLeg(ctx, items)
+	}
 
 	recipeItems := make(map[string]int)
 	for _, item := range recipe.Items {
 		recipeItems[item]++
 	}
+	
+	
+	// --- SPECIAL CASE: Require 6+ Topaz for Flawless Topaz recipe ---
+if recipe.Name == "Flawless Topaz" {
+    topazCount := 0
+    for _, stashItem := range items {
+        if stashItem.Name == "Topaz" {
+            topazCount++
+        }
+    }
+
+    // Only allow recipe if we have 6 or more
+    if topazCount < 6 {
+        ctx.Logger.Debug("Skipping Flawless Topaz recipe: need at least 6 Topaz, have", "count", topazCount)
+        return nil, false
+    }
+}
+
+// --- SPECIAL CASE: Skip Caster Amulet recipe if Blood Helm ingredients are available ---
+if recipe.Name == "Caster Amulet" {
+    hasMagicArmet := false
+    hasRalRune := false
+    hasJewel := false
+    hasPerfectRuby := false
+    hasPerfectAmethyst := false
+    hasMagicAmulet := false
+
+    for _, stashItem := range items {
+
+        // Magic Armet that does NOT match a nip rule
+        if stashItem.Name == "Armet" {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch && stashItem.Quality == item.QualityMagic {
+				
+				 hasMagicArmet = true
+			}
+           
+        }
+
+        if stashItem.Name == "RalRune" {
+            hasRalRune = true
+        }
+
+        if stashItem.Name == "Jewel" {
+            hasJewel = true
+        }
+
+        if stashItem.Name == "PerfectRuby" {
+            hasPerfectRuby = true
+        }
+
+        if stashItem.Name == "PerfectAmethyst" {
+            hasPerfectAmethyst = true
+        }
+
+        // Magic amulet that does NOT match nip rule
+        if stashItem.Name == "Amulet" {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch && stashItem.Quality == item.QualityMagic {
+				
+				 hasMagicAmulet = true
+			}
+           
+        }
+    }
+
+    // If ALL Blood Helm resources exist, skip Caster Amulet recipe
+    if hasMagicArmet && hasRalRune && hasJewel && hasPerfectRuby && hasPerfectAmethyst && hasMagicAmulet {
+        ctx.Logger.Error("Skipping Caster Amulet recipe: Blood Helm recipe has priority")
+        return nil, false
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+	// --- SPECIAL CASE: Require 6+ Diamond for Flawless Diamond recipe ---
+if recipe.Name == "Flawless Diamond" {
+    diamondCount := 0
+    for _, stashItem := range items {
+        if stashItem.Name == "Diamond" {
+            diamondCount++
+        }
+    }
+
+    // Only allow recipe if we have 6 or more
+    if diamondCount < 6 {
+        ctx.Logger.Debug("Skipping Flawless Diamond recipe: need at least 6 Diamond, have", "count", diamondCount)
+        return nil, false
+    }
+}
+
+	// --- SPECIAL CASE: Require 6+ Emerald for Flawless Emerald recipe ---
+if recipe.Name == "Flawless Emerald" {
+    emeraldCount := 0
+    for _, stashItem := range items {
+        if stashItem.Name == "Emerald" {
+            emeraldCount++
+        }
+    }
+
+    // Only allow recipe if we have 6 or more
+    if emeraldCount < 6 {
+        ctx.Logger.Debug("Skipping Flawless Emerald recipe: need at least 6 Emerald, have", "count", emeraldCount)
+        return nil, false
+    }
+}
+	
+	
+	
+	
+	
+	
+	
+	
 
 	itemsForRecipe := []data.Item{}
 
@@ -550,8 +851,8 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	for _, item := range items {
 		if count, ok := recipeItems[string(item.Name)]; ok {
 
-			// Let's make sure we don't use an item we don't want to. Add more if needed (depending on the recipes we have)
-			if item.Name == "Jewel" {
+			// Let's make sure we don't use an item we don't want to. Add more if needed (depending on the recipes we have) "WirtsLeg" should be the correct name
+			if item.Name == "Jewel" || item.Name == "Ring" || item.Name == "grandcharm" || item.Name == "Amulet" || item.Name == "Wirt'sLeg" || item.Name == "WirtsLeg" || item.Name == "MithrilCoil" || item.Name == "MeshBelt" || item.Name == "VampirefangBelt" || item.Name == "SharkskinGloves" || item.Name == "Armet" || item.Name == "SharkskinBelt" || item.Name == "VampireboneGloves" {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(item); result == nip.RuleResultFullMatch {
 					continue
 				}
@@ -701,16 +1002,30 @@ func isSocketableItemMultiType(itm data.Item, targetTypes []string) bool {
 func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
 	var grandCharm data.Item
 	perfectGems := make([]data.Item, 0, 3)
-
+// Count Perfect Amethyst and Perfect Ruby in inventory
+	countAmethyst := 0
+	countRuby := 0
+	countSapphire := 0
+	
 	for _, itm := range items {
+		
+		switch itm.Name {
+		case "PerfectAmethyst":
+			countAmethyst++
+		case "PerfectRuby":
+			countRuby++
+		case "PerfectSapphire":
+			countSapphire++
+		}
+		
 		if itm.Name == "GrandCharm" {
 			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
 				grandCharm = itm
 			}
 		} else if isPerfectGem(itm) && len(perfectGems) < 3 {
-			// Skip perfect amethysts and rubies if configured
-			if (ctx.CharacterCfg.CubeRecipes.SkipPerfectAmethysts && itm.Name == "PerfectAmethyst") ||
-				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby") {
+			// Skip perfect amethysts and rubies when i have less than 4 (if configured) AND skip perfect sapphires when I only have 2 
+			if (ctx.CharacterCfg.CubeRecipes.SkipPerfectAmethysts && itm.Name == "PerfectAmethyst" && countAmethyst <= 3) ||
+				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) || (itm.Name == "PerfectSapphire" && countSapphire <= 3) {
 				continue
 			}
 			perfectGems = append(perfectGems, itm)
@@ -724,8 +1039,110 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 	return nil, false
 }
 
+
+
+
+
+
+
+func hasItemsForMonarchReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
+	var monarch data.Item
+	perfectGems := make([]data.Item, 0, 3)
+// Count Perfect Amethyst and Perfect Ruby in inventory
+	countAmethyst := 0
+	countRuby := 0
+	countSapphire := 0
+	
+	for _, itm := range items {
+		
+		switch itm.Name {
+		case "PerfectAmethyst":
+			countAmethyst++
+		case "PerfectRuby":
+			countRuby++
+		case "PerfectSapphire":
+			countSapphire++
+		}
+		
+		if itm.Name == "Monarch" {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
+				monarch = itm
+			}
+		} else if isPerfectGem(itm) && len(perfectGems) < 3 {
+			// Skip perfect amethysts and rubies when i have less than 4 (if configured) AND skip perfect sapphires when I only have 2 
+			if (ctx.CharacterCfg.CubeRecipes.SkipPerfectAmethysts && itm.Name == "PerfectAmethyst" && countAmethyst <= 3) ||
+				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) || (itm.Name == "PerfectSapphire" && countSapphire <= 3) {
+				continue
+			}
+			perfectGems = append(perfectGems, itm)
+		}
+
+		if monarch.Name != "" && len(perfectGems) == 3 {
+			return append([]data.Item{monarch}, perfectGems...), true
+		}
+	}
+
+	return nil, false
+}
+
+
+func hasItemsForMagicWirtsLegReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
+	var magicwirtsleg data.Item
+	standardGems := make([]data.Item, 0, 3)
+	
+	for _, itm := range items {
+		
+		if itm.Name == "WirtsLeg" {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality <= item.QualitySuperior {
+				magicwirtsleg = itm
+			}
+		} else if isStandardGem(itm) && len(standardGems) < 3 {
+			
+			standardGems = append(standardGems, itm)
+		}
+
+		if magicwirtsleg.Name != "" && len(standardGems) == 3 {
+			return append([]data.Item{magicwirtsleg}, standardGems...), true
+		}
+	}
+
+	return nil, false
+}
+
+
+
+func hasItemsForCraftedWirtsLeg(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
+	var leg data.Item
+	var runeItem, gem, jewel data.Item
+
+	for _, itm := range items {
+		switch itm.Name {
+		case "WirtsLeg":
+			// Only use Wirt's Leg if it passes rules and is Magic quality
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
+				leg = itm
+			}
+		case "TirRune":
+			runeItem = itm
+		case "PerfectSapphire":
+			gem = itm
+		case "Jewel":
+			jewel = itm
+		}
+	}
+
+	// Only return if we have all 4 items
+	if leg.Name != "" && runeItem.Name != "" && gem.Name != "" && jewel.Name != "" {
+		return []data.Item{leg, runeItem, gem, jewel}, true
+	}
+
+	ctx.Logger.Error("SKIPPING RECIPE... missing ingredients for MagicWirtsLegStep2")
+	return nil, false
+}
+
+
 func isPerfectGem(item data.Item) bool {
-	perfectGems := []string{"PerfectAmethyst", "PerfectDiamond", "PerfectEmerald", "PerfectRuby", "PerfectSapphire", "PerfectTopaz", "PerfectSkull"}
+	perfectGems := []string{"PerfectDiamond", "PerfectEmerald", "PerfectRuby", "PerfectTopaz", "PerfectAmethyst", "PerfectSapphire"} //took out PerfectSkulls (keep for rolling) and Perfect Sapphires (for wirts leg)
 	for _, gemName := range perfectGems {
 		if string(item.Name) == gemName {
 			return true
@@ -733,6 +1150,19 @@ func isPerfectGem(item data.Item) bool {
 	}
 	return false
 }
+
+
+func isStandardGem(item data.Item) bool {
+	perfectGems := []string{"Diamond", "Emerald", "Topaz"} //USE ONLY DIAMONDS, EMERALDS AND TOPAZ FOR WIRTS LEG STEP 1
+	for _, gemName := range perfectGems {
+		if string(item.Name) == gemName {
+			return true
+		}
+	}
+	return false
+}
+
+
 
 func removeUsedItems(stash []data.Item, usedItems []data.Item) []data.Item {
 	remainingItems := make([]data.Item, 0)
