@@ -68,6 +68,7 @@ var AvailableRecipes = []string{
 	"Add Sockets to Helm",
 	"Add Sockets to Shield",
 	"Reroll GrandCharms",
+	"Reroll Monarch",
 	"Blood Amulet",
 	"Blood Ring",
 	"Blood Gloves (VampireboneGloves)",
