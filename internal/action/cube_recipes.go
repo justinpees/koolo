@@ -1092,7 +1092,7 @@ func hasItemsForMagicWirtsLegReroll(ctx *context.Status, items []data.Item) ([]d
 	
 	for _, itm := range items {
 		
-		if itm.Name == "WirtsLeg" {
+		if itm.Name == "WirtsLeg" && itm.HasSockets {
 			if itm.Quality <= item.QualitySuperior {
 				magicwirtsleg = itm
 			}
