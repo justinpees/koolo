@@ -346,7 +346,7 @@ if i.Name == "FlawlessSkull" {
 
 
 
-	if i.Name == "TomeOfTownPortal" || i.Name == "TomeOfIdentify" || i.Name == "Key" || i.Name == "WirtsLeg" {
+	if i.Name == "TomeOfTownPortal" || i.Name == "TomeOfIdentify" || i.Name == "Key" {
 		fmt.Printf("DEBUG: ABSOLUTELY PREVENTING stash for '%s' (Quest/Special item exclusion).\n", i.Name)
 		return false, false, "", ""
 	}

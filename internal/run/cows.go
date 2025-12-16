@@ -11,6 +11,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/nip"
+
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -18,14 +19,14 @@ import (
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
+var ErrSkipCowRun = errors.New("skip cow run")
+
 type Cows struct {
 	ctx *context.Status
 }
 
 func NewCows() *Cows {
-	return &Cows{
-		ctx: context.Get(),
-	}
+	return &Cows{ctx: context.Get()}
 }
 
 func (a Cows) Name() string {
@@ -44,12 +45,10 @@ func (a Cows) CheckConditions(parameters *RunParameters) SequencerResult {
 
 func (a Cows) Run(parameters *RunParameters) error {
 
-	// Check if we already have the items in cube so we can skip.
+	// If leg + tome already in cube, just open cows
 	if a.hasWristAndBookInCube() {
 
 		action.PreRun(false)
-
-		a.ctx.Logger.Info("Wrist Leg and Book found in cube")
 
 		if !a.ctx.Data.PlayerUnit.Area.IsTown() {
 			if err := action.ReturnTown(); err != nil {
@@ -61,6 +60,7 @@ func (a Cows) Run(parameters *RunParameters) error {
 		if !found {
 			return errors.New("stash not found")
 		}
+
 		if err := action.InteractObject(bank, func() bool {
 			return a.ctx.Data.OpenMenus.Stash
 		}); err != nil {
@@ -72,6 +72,7 @@ func (a Cows) Run(parameters *RunParameters) error {
 		}
 
 	} else {
+
 		if err := a.cleanupExtraPortalTomes(); err != nil {
 			return err
 		}
@@ -80,17 +81,15 @@ func (a Cows) Run(parameters *RunParameters) error {
 			return err
 		}
 
-		utils.Sleep(500)
+		utils.Sleep(300)
 		action.PreRun(false)
-		utils.Sleep(500)
+		utils.Sleep(300)
 
-		skip, err := a.preparePortal()
-		if err != nil {
+		if err := a.preparePortal(); err != nil {
+			if errors.Is(err, ErrSkipCowRun) {
+				return nil
+			}
 			return err
-		}
-		if skip {
-			a.ctx.Logger.Info("Cow run skipped")
-			return nil
 		}
 	}
 
@@ -118,60 +117,10 @@ func (a Cows) Run(parameters *RunParameters) error {
 	)
 }
 
-func (a Cows) getWirtsLeg() error {
-	if a.hasWirtsLeg() {
-		a.ctx.Logger.Info("WirtsLeg found from previous game, we can skip")
-		return nil
-	}
+func (a Cows) preparePortal() error {
 
-	if err := action.WayPoint(area.StonyField); err != nil {
-		return err
-	}
-
-	cainStone, found := a.ctx.Data.Objects.FindOne(object.CairnStoneAlpha)
-	if !found {
-		return errors.New("cain stones not found")
-	}
-
-	if err := action.MoveToCoords(cainStone.Position); err != nil {
-		return err
-	}
-
-	action.ClearAreaAroundPlayer(10, data.MonsterAnyFilter())
-
-	portal, found := a.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
-	if !found {
-		return errors.New("tristram not found")
-	}
-
-	if err := action.InteractObject(portal, func() bool {
-		return a.ctx.Data.AreaData.Area == area.Tristram &&
-			a.ctx.Data.AreaData.IsInside(a.ctx.Data.PlayerUnit.Position)
-	}); err != nil {
-		return err
-	}
-
-	wirtCorpse, found := a.ctx.Data.Objects.FindOne(object.WirtCorpse)
-	if !found {
-		return errors.New("wirt corpse not found")
-	}
-
-	if err := action.MoveToCoords(wirtCorpse.Position); err != nil {
-		return err
-	}
-
-	if err := action.InteractObject(wirtCorpse, func() bool {
-		return a.hasWirtsLeg()
-	}); err != nil {
-		return err
-	}
-
-	return action.ReturnTown()
-}
-
-func (a Cows) preparePortal() (bool, error) {
 	if err := action.WayPoint(area.RogueEncampment); err != nil {
-		return false, err
+		return err
 	}
 
 	leg, found := a.ctx.Data.Inventory.Find(
@@ -180,22 +129,48 @@ func (a Cows) preparePortal() (bool, error) {
 		item.LocationInventory,
 		item.LocationCube,
 	)
+
 	if !found {
-		a.ctx.Logger.Info("WirtsLeg not found – skipping cow run")
-		return true, nil
+		return nil
 	}
 
+	// 🔴 MAGIC LEG — always stash & skip
 	if leg.Quality == item.QualityMagic {
-		a.ctx.Logger.Info("MAGIC WIRTS LEG FOUND – SKIPPING COW RUN")
-		return true, nil
+		a.ctx.Logger.Info("Magic Wirt's Leg detected — stashing and skipping cows")
+		_ = action.Stash(true)
+		return ErrSkipCowRun
 	}
 
+	// 🔴 SOCKETED NORMAL LEG — stash & skip
+	if leg.Quality == item.QualityNormal && leg.HasSockets {
+		a.ctx.Logger.Info("Socketed Wirt's Leg detected — stashing and skipping cows")
+		_ = action.Stash(true)
+		return ErrSkipCowRun
+	}
+
+	// 🟡 CRAFTED LEG — consult NIP
 	if leg.Quality == item.QualityCrafted {
+		_, result := a.ctx.CharacterCfg.Runtime.Rules.EvaluateAll(leg)
+
+		if result == nip.RuleResultFullMatch {
+			a.ctx.Logger.Info("Crafted Wirt's Leg is a NIP keeper — stashing and skipping cows")
+			_ = action.Stash(true)
+			return ErrSkipCowRun
+		}
+
+		a.ctx.Logger.Info("Crafted Wirt's Leg is NOT a keeper — using it for cows")
+	}
+
+	// 🛑 SAFETY NET — never cube a keeper
+	if leg.Quality >= item.QualityMagic {
 		if _, result := a.ctx.CharacterCfg.Runtime.Rules.EvaluateAll(leg); result == nip.RuleResultFullMatch {
-			a.ctx.Logger.Info("CRAFTED WIRTS LEG KEPT BY NIP – SKIPPING COW RUN")
-			return true, nil
+			a.ctx.Logger.Warn("Safety abort: keeper Wirt's Leg would be cubed")
+			_ = action.Stash(true)
+			return ErrSkipCowRun
 		}
 	}
+
+	// ===== Tome handling =====
 
 	var spareTome data.Item
 	tomeCount := 0
@@ -219,7 +194,7 @@ func (a Cows) preparePortal() (bool, error) {
 			Quantity: 1,
 			Tab:      4,
 		}); err != nil {
-			return false, err
+			return err
 		}
 
 		for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
@@ -232,58 +207,56 @@ func (a Cows) preparePortal() (bool, error) {
 	}
 
 	if spareTome.UnitID == 0 {
-		return false, errors.New("failed to obtain spare TomeOfTownPortal")
+		return errors.New("failed to obtain TomeOfTownPortal")
 	}
 
 	if err := action.CubeAddItems(leg, spareTome); err != nil {
-		return false, err
+		return err
 	}
 
-	return false, action.CubeTransmute()
+	return action.CubeTransmute()
 }
 
 func (a Cows) cleanupExtraPortalTomes() error {
+
 	if _, hasLeg := a.ctx.Data.Inventory.Find(
 		"WirtsLeg",
 		item.LocationStash,
 		item.LocationInventory,
 		item.LocationCube,
-	); !hasLeg {
+	); hasLeg {
+		return nil
+	}
 
-		var protected, unprotected []data.Item
+	var protected, unprotected []data.Item
 
-		for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-			if strings.EqualFold(string(itm.Name), item.TomeOfTownPortal) {
-				if action.IsInLockedInventorySlot(itm) {
-					protected = append(protected, itm)
-				} else {
-					unprotected = append(unprotected, itm)
-				}
-			}
-		}
-
-		if len(protected)+len(unprotected) > 1 && len(unprotected) > 0 {
-			a.ctx.Logger.Info("Extra TomeOfTownPortal found - dropping it")
-			for _, itm := range unprotected {
-				if err := action.DropInventoryItem(itm); err != nil {
-					return err
-				}
+	for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		if strings.EqualFold(string(itm.Name), item.TomeOfTownPortal) {
+			if action.IsInLockedInventorySlot(itm) {
+				protected = append(protected, itm)
+			} else {
+				unprotected = append(unprotected, itm)
 			}
 		}
 	}
+
+	if len(protected)+len(unprotected) > 1 {
+		for _, itm := range unprotected {
+			_ = action.DropInventoryItem(itm)
+		}
+	}
+
 	return nil
 }
 
 func (a Cows) hasWristAndBookInCube() bool {
-	cubeItems := a.ctx.Data.Inventory.ByLocation(item.LocationCube)
-
 	var hasLeg, hasTome bool
-	for _, invItem := range cubeItems {
-		if strings.EqualFold(string(invItem.Name), "WirtsLeg") &&
-			invItem.Quality <= item.QualitySuperior {
+
+	for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationCube) {
+		if itm.Name == "WirtsLeg" && itm.Quality < item.QualityMagic {
 			hasLeg = true
 		}
-		if strings.EqualFold(string(invItem.Name), "TomeOfTownPortal") {
+		if itm.Name == item.TomeOfTownPortal {
 			hasTome = true
 		}
 	}
@@ -298,4 +271,54 @@ func (a Cows) hasWirtsLeg() bool {
 		item.LocationCube,
 	)
 	return found
+}
+
+func (a Cows) getWirtsLeg() error {
+
+	if a.hasWirtsLeg() {
+		return nil
+	}
+
+	if err := action.WayPoint(area.StonyField); err != nil {
+		return err
+	}
+
+	cairn, found := a.ctx.Data.Objects.FindOne(object.CairnStoneAlpha)
+	if !found {
+		return errors.New("cairn stones not found")
+	}
+
+	if err := action.MoveToCoords(cairn.Position); err != nil {
+		return err
+	}
+
+	action.ClearAreaAroundPlayer(10, data.MonsterAnyFilter())
+
+	portal, found := a.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
+	if !found {
+		return errors.New("tristram portal not found")
+	}
+
+	if err := action.InteractObject(portal, func() bool {
+		return a.ctx.Data.AreaData.Area == area.Tristram
+	}); err != nil {
+		return err
+	}
+
+	wirt, found := a.ctx.Data.Objects.FindOne(object.WirtCorpse)
+	if !found {
+		return errors.New("wirt corpse not found")
+	}
+
+	if err := action.MoveToCoords(wirt.Position); err != nil {
+		return err
+	}
+
+	if err := action.InteractObject(wirt, func() bool {
+		return a.hasWirtsLeg()
+	}); err != nil {
+		return err
+	}
+
+	return action.ReturnTown()
 }

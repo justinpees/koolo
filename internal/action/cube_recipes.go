@@ -1093,7 +1093,7 @@ func hasItemsForMagicWirtsLegReroll(ctx *context.Status, items []data.Item) ([]d
 	for _, itm := range items {
 		
 		if itm.Name == "WirtsLeg" {
-			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality <= item.QualitySuperior {
+			if itm.Quality <= item.QualitySuperior {
 				magicwirtsleg = itm
 			}
 		} else if isStandardGem(itm) && len(standardGems) < 3 {
