@@ -20,9 +20,12 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 		return nil
 	}
 
-	ctx.Logger.Info("Visiting vendor...", slog.Bool("forceRefill", forceRefill))
+	currentArea := ctx.Data.PlayerUnit.Area
+	ctx.Logger.Info("Visiting vendor...", slog.Any("area", currentArea))
 
-	vendorNPC := town.GetTownByArea(ctx.Data.PlayerUnit.Area).RefillNPC()
+	// ---------- REFILL VENDOR ----------
+	vendorNPC := town.GetTownByArea(currentArea).RefillNPC()
+
 	if vendorNPC == npc.Drognan {
 		_, needsBuy := town.ShouldBuyKeys()
 		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
@@ -44,7 +47,7 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	}
 
 	// Open vendor trade
-	if vendorNPC == npc.Jamella {
+	if vendorNPC == npc.Jamella || vendorNPC == npc.Halbu {
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
 	} else {
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
@@ -52,32 +55,53 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 
 	// Sell junk
 	if sellJunk {
-		var lockConfig [][]int
 		if len(tempLock) > 0 {
-			lockConfig = tempLock[0]
-			town.SellJunk(lockConfig)
+			town.SellJunk(tempLock[0])
 		} else {
 			town.SellJunk()
 		}
 	}
 
-	// Buy potions / scrolls
+	// Buy consumables
 	SwitchStashTab(4)
 	ctx.RefreshGameData()
 	town.BuyConsumables(forceRefill)
 
-	// ---- SHOP VENDOR USING NIP RULES ----
-	// Uses existing shouldMatchRulesOnly() logic
-	plan := ActionShoppingPlan{
+	// Close refill vendor
+	step.CloseAllMenus()
+	ctx.RefreshGameData()
+
+	// ---------- SHOP ALL VENDORS IN CURRENT TOWN ----------
+	shopPlan := ActionShoppingPlan{
 		Enabled: true,
-		Vendors: []npc.ID{vendorNPC},
-		// Rules == nil → uses global NIP rules automatically
-		// Types == nil → allow all item types
 	}
 
-	scanAndPurchaseItems(vendorNPC, plan)
+	for vendor, vendorArea := range VendorLocationMap {
+		if vendorArea != currentArea {
+			continue
+		}
 
-	return step.CloseAllMenus()
+		ctx.Logger.Debug("Shopping vendor", slog.Int("vendor", int(vendor)))
+
+		if err := InteractNPC(vendor); err != nil {
+			ctx.Logger.Warn("Failed to interact vendor", slog.Any("err", err))
+			continue
+		}
+
+		if vendor == npc.Jamella || vendor == npc.Halbu {
+			ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
+		} else {
+			ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+		}
+
+		ctx.RefreshGameData()
+		scanAndPurchaseItems(vendor, shopPlan)
+
+		step.CloseAllMenus()
+		ctx.RefreshGameData()
+	}
+
+	return nil
 }
 
 func BuyAtVendor(vendor npc.ID, items ...VendorItemRequest) error {
@@ -88,19 +112,13 @@ func BuyAtVendor(vendor npc.ID, items ...VendorItemRequest) error {
 		return err
 	}
 
-	if vendor == npc.Jamella {
-		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
-	} else {
-		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
-	}
+	ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 
 	for _, i := range items {
 		SwitchStashTab(i.Tab)
 		itm, found := ctx.Data.Inventory.Find(i.Item, item.LocationVendor)
 		if found {
 			town.BuyItem(itm, i.Quantity)
-		} else {
-			ctx.Logger.Warn("Item not found in vendor", slog.String("Item", string(i.Item)))
 		}
 	}
 
@@ -125,9 +143,7 @@ func shouldVisitVendor() bool {
 		return false
 	}
 
-	if ctx.BeltManager.ShouldBuyPotions() || town.ShouldBuyTPs() || town.ShouldBuyIDs() {
-		return true
-	}
-
-	return false
+	return ctx.BeltManager.ShouldBuyPotions() ||
+		town.ShouldBuyTPs() ||
+		town.ShouldBuyIDs()
 }
