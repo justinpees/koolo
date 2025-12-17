@@ -116,8 +116,8 @@ func GambleSingleItem(items []string, desiredQuality item.Quality) error {
 			}
 		}
 
-		if ctx.Data.PlayerUnit.TotalPlayerGold() < 150000 {
-			return errors.New("gold is below 150000, stopping gamble")
+		if ctx.Data.PlayerUnit.TotalPlayerGold() < 1000000 {
+			return errors.New("gold is below 1000000, stopping gamble")
 		}
 
 		// Check for any of the desired items in the vendor's inventory

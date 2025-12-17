@@ -16,7 +16,6 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	ctx := botCtx.Get()
 	ctx.SetLastAction("VendorRefill")
 
-	// This is a special case, we want to sell junk, but we don't have enough space to unequip items
 	if !forceRefill && !shouldVisitVendor() && len(tempLock) == 0 {
 		return nil
 	}
@@ -34,25 +33,24 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 		_, needsBuy := town.ShouldBuyKeys()
 		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
 			if err := FindHratliEverywhere(); err != nil {
-				// If moveToHratli returns an error, it means a forced game quit is required.
 				return err
 			}
 			vendorNPC = npc.Hratli
 		}
 	}
 
-	err = InteractNPC(vendorNPC)
-	if err != nil {
+	if err = InteractNPC(vendorNPC); err != nil {
 		return err
 	}
 
-	// Jamella trade button is the first one
+	// Open vendor trade
 	if vendorNPC == npc.Jamella {
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
 	} else {
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 	}
 
+	// Sell junk
 	if sellJunk {
 		var lockConfig [][]int
 		if len(tempLock) > 0 {
@@ -62,9 +60,22 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 			town.SellJunk()
 		}
 	}
+
+	// Buy potions / scrolls
 	SwitchStashTab(4)
 	ctx.RefreshGameData()
 	town.BuyConsumables(forceRefill)
+
+	// ---- SHOP VENDOR USING NIP RULES ----
+	// Uses existing shouldMatchRulesOnly() logic
+	plan := ActionShoppingPlan{
+		Enabled: true,
+		Vendors: []npc.ID{vendorNPC},
+		// Rules == nil → uses global NIP rules automatically
+		// Types == nil → allow all item types
+	}
+
+	scanAndPurchaseItems(vendorNPC, plan)
 
 	return step.CloseAllMenus()
 }
@@ -73,12 +84,10 @@ func BuyAtVendor(vendor npc.ID, items ...VendorItemRequest) error {
 	ctx := botCtx.Get()
 	ctx.SetLastAction("BuyAtVendor")
 
-	err := InteractNPC(vendor)
-	if err != nil {
+	if err := InteractNPC(vendor); err != nil {
 		return err
 	}
 
-	// Jamella trade button is the first one
 	if vendor == npc.Jamella {
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 	} else {

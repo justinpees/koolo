@@ -22,7 +22,6 @@ func Repair() error {
 	ctx.SetLastAction("Repair")
 
 	for _, i := range ctx.Data.Inventory.ByLocation(item.LocationEquipped) {
-		// var
 		triggerRepair := false
 		logMessage := ""
 
@@ -39,15 +38,13 @@ func Repair() error {
 			continue
 		}
 
-		// qantity check
+		// quantity check
 		if quantityFound {
-			// Low quantity (under 15) or broken (quantity 0)
 			if quantity.Value < 15 || i.IsBroken {
 				triggerRepair = true
 				logMessage = fmt.Sprintf("Replenishing %s, quantity is %d", i.Name, quantity.Value)
 			}
 		} else {
-			// check item durability (Durability)
 			durability, found := i.FindStat(stat.Durability, 0)
 			maxDurability, maxDurabilityFound := i.FindStat(stat.MaxDurability, 0)
 			durabilityPercent := -1
@@ -56,34 +53,32 @@ func Repair() error {
 				durabilityPercent = int((float64(durability.Value) / float64(maxDurability.Value)) * 100)
 			}
 
-			// if item is broken or under 20%
 			if i.IsBroken || (durabilityPercent != -1 && durabilityPercent <= 20) {
 				triggerRepair = true
 				logMessage = fmt.Sprintf("Repairing %s, item durability is %d percent", i.Name, durabilityPercent)
 			}
 		}
 
-		// trigger
 		if triggerRepair {
 			ctx.Logger.Info(logMessage)
 
 			repairNPC := town.GetTownByArea(ctx.Data.PlayerUnit.Area).RepairNPC()
+
 			if repairNPC == npc.Larzuk {
 				MoveToCoords(data.Position{X: 5135, Y: 5046})
 			}
-			if repairNPC == npc.Hratli {
 
+			if repairNPC == npc.Hratli {
 				if err := FindHratliEverywhere(); err != nil {
-					// If moveToHratli returns an error, it means a forced game quit is required.
 					return err
 				}
-				// If no error, Hratli was found at the final position, and we continue to interact and repair.
 			}
 
 			if err := InteractNPC(repairNPC); err != nil {
 				return err
 			}
 
+			// Open repair panel
 			if repairNPC != npc.Halbu {
 				ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 			} else {
@@ -91,18 +86,52 @@ func Repair() error {
 			}
 
 			utils.Sleep(100)
+
+			// Click repair button
 			if ctx.Data.LegacyGraphics {
 				ctx.HID.Click(game.LeftButton, ui.RepairButtonXClassic, ui.RepairButtonYClassic)
 			} else {
 				ctx.HID.Click(game.LeftButton, ui.RepairButtonX, ui.RepairButtonY)
 			}
-			utils.Sleep(500)
+
+			utils.Sleep(300)
+			ctx.RefreshGameData()
+
+			// ------------------------------------------------
+			// SWITCH TO TRADE TAB AND SHOP AFTER REPAIR
+			// ------------------------------------------------
+			ctx.HID.KeySequence(win.VK_HOME, win.VK_UP)
+			utils.Sleep(80)
+			ctx.RefreshGameData()
+
+			plan := repairShoppingPlan()
+
+			if ctx.Data.PlayerUnit.TotalPlayerGold() >= plan.MinGoldReserve {
+				items, gold := scanAndPurchaseItems(repairNPC, plan)
+				if items > 0 {
+					ctx.Logger.Info(
+						"Purchased items after repair",
+						"items", items,
+						"goldSpent", gold,
+					)
+				}
+			}
 
 			return step.CloseAllMenus()
 		}
 	}
 
 	return nil
+}
+
+func repairShoppingPlan() ActionShoppingPlan {
+	return ActionShoppingPlan{
+		Types: []string{
+			string(item.TypeScroll),
+			string(item.TypePotion),
+		},
+		MinGoldReserve: 20000,
+	}
 }
 
 func RepairRequired() bool {
@@ -121,13 +150,11 @@ func RepairRequired() bool {
 			continue
 		}
 
-		// qnt check
 		if quantityFound {
 			if quantity.Value < 15 || i.IsBroken {
 				return true
 			}
 		} else {
-			// durability check
 			durability, found := i.FindStat(stat.Durability, 0)
 			maxDurability, maxDurabilityFound := i.FindStat(stat.MaxDurability, 0)
 
@@ -155,17 +182,14 @@ func IsEquipmentBroken() bool {
 		_, indestructible := i.FindStat(stat.Indestructible, 0)
 		_, quantityFound := i.FindStat(stat.Quantity, 0)
 
-		// eth quantity
 		if i.Ethereal && !quantityFound {
 			continue
 		}
 
-		// indestructible with quantity
 		if indestructible && !quantityFound {
 			continue
 		}
 
-		// Check if item is broken, works for quantity if its 0.
 		if i.IsBroken {
 			ctx.Logger.Debug("Equipment is broken, returning to town", "item", i.Name)
 			return true
@@ -179,31 +203,24 @@ func FindHratliEverywhere() error {
 	ctx := botCtx.Get()
 	ctx.SetLastStep("FindHratliEverywhere")
 
-	// 1. Move to Hratli's final (default) position to check if he is there.
 	finalPos := data.Position{X: 5224, Y: 5045}
 	MoveToCoords(finalPos)
 
-	// 2. Check if Hratli is found in the vicinity (meaning he is at his final position).
 	_, found := ctx.Data.Monsters.FindOne(npc.Hratli, data.MonsterTypeNone)
 
 	if !found {
-		// Hratli is NOT found after moving to his final spot. Assume he is at the start position.
-		ctx.Logger.Warn("Hratli not found at final position. Moving to start position to trigger quest update and force quitting game.")
+		ctx.Logger.Warn("Hratli not found at final position. Moving to start position.")
 
-		// Start Position: {X: 5116, Y: 5167}
 		startPos := data.Position{X: 5116, Y: 5167}
 		MoveToCoords(startPos)
 
-		// Interact with him there (to satisfy the requirement/quest logic)
 		if err := InteractNPC(npc.Hratli); err != nil {
 			ctx.Logger.Warn("Failed to interact with Hratli at start position.", "error", err)
 		}
 
-		// Close menus and force game quit
 		step.CloseAllMenus()
 		return nil
 	}
 
-	// 3. If found, we are already at his final position and can proceed with interaction.
 	return nil
 }
