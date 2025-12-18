@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -34,6 +35,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/bot"
 	"github.com/hectorgimenez/koolo/internal/config"
 	ctx "github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/drop"
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/remote/droplog"
@@ -45,13 +47,17 @@ import (
 )
 
 type HttpServer struct {
-	logger      *slog.Logger
-	server      *http.Server
-	manager     *bot.SupervisorManager
-	templates   *template.Template
-	wsServer    *WebSocketServer
-	pickitAPI   *PickitAPI
-	sequenceAPI *SequenceAPI
+	logger       *slog.Logger
+	server       *http.Server
+	manager      *bot.SupervisorManager
+	templates    *template.Template
+	wsServer     *WebSocketServer
+	pickitAPI    *PickitAPI
+	sequenceAPI  *SequenceAPI
+	DropHistory  []DropHistoryEntry
+	DropFilters  map[string]drop.Filters
+	DropCardInfo map[string]dropCardInfo
+	DropMux      sync.Mutex
 }
 
 var (
@@ -92,6 +98,11 @@ type Process struct {
 	WindowTitle string `json:"windowTitle"`
 	ProcessName string `json:"processName"`
 	PID         uint32 `json:"pid"`
+}
+
+type dropCardInfo struct {
+	ID   int
+	Name string
 }
 
 func (s *WebSocketServer) Run() {
@@ -244,13 +255,18 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager) (*HttpServer, erro
 		logger.Info("  - " + t.Name())
 	}
 
-	return &HttpServer{
-		logger:      logger,
-		manager:     manager,
-		templates:   templates,
-		pickitAPI:   NewPickitAPI(),
-		sequenceAPI: NewSequenceAPI(logger),
-	}, nil
+	server := &HttpServer{
+		logger:       logger,
+		manager:      manager,
+		templates:    templates,
+		pickitAPI:    NewPickitAPI(),
+		sequenceAPI:  NewSequenceAPI(logger),
+		DropFilters:  make(map[string]drop.Filters),
+		DropCardInfo: make(map[string]dropCardInfo),
+	}
+
+	server.initDropCallbacks()
+	return server, nil
 }
 
 func (s *HttpServer) getProcessList(w http.ResponseWriter, r *http.Request) {
@@ -643,6 +659,9 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/sequence-editor/save", s.sequenceAPI.handleSaveSequence)
 	http.HandleFunc("/api/sequence-editor/delete", s.sequenceAPI.handleDeleteSequence)
 	http.HandleFunc("/api/sequence-editor/files", s.sequenceAPI.handleListSequenceFiles)
+	http.HandleFunc("/Drop-manager", s.DropManagerPage)
+
+	s.registerDropRoutes()
 
 	assets, _ := fs.Sub(assetsFS, "assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
@@ -1214,6 +1233,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Character.StashToShared = r.Form.Has("characterStashToShared")
 		cfg.Character.UseTeleport = r.Form.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = r.Form.Has("characterUseExtraBuffs")
+		cfg.Character.UseSwapForBuffs = r.Form.Has("useSwapForBuffs")
 		cfg.Character.BuffOnNewArea = r.Form.Has("characterBuffOnNewArea")
 		cfg.Character.BuffAfterWP = r.Form.Has("characterBuffAfterWP")
 
@@ -1447,6 +1467,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		if cfg.Character.Class == "nova" {
 			cfg.Character.NovaSorceress.UseTelekinesis = r.Form.Has("useTelekinesis")
 			cfg.Character.NovaSorceress.UseTelekinesisPackets = r.Form.Has("useTelekinesisPackets")
+			cfg.Character.NovaSorceress.AggressiveNovaPositioning = r.Form.Has("aggressiveNovaPositioning")
 		}
 
 		// Lightning Sorceress specific options
@@ -1488,6 +1509,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.MinGoldPickupThreshold, _ = strconv.Atoi(r.Form.Get("gameMinGoldPickupThreshold"))
 		cfg.UseCentralizedPickit = r.Form.Has("useCentralizedPickit")
 		cfg.Game.UseCainIdentify = r.Form.Has("useCainIdentify")
+		cfg.Game.DisableIdentifyTome = r.PostFormValue("game.disableIdentifyTome") == "on"
 		cfg.Game.InteractWithShrines = r.Form.Has("interactWithShrines")
 		cfg.Game.InteractWithChests = r.Form.Has("interactWithChests")
 		cfg.Game.StopLevelingAt, _ = strconv.Atoi(r.Form.Get("stopLevelingAt"))

@@ -28,6 +28,7 @@ const (
 	maxHorkRange      = 40
 	meleeRange        = 5
 	maxAttackAttempts = 20
+	findItemRange     = 5
 )
 
 func (s Berserker) ShouldIgnoreMonster(m data.Monster) bool {
@@ -318,6 +319,17 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	originalSlot := ctx.Data.ActiveWeaponSlot
 	swapped := false
 
+	keepHorkSlot := func() {
+		if !ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
+			return
+		}
+		ctx.RefreshGameData()
+		if ctx.Data.ActiveWeaponSlot != 1 {
+			s.Logger.Debug("switch hork slot", "current", ctx.Data.ActiveWeaponSlot)
+			s.SwapToSlot(1)
+		}
+	}
+
 	// Swap to hork slot if configured
 	if ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
 		if s.SwapToSlot(1) {
@@ -350,9 +362,27 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	}
 
 	for _, corpse := range corpses {
+		ctx.PauseIfNotPriority()
+		keepHorkSlot()
+
 		if s.horkedCorpses[corpse.UnitID] {
 			continue
 		}
+
+		distance := s.PathFinder.DistanceFromMe(corpse.Position)
+		if distance > findItemRange {
+			err := step.MoveTo(corpse.Position, step.WithIgnoreMonsters(), step.WithDistanceToFinish(findItemRange))
+			if err != nil {
+				continue
+			}
+			time.Sleep(time.Millisecond * 100)
+			distance = s.PathFinder.DistanceFromMe(corpse.Position)
+			if distance > findItemRange {
+				continue
+			}
+		}
+
+		keepHorkSlot()
 
 		// Make sure Find Item is on right-click
 		if s.Data.PlayerUnit.RightSkill != skill.FindItem {
