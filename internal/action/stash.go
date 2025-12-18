@@ -177,7 +177,7 @@ func stashInventory(firstRun bool) {
 		stashIt, dropIt, matchedRule, ruleFile := shouldStashIt(i, firstRun)
 
 		if dropIt {
-			ctx.Logger.Info(fmt.Sprintf("Dropping item %s [%s] due to MaxQuantity rule.", i.Desc().Name, i.Quality.ToString()))
+			ctx.Logger.Debug(fmt.Sprintf("Dropping item %s [%s] due to MaxQuantity rule.", i.Desc().Name, i.Quality.ToString()))
 			blacklistItem(i)
 			utils.PingSleep(utils.Medium, 500) // Medium operation: Prepare for item drop
 			DropItem(i)
@@ -536,6 +536,7 @@ func dropExcessItems() {
 		if i.IsPotion() {
 			continue
 		}
+		
 
 		_, dropIt, _, _ := shouldStashIt(i, false) // Re-evaluate if it should be dropped (not firstRun)
 		if dropIt {
@@ -544,7 +545,7 @@ func dropExcessItems() {
 	}
 
 	if len(itemsToDrop) > 0 {
-		ctx.Logger.Info(fmt.Sprintf("Dropping %d excess items from inventory.", len(itemsToDrop)))
+		ctx.Logger.Debug(fmt.Sprintf("Dropping %d excess items from inventory.", len(itemsToDrop)))
 		// Ensure we are not in a menu before dropping
 		step.CloseAllMenus()
 
