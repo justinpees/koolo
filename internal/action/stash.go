@@ -80,9 +80,10 @@ func isStashingRequired(firstRun bool) bool {
 		}
 
 		stashIt, dropIt, _, _ := shouldStashIt(i, firstRun)
-		if stashIt || dropIt { // Check for dropIt as well
-			return true
-		}
+
+    if stashIt || dropIt {
+        return true
+    }
 	}
 
 	isStashFull := true
