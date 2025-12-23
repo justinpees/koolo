@@ -3,11 +3,13 @@ package game
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
 	"time"
 	"unsafe"
+	"path/filepath"
 
 	"github.com/billgraziano/dpapi"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
@@ -325,6 +327,36 @@ func StartGame(username string, password string, authmethod string, authToken st
 	if err != nil {
 		return 0, 0, err
 	}
+	
+// Launch PowerShell script after 5 seconds
+go func() {
+	time.Sleep(5 * time.Second)
+
+// Get directory of the running Koolo executable
+exePath, err := os.Executable()
+if err != nil {
+	return
+}
+buildDir := filepath.Dir(exePath)       // C:\...\koolo\build
+kooloDir := filepath.Dir(buildDir)      // move one level up to C:\...\koolo
+
+// TailLogs.ps1 is located in the parent folder
+psScript := filepath.Join(kooloDir, "TailLogs.ps1")
+
+	cmd := exec.Command(
+		"cmd.exe",
+		"/c",
+		"start",
+		"", // EMPTY title (required by cmd.exe start)
+		"powershell.exe",
+		"-NoExit",
+		"-NoProfile",
+		"-ExecutionPolicy", "Bypass",
+		"-File", psScript,
+	)
+
+	_ = cmd.Start()
+}()
 
 	var foundHwnd windows.HWND
 	cb := syscall.NewCallback(func(hwnd windows.HWND, lParam uintptr) uintptr {

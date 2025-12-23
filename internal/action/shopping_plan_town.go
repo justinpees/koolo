@@ -21,7 +21,7 @@ func NewTownActionShoppingPlan() ActionShoppingPlan {
 			npc.Halbu,
 			npc.Malah,
 			npc.Larzuk,
-			npc.Drehya,
+			npc.Drehya, //Anya?
 		},
 		Rules: nil, // use shouldBePickedUp()
 		Types: nil, // no type filtering
