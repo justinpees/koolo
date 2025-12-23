@@ -72,9 +72,8 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	ctx.RefreshGameData()
 
 	// ---------- SHOP ALL VENDORS IN CURRENT TOWN ----------
-	shopPlan := ActionShoppingPlan{
-		Enabled: true,
-	}
+	shopPlan := NewTownActionShoppingPlan()
+		
 
 	for vendor, vendorArea := range VendorLocationMap {
 		if vendorArea != currentArea {
@@ -88,11 +87,16 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 			continue
 		}
 
-		if vendor == npc.Jamella || vendor == npc.Halbu {
-			ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
-		} else {
-			ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
-		}
+		switch vendor {
+case npc.Jamella, npc.Halbu:
+	ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
+
+case npc.Asheara:
+	ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_DOWN, win.VK_RETURN)
+
+default:
+	ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+}
 
 		ctx.RefreshGameData()
 		scanAndPurchaseItems(vendor, shopPlan)

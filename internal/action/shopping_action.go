@@ -33,6 +33,8 @@ type ActionShoppingPlan struct {
 // NewActionShoppingPlanFromConfig builds a runtime plan from the YAML-backed character config.
 
 func NewActionShoppingPlanFromConfig(cfg config.ShoppingConfig) ActionShoppingPlan {
+	//PUT ACT 5 CONDITION HERE
+	
 	return ActionShoppingPlan{
 		Enabled:         cfg.Enabled,
 		RefreshesPerRun: cfg.RefreshesPerRun,

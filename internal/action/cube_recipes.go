@@ -3,6 +3,7 @@ package action
 import (
 	"slices"
 	"strings"
+	"fmt"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -473,8 +474,8 @@ var (
 
 		// Hitpower Gloves
 		{
-			Name:             "Hitpower Gloves",
-			Items:            []string{"OrtRune", "PerfectSapphire", "Jewel", "Vambraces"},
+			Name:             "Hitpower Gloves (HeavyBracers)",
+			Items:            []string{"OrtRune", "PerfectSapphire", "Jewel", "HeavyBracers"},
 			PurchaseRequired: false,
 			PurchaseItems:    []string{"ChainGloves", "HeavyBracers", "Vambraces"},
 		},
@@ -514,8 +515,8 @@ var (
 		// Caster Amulet
 		{
 			Name:             "Caster Amulet",
-			Items:            []string{"RalRune", "PerfectAmethyst", "Jewel", "Amulet"},
-			PurchaseRequired: false,
+			Items:            []string{"RalRune", "PerfectAmethyst", "Jewel"},
+			PurchaseRequired: true,
 			PurchaseItems:    []string{"Amulet"},
 		},
 		
@@ -741,55 +742,78 @@ if recipe.Name == "Flawless Topaz" {
     }
 }
 
-// --- SPECIAL CASE: Skip Caster Amulet recipe if Blood Helm ingredients are available ---
-if recipe.Name == "Caster Amulet" {
-    hasMagicArmet := false
-    hasRalRune := false
-    hasJewel := false
-    hasPerfectRuby := false
+// --- SPECIAL CASE: WAIT UNTIL BOT HAS RECIPES FOR BLOOD HELM AND CASTER AMULET BEFORE CRAFTING. THAT WAY WE ALWAYS FORCE TO CRAFT BOTH RECIPES
+if recipe.Name == "Blood Helm" || recipe.Name == "Caster Amulet" {
+
+    usableJewelCount := 0
+    ralCount := 0
     hasPerfectAmethyst := false
-    hasMagicAmulet := false
+    hasPerfectRuby := false
+    hasMagicArmet := false
 
-    for _, stashItem := range items {
+    allItems := ctx.Data.Inventory.ByLocation(
+        item.LocationInventory,
+        item.LocationStash,
+        item.LocationSharedStash,
+    )
 
-        // Magic Armet that does NOT match a nip rule
-        if stashItem.Name == "Armet" {
-			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch && stashItem.Quality == item.QualityMagic {
-				
-				 hasMagicArmet = true
-			}
-           
-        }
+    for _, it := range allItems {
 
-        if stashItem.Name == "RalRune" {
-            hasRalRune = true
-        }
+        switch it.Name {
 
-        if stashItem.Name == "Jewel" {
-            hasJewel = true
-        }
+        case "Jewel":
+            // ✅ ONLY count jewels that do NOT match a NIP rule
+            if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); res != nip.RuleResultFullMatch {
+                usableJewelCount++
+            }
 
-        if stashItem.Name == "PerfectRuby" {
-            hasPerfectRuby = true
-        }
+        case "RalRune":
+            ralCount++
 
-        if stashItem.Name == "PerfectAmethyst" {
+        case "PerfectAmethyst":
             hasPerfectAmethyst = true
-        }
 
-        // Magic amulet that does NOT match nip rule
-        if stashItem.Name == "Amulet" {
-			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch && stashItem.Quality == item.QualityMagic {
-				
-				 hasMagicAmulet = true
-			}
-           
+        case "PerfectRuby":
+            hasPerfectRuby = true
+
+        case "Armet":
+            if it.Quality == item.QualityMagic {
+                if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); res != nip.RuleResultFullMatch {
+                    hasMagicArmet = true
+                }
+            }
         }
     }
 
-    // If ALL Blood Helm resources exist, skip Caster Amulet recipe
-    if hasMagicArmet && hasRalRune && hasJewel && hasPerfectRuby && hasPerfectAmethyst && hasMagicAmulet {
-        ctx.Logger.Error("Skipping Caster Amulet recipe: Blood Helm recipe has priority")
+    readyForBoth :=
+        usableJewelCount >= 2 &&
+        ralCount >= 2 &&
+        hasPerfectAmethyst &&
+        hasPerfectRuby &&
+        hasMagicArmet
+
+    if !readyForBoth {
+        missing := []string{}
+
+if usableJewelCount < 2 {
+    missing = append(missing, fmt.Sprintf("Jewels (%d/2, NIP-safe)", usableJewelCount))
+}
+if ralCount < 2 {
+    missing = append(missing, fmt.Sprintf("Ral Runes (%d/2)", ralCount))
+}
+if !hasPerfectAmethyst {
+    missing = append(missing, "Perfect Amethyst (1)")
+}
+if !hasPerfectRuby {
+    missing = append(missing, "Perfect Ruby (1)")
+}
+if !hasMagicArmet {
+    missing = append(missing, "Magic Armet (non-NIP)")
+}
+
+ctx.Logger.Debug(
+    "Deferring Blood Helm / Caster Amulet – missing: " + strings.Join(missing, ", "),
+        )
         return nil, false
     }
 }
@@ -852,7 +876,7 @@ if recipe.Name == "Flawless Emerald" {
 		if count, ok := recipeItems[string(item.Name)]; ok {
 
 			// Let's make sure we don't use an item we don't want to. Add more if needed (depending on the recipes we have) "WirtsLeg" should be the correct name
-			if item.Name == "Jewel" || item.Name == "Ring" || item.Name == "grandcharm" || item.Name == "Amulet" || item.Name == "Wirt'sLeg" || item.Name == "WirtsLeg" || item.Name == "MithrilCoil" || item.Name == "MeshBelt" || item.Name == "VampirefangBelt" || item.Name == "SharkskinGloves" || item.Name == "Armet" || item.Name == "SharkskinBelt" || item.Name == "VampireboneGloves" {
+			if item.Name == "Jewel" || item.Name == "Ring" || item.Name == "grandcharm" || item.Name == "Amulet" || item.Name == "Wirt'sLeg" || item.Name == "WirtsLeg" || item.Name == "MithrilCoil" || item.Name == "MeshBelt" || item.Name == "VampirefangBelt" || item.Name == "HeavyBracers" || item.Name == "SharkskinGloves" || item.Name == "Armet" || item.Name == "SharkskinBelt" || item.Name == "VampireboneGloves" {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(item); result == nip.RuleResultFullMatch {
 					continue
 				}

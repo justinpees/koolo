@@ -321,6 +321,7 @@ func StartGame(username string, password string, authmethod string, authToken st
 	// Start the game
 	cmd := exec.Command(config.Koolo.D2RPath+"\\D2R.exe", fullArgs...)
 	err = cmd.Start()
+	
 	if err != nil {
 		return 0, 0, err
 	}

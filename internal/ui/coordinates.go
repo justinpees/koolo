@@ -123,6 +123,21 @@ const (
 
 	StashGoldBtnConfirmY        = 388
 	StashGoldBtnConfirmYClassic = 423
+	
+	
+	WithdrawStashGoldBtnX = 227
+	WithdrawStashGoldBtnXClassic = 285
+
+	WithdrawStashGoldBtnY        = 529
+	WithdrawStashGoldBtnYClassic = 512
+
+	WithdrawStashGoldBtnConfirmX        = 543
+	WithdrawStashGoldBtnConfirmXClassic = 578
+
+	WithdrawStashGoldBtnConfirmY        = 388
+	WithdrawStashGoldBtnConfirmYClassic = 425
+	
+	
 
 	SwitchStashTabBtnX        = 107
 	SwitchStashTabBtnXClassic = 258

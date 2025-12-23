@@ -83,7 +83,7 @@ var AvailableRecipes = []string{
 	"Blood Gloves (SharkskinGloves)",
 	"Blood Belt (MeshBelt)",
 	"Safety Helm",
-	"Hitpower Gloves",
+	"Hitpower Gloves (HeavyBracers)",
 	"Hitpower Boots",
 	"Caster Belt (SharkskinBelt)",
 	"Hitpower Helm",
