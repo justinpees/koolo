@@ -7,8 +7,12 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/context"
 	botCtx "github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/town"
+	"github.com/hectorgimenez/koolo/internal/ui"
+	"github.com/hectorgimenez/koolo/internal/utils"
 	"github.com/lxn/win"
 )
 
@@ -62,8 +66,11 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 		}
 	}
 
+
 	// Buy consumables
-	SwitchStashTab(4)
+
+	SwitchVendorTab(4)
+
 	ctx.RefreshGameData()
 	town.BuyConsumables(forceRefill)
 
@@ -119,7 +126,7 @@ func BuyAtVendor(vendor npc.ID, items ...VendorItemRequest) error {
 	ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 
 	for _, i := range items {
-		SwitchStashTab(i.Tab)
+		SwitchVendorTab(i.Tab)
 		itm, found := ctx.Data.Inventory.Find(i.Item, item.LocationVendor)
 		if found {
 			town.BuyItem(itm, i.Quantity)
@@ -147,7 +154,38 @@ func shouldVisitVendor() bool {
 		return false
 	}
 
-	return ctx.BeltManager.ShouldBuyPotions() ||
-		town.ShouldBuyTPs() ||
-		town.ShouldBuyIDs()
+
+	if ctx.BeltManager.ShouldBuyPotions() || town.ShouldBuyTPs() || town.ShouldBuyIDs() {
+		return true
+	}
+
+	return false
 }
+
+func SwitchVendorTab(tab int) {
+	// Ensure any chat messages that could prevent clicking on the tab are cleared
+	ClearMessages()
+	utils.Sleep(200)
+
+	ctx := context.Get()
+	ctx.SetLastStep("switchVendorTab")
+
+	if ctx.GameReader.LegacyGraphics() {
+		x := ui.SwitchVendorTabBtnXClassic
+		y := ui.SwitchVendorTabBtnYClassic
+
+		tabSize := ui.SwitchVendorTabBtnTabSizeClassic
+		x = x + tabSize*tab - tabSize/2
+		ctx.HID.Click(game.LeftButton, x, y)
+		utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for tab switch
+	} else {
+		x := ui.SwitchVendorTabBtnX
+		y := ui.SwitchVendorTabBtnY
+
+		tabSize := ui.SwitchVendorTabBtnTabSize
+		x = x + tabSize*tab - tabSize/2
+		ctx.HID.Click(game.LeftButton, x, y)
+		utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for tab switch
+	}
+}
+

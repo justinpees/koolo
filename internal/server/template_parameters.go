@@ -17,10 +17,14 @@ type TZGroup struct {
 }
 
 type IndexData struct {
-	ErrorMessage string
-	Version      string
-	Status       map[string]bot.Stats
-	DropCount    map[string]int
+	ErrorMessage                string
+	Version                     string
+	Status                      map[string]bot.Stats
+	DropCount                   map[string]int
+	AutoStart                   map[string]bool
+	GlobalAutoStartEnabled      bool
+	GlobalAutoStartDelaySeconds int
+	ShowAutoStartPrompt         bool
 }
 
 type DropData struct {
@@ -49,6 +53,7 @@ type CharacterSettings struct {
 	Version               string
 	ErrorMessage          string
 	Supervisor            string
+	CloneSource           string
 	Config                *config.CharacterCfg
 	DayNames              []string
 	EnabledRuns           []string
@@ -59,6 +64,7 @@ type CharacterSettings struct {
 	AvailableProfiles     []string
 	FarmerProfiles        []string
 	LevelingSequenceFiles []string
+	Supervisors           []string
 }
 
 type ConfigData struct {

@@ -46,6 +46,8 @@ type KooloCfg struct {
 	D2LoDPath             string `yaml:"D2LoDPath"`
 	D2RPath               string `yaml:"D2RPath"`
 	CentralizedPickitPath string `yaml:"centralizedPickitPath"`
+	WindowWidth           int    `yaml:"windowWidth"`
+	WindowHeight          int    `yaml:"windowHeight"`
 	Discord               struct {
 		Enabled                      bool     `yaml:"enabled"`
 		EnableGameCreatedMessages    bool     `yaml:"enableGameCreatedMessages"`
@@ -67,6 +69,10 @@ type KooloCfg struct {
 		HighPingThreshold int  `yaml:"highPingThreshold"` // Ping threshold in ms (default 500-1000)
 		SustainedDuration int  `yaml:"sustainedDuration"` // Seconds high ping must persist (default 10-30)
 	} `yaml:"pingMonitor"`
+	AutoStart struct {
+		Enabled      bool `yaml:"enabled"`
+		DelaySeconds int  `yaml:"delaySeconds"`
+	} `yaml:"autoStart"`
 }
 
 type Day struct {
@@ -99,6 +105,7 @@ type CharacterCfg struct {
 	CloseMiniPanel       bool   `yaml:"closeMiniPanel"`
 	UseCentralizedPickit bool   `yaml:"useCentralizedPickit"`
 	HidePortraits        bool   `yaml:"hidePortraits"`
+	AutoStart            bool   `yaml:"autoStart"`
 
 	ConfigFolderName string `yaml:"-"`
 
@@ -154,19 +161,17 @@ type CharacterCfg struct {
 			HorkMonsterCheckRange       int  `yaml:"hork_monster_check_range"`
 		} `yaml:"berserker_barb"`
 		BlizzardSorceress struct {
-			UseMoatTrick          bool `yaml:"use_moat_trick"`
-			UseStaticOnMephisto   bool `yaml:"use_static_on_mephisto"`
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
-			UseBlizzardPackets    bool `yaml:"use_blizzard_packets"`
+			UseMoatTrick        bool `yaml:"use_moat_trick"`
+			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
+
+			UseBlizzardPackets bool `yaml:"use_blizzard_packets"`
 		} `yaml:"blizzard_sorceress"`
 		SorceressLeveling struct {
-			UseMoatTrick          bool `yaml:"use_moat_trick"`
-			UseStaticOnMephisto   bool `yaml:"use_static_on_mephisto"`
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
-			UseBlizzardPackets    bool `yaml:"use_blizzard_packets"`
-			UsePacketLearning     bool `yaml:"use_packet_learning"`
+			UseMoatTrick        bool `yaml:"use_moat_trick"`
+			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
+
+			UseBlizzardPackets bool `yaml:"use_blizzard_packets"`
+			UsePacketLearning  bool `yaml:"use_packet_learning"`
 		} `yaml:"sorceress_leveling"`
 		BarbLeveling struct {
 			UseHowl              bool `yaml:"use_howl"`
@@ -178,22 +183,15 @@ type CharacterCfg struct {
 			UsePacketLearning    bool `yaml:"use_packet_learning"`
 		} `yaml:"barb_leveling"`
 		NovaSorceress struct {
-			BossStaticThreshold       int  `yaml:"boss_static_threshold"`
-			UseTelekinesis            bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets     bool `yaml:"use_telekinesis_packets"`
+			BossStaticThreshold int `yaml:"boss_static_threshold"`
+
 			AggressiveNovaPositioning bool `yaml:"aggressive_nova_positioning"`
 		} `yaml:"nova_sorceress"`
 		LightningSorceress struct {
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
 		} `yaml:"lightning_sorceress"`
 		HydraOrbSorceress struct {
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
 		} `yaml:"hydraorb_sorceress"`
 		FireballSorceress struct {
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
 		} `yaml:"fireball_sorceress"`
 		MosaicSin struct {
 			UseTigerStrike    bool `yaml:"useTigerStrike"`
