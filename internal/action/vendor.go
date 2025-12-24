@@ -16,6 +16,30 @@ import (
 	"github.com/lxn/win"
 )
 
+
+func walkToLarzuk(ctx *context.Status) {
+	ctx.Logger.Debug("Walking to Larzuk")
+
+	MoveTo(func() (data.Position, bool) {
+		return data.Position{X: 5090, Y: 5080}, true
+	})
+
+	utils.PingSleep(utils.Medium, 1200)
+	ctx.RefreshGameData()
+}
+
+func walkToAnya(ctx *context.Status) {
+	ctx.Logger.Debug("Walking to Anya")
+
+	MoveTo(func() (data.Position, bool) {
+		return data.Position{X: 5145, Y: 5095}, true
+	})
+
+	utils.PingSleep(utils.Medium, 1500)
+	ctx.RefreshGameData()
+}
+
+
 func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err error) {
 	ctx := botCtx.Get()
 	ctx.SetLastAction("VendorRefill")
@@ -83,16 +107,26 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 		
 
 	for vendor, vendorArea := range VendorLocationMap {
-		if vendorArea != currentArea {
-			continue
-		}
+	if vendorArea != currentArea {
+		continue
+	}
 
-		ctx.Logger.Debug("Shopping vendor", slog.Int("vendor", int(vendor)))
+	ctx.Logger.Debug("Shopping vendor", slog.Int("vendor", int(vendor)))
 
-		if err := InteractNPC(vendor); err != nil {
-			ctx.Logger.Warn("Failed to interact vendor", slog.Any("err", err))
-			continue
-		}
+	// 🔑 SPECIAL CASE: Walk to Larzuk first
+	if vendor == npc.Larzuk {
+		walkToLarzuk(ctx)
+	}
+	
+	// 🔑 SPECIAL CASE: Walk to Larzuk first
+	if vendor == npc.Drehya {
+		walkToAnya(ctx)
+	}
+
+	if err := InteractNPC(vendor); err != nil {
+		ctx.Logger.Warn("Failed to interact vendor", slog.Any("err", err))
+		continue
+	}
 
 		switch vendor {
 case npc.Jamella, npc.Halbu:
