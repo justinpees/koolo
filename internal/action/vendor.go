@@ -17,27 +17,122 @@ import (
 )
 
 
+func walkToHratli(ctx *context.Status) {
+	ctx.Logger.Debug("Walking to Hratli")
+
+	// Define positions to check for Hratli
+	finalPos := data.Position{X: 5224, Y: 5045}  // main position
+	startPos := data.Position{X: 5116, Y: 5167}  // fallback position
+
+	// First, try moving to the final position
+	ctx.SetLastStep("walkToHratli - finalPos")
+	MoveToCoords(finalPos)
+
+	// Check if Hratli is found
+	_, found := ctx.Data.Monsters.FindOne(npc.Hratli, data.MonsterTypeNone)
+	if found {
+		ctx.Logger.Debug("Hratli found at final position")
+		return
+	}
+
+	// Hratli not found at final position, move to start position
+	ctx.Logger.Warn("Hratli not found at final position. Moving to start position.")
+	ctx.SetLastStep("walkToHratli - startPos")
+	MoveToCoords(startPos)
+
+	// Try interacting with Hratli at start position
+	if err := InteractNPC(npc.Hratli); err != nil {
+		ctx.Logger.Warn("Failed to interact with Hratli at start position.", "error", err)
+	}
+
+	// Close any menus if opened during interaction
+	step.CloseAllMenus()
+}
+
+
 func walkToLarzuk(ctx *context.Status) {
 	ctx.Logger.Debug("Walking to Larzuk")
 
+	target := data.Position{X: 5090, Y: 5080}
+
+	// Start walking
 	MoveTo(func() (data.Position, bool) {
-		return data.Position{X: 5090, Y: 5080}, true
+		return target, true
 	})
 
-	utils.PingSleep(utils.Medium, 1200)
-	ctx.RefreshGameData()
+	// Wait until player reaches target or timeout
+	timeout := 7000 // milliseconds
+	interval := 100 // check every 100ms
+	elapsed := 0
+
+	for elapsed < timeout {
+		ctx.RefreshGameData()
+
+		// Check player position
+		pos := ctx.Data.PlayerUnit.Position
+		dx := pos.X - target.X
+		dy := pos.Y - target.Y
+		if dx*dx+dy*dy <= 9 { // within ~3 tiles
+			ctx.Logger.Debug("Reached Larzuk position", slog.Any("pos", pos))
+			return
+		}
+
+		// Optionally: check if Larzuk NPC is loaded
+		_, found := ctx.Data.NPCs.FindOne(npc.Larzuk)
+		if found {
+			ctx.Logger.Debug("Larzuk loaded in area")
+			return
+		}
+
+		utils.Sleep(interval)
+		elapsed += interval
+	}
+
+	ctx.Logger.Warn("Timeout walking to Larzuk", slog.Any("pos", ctx.Data.PlayerUnit.Position))
 }
 
 func walkToAnya(ctx *context.Status) {
 	ctx.Logger.Debug("Walking to Anya")
 
+	target := data.Position{X: 5107, Y: 5119}
+
+	// Start walking
 	MoveTo(func() (data.Position, bool) {
-		return data.Position{X: 5145, Y: 5095}, true
+		return target, true
 	})
 
-	utils.PingSleep(utils.Medium, 1500)
-	ctx.RefreshGameData()
+	// Wait until player reaches target or timeout
+	timeout := 7000 // milliseconds
+	interval := 100 // check every 100ms
+	elapsed := 0
+
+	for elapsed < timeout {
+		ctx.RefreshGameData()
+
+		// Check player position
+		pos := ctx.Data.PlayerUnit.Position
+		dx := pos.X - target.X
+		dy := pos.Y - target.Y
+		if dx*dx+dy*dy <= 9 { // within ~3 tiles
+			ctx.Logger.Debug("Reached Anya position", slog.Any("pos", pos))
+			return
+		}
+
+		// Optionally: check if Anya NPC is loaded
+		_, found := ctx.Data.NPCs.FindOne(npc.Drehya) // backend ID for Anya
+		if found {
+			ctx.Logger.Debug("Anya loaded in area")
+			return
+		}
+
+		utils.Sleep(interval)
+		elapsed += interval
+	}
+
+	ctx.Logger.Warn("Timeout walking to Anya", slog.Any("pos", ctx.Data.PlayerUnit.Position))
 }
+
+
 
 
 func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err error) {
@@ -112,6 +207,11 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	}
 
 	ctx.Logger.Debug("Shopping vendor", slog.Int("vendor", int(vendor)))
+
+// 🔑 SPECIAL CASE: Walk to Hratli first
+	if vendor == npc.Hratli {
+		walkToHratli(ctx)
+	}
 
 	// 🔑 SPECIAL CASE: Walk to Larzuk first
 	if vendor == npc.Larzuk {

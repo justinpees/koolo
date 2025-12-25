@@ -14,7 +14,10 @@ var VendorLocationMap = map[npc.ID]area.ID{
 	npc.Drognan: area.LutGholein,
 	npc.Elzix:   area.LutGholein,
 	npc.Ormus:   area.KurastDocks,
+	npc.Asheara:   area.KurastDocks,
+	npc.Hratli:   area.KurastDocks,
 	npc.Halbu:   area.ThePandemoniumFortress,
+	npc.Jamella:   area.ThePandemoniumFortress,
 	npc.Malah:   area.Harrogath,
 	npc.Larzuk:  area.Harrogath,
 	npc.Drehya:  area.Harrogath, // Anya in backend
