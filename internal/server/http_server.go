@@ -1241,16 +1241,42 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Discord.EnableDiscordErrorMessages = r.Form.Has("enable_discord_error_messages")
 		newConfig.Discord.Token = r.Form.Get("discord_token")
 		newConfig.Discord.ChannelID = r.Form.Get("discord_channel_id")
+		
 
-		// Discord admins who can use bot commands
-		discordAdmins := r.Form.Get("discord_admins")
-		cleanedAdmins := strings.Map(func(r rune) rune {
-			if (r >= '0' && r <= '9') || r == ',' {
-				return r
-			}
-			return -1
-		}, discordAdmins)
-		newConfig.Discord.BotAdmins = strings.Split(cleanedAdmins, ",")
+		// Get Discord admins from form input
+discordAdmins := r.Form.Get("discord_admins")
+
+// Split on commas, spaces, or brackets
+fields := strings.FieldsFunc(discordAdmins, func(r rune) bool {
+    return r == ',' || r == ' ' || r == '[' || r == ']'
+})
+
+// Remove empty strings just in case
+var cleanedAdmins []string
+for _, f := range fields {
+    if f != "" {
+        cleanedAdmins = append(cleanedAdmins, f)
+    }
+}
+
+newConfig.Discord.BotAdmins = cleanedAdmins
+
+// Same logic for MentionID
+discordMentions := r.Form.Get("discord_mention_user_id")
+fields = strings.FieldsFunc(discordMentions, func(r rune) bool {
+    return r == ',' || r == ' ' || r == '[' || r == ']'
+})
+
+var cleanedMentions []string
+for _, f := range fields {
+    if f != "" {
+        cleanedMentions = append(cleanedMentions, f)
+    }
+}
+
+newConfig.Discord.MentionID = cleanedMentions
+		
+		
 		newConfig.Telegram.Enabled = r.Form.Get("telegram_enabled") == "true"
 		newConfig.Telegram.Token = r.Form.Get("telegram_token")
 		telegramChatId, err := strconv.ParseInt(r.Form.Get("telegram_chat_id"), 10, 64)
@@ -1425,7 +1451,8 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		cfg.Character.StashToShared = values.Has("characterStashToShared")
 		cfg.Character.UseTeleport = values.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = values.Has("characterUseExtraBuffs")
-
+       
+		
 		// Game Settings (General)
 		if v := values.Get("gameMinGoldPickupThreshold"); v != "" {
 			cfg.Game.MinGoldPickupThreshold, _ = strconv.Atoi(v)
@@ -1482,11 +1509,12 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 			if v := values.Get("rejuvPotionCount"); v != "" {
 				cfg.Inventory.RejuvPotionCount, _ = strconv.Atoi(v)
 			}
-
+            cfg.Inventory.GemToUpgrade = values.Get("upgradeGemUsingShrine")
 			cfg.Game.CreateLobbyGames = values.Has("createLobbyGames")
 			cfg.Game.IsNonLadderChar = values.Has("isNonLadderChar")
 			cfg.Game.Difficulty = difficulty.Difficulty(values.Get("gameDifficulty"))
 			cfg.Game.RandomizeRuns = values.Has("gameRandomizeRuns")
+			cfg.Game.ShopVendorsDuringTownVisits = values.Has("shopVendorsDuringTownVisits")
 
 			// Back To Town Settings
 			cfg.BackToTown.NoHpPotions = values.Has("noHpPotions")
@@ -1503,6 +1531,7 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 
 			// Gambling
 			cfg.Gambling.Enabled = values.Has("gamblingEnabled")
+			cfg.Gambling.GambleFromSharedStashes = values.Has("gambleFromSharedStashes")
 		}
 
 		// Class-specific options are only updated when identity is explicitly updated.
@@ -2091,6 +2120,7 @@ func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg
 			cfg.Game.Pit.OnlyClearLevel2 = values.Has("gamePitOnlyClearLevel2")
 		case "cows":
 			cfg.Game.Cows.OpenChests = values.Has("gameCowsOpenChests")
+			cfg.Game.Cows.CraftWirtsLeg = values.Has("craftWirtsLeg")
 		case "pindleskin":
 			if raw, ok := values["gamePindleskinSkipOnImmunities[]"]; ok {
 				skips := make([]stat.Resist, 0, len(raw))

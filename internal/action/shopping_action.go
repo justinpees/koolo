@@ -325,13 +325,22 @@ if it.Desc().Name == "Super Mana Potion" || it.Desc().Name == "Super Healing Pot
 			prevGold := ctx.Data.PlayerUnit.TotalPlayerGold()
 
 			// Buy using town helper (consistent with gambling)
-			town.BuyItem(it, 1)
+			town.BuyItem(it, 1) // just call it
 
-			utils.Sleep(40)
-			ctx.RefreshGameData()
+utils.Sleep(40)
+ctx.RefreshGameData()
 
-			itemsPurchased++
-			goldSpent += prevGold - ctx.Data.PlayerUnit.TotalPlayerGold()
+itemsPurchased++
+goldSpent += prevGold - ctx.Data.PlayerUnit.TotalPlayerGold()
+
+// --- VENDOR LOGGING START ---
+areaName := ctx.Data.PlayerUnit.Area.Area().Name
+ctx.CurrentGame.PickedUpItems[int(it.UnitID)] = int(ctx.Data.PlayerUnit.Area.Area().ID) // keep original area ID
+ctx.CurrentGame.PickedUpItemsVendor[int(it.UnitID)] = fmt.Sprintf("%s (Vendor %d)", areaName, int(vendorID)) // append vendor
+ctx.Logger.Debug("Bought item",
+    "item", it.Desc().Name,
+    "vendor", int(vendorID))
+// --- VENDOR LOGGING END ---
 
 			// If space tight now, stash and resume same tab
 			if !hasTwoFreeColumns() {
@@ -476,6 +485,14 @@ func moveToVendor(vendorID npc.ID) error {
 func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 	ctx := context.Get()
 	if town == area.Harrogath && onlyAnya {
+    // Save original merc state
+		origMercDied := ctx.CharacterCfg.BackToTown.MercDied
+		// Temporarily override it
+		ctx.CharacterCfg.BackToTown.MercDied = false
+		defer func() {
+			// Restore the original value no matter what
+			ctx.CharacterCfg.BackToTown.MercDied = origMercDied
+		}()
 		ctx.Logger.Debug("Refreshing town via Anya red portal (preferred)")
 		_ = MoveToCoords(data.Position{X: 5116, Y: 5121})
 		utils.Sleep(600)
@@ -487,6 +504,7 @@ func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 			}); err == nil {
 				utils.Sleep(120)
 				ctx.RefreshGameData()
+				
 				if err2 := returnToTownViaAnyaRedPortalFromTemple(); err2 == nil {
 					return nil
 				}

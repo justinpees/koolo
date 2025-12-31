@@ -768,6 +768,19 @@
                     <input type="number" name="rejuvPotionCount" min="0" max="99" placeholder="{{ .Config.Inventory.RejuvPotionCount }}" value="{{ .Config.Inventory.RejuvPotionCount }}"/>
                 </label>
             </fieldset>
+			<label>
+                    Upgrade Gem Using Shrine
+                    <select id="upgradeGemUsingShrine" name="upgradeGemUsingShrine" title="This will keep one Flawless Gem of your choice in your inventory. The bot will interact with Gem Shrines to upgrade it to a Perfect Gem. Then it will stash the Perfect Gem (you need to add flawless and perfect gem to pickit file). This option essentially yields you more Perfect Gems of your choosing.">
+                       <option value="None" {{if eq .Config.Inventory.GemToUpgrade "None"}}selected{{end}}>None</option>
+						<option value="FlawlessAmethyst" {{if eq .Config.Inventory.GemToUpgrade "FlawlessAmethyst"}}selected{{end}}>Perfect Amethyst</option>
+						<option value="FlawlessRuby" {{if eq .Config.Inventory.GemToUpgrade "FlawlessRuby"}}selected{{end}}>Perfect Ruby</option>
+						<option value="FlawlessSkull" {{if eq .Config.Inventory.GemToUpgrade "FlawlessSkull"}}selected{{end}}>Perfect Skull</option>
+						<option value="FlawlessEmerald" {{if eq .Config.Inventory.GemToUpgrade "FlawlessEmerald"}}selected{{end}}>Perfect Emerald</option>
+						<option value="FlawlessDiamond" {{if eq .Config.Inventory.GemToUpgrade "FlawlessDiamond"}}selected{{end}}>Perfect Diamond</option>
+						<option value="FlawlessSapphire" {{if eq .Config.Inventory.GemToUpgrade "FlawlessSapphire"}}selected{{end}}>Perfect Sapphire</option>
+						<option value="FlawlessTopaz" {{if eq .Config.Inventory.GemToUpgrade "FlawlessTopaz"}}selected{{end}}>Perfect Topaz</option>
+                    </select>
+                </label>
             <h3>Merc Settings</h3><br>
             <label>
                 <input id="use_merc" type="checkbox" name="useMerc" {{ if .Config.Character.UseMerc }}checked{{ end }}/>
@@ -837,10 +850,16 @@
             <label>
                 Choose the runs that you want the bot to run. You can either drag & drop runs below to enable or disable them, or use the + - buttons. Click on any of the runs to expand them and see more details and options.
             </label><br>
+			<fieldset class="grid">
             <label>
                 <input type="checkbox" name="gameRandomizeRuns" {{ if .Config.Game.RandomizeRuns }}checked{{ end }}/>
                 Randomize run order
-            </label><br>
+            </label>
+			<label>
+                        <input type="checkbox" id="shopVendorsDuringTownVisits" name="shopVendorsDuringTownVisits" {{ if .Config.Game.ShopVendorsDuringTownVisits }}checked{{ end }}/> Shop vendors during town visits
+                    </label>
+					</fieldset>
+					<br>
             <input type="hidden" id="gameRuns" name="gameRuns" value="">
             <div class="grid">
                 <div>
@@ -882,10 +901,16 @@
                 </div>
             </div>
             <h3>Gambling</h3>
+			<fieldset class="grid">
             <label>
                 <input type="checkbox" name="gamblingEnabled" {{ if .Config.Gambling.Enabled }}checked{{ end }}/>
                 Enabled
             </label>
+			<label>
+                <input type="checkbox" name="gambleFromSharedStashes" {{ if .Config.Gambling.GambleFromSharedStashes }}checked{{ end }}/>
+                Include Gold From Shared Stashes
+            </label>
+			</fieldset>
             <h3>Muling</h3>
             <p>Configure automatic muling to transfer items from this character to mule characters. Items will be moved from shared stash tabs (2-4) to the mule's private stash (tab 1).</p>
             <label>

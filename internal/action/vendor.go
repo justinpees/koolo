@@ -16,6 +16,17 @@ import (
 	"github.com/lxn/win"
 )
 
+func prioritizeVendor(vendors []npc.ID, priority npc.ID) []npc.ID {
+	out := make([]npc.ID, 0, len(vendors))
+	out = append(out, priority)
+
+	for _, v := range vendors {
+		if v != priority {
+			out = append(out, v)
+		}
+	}
+	return out
+}
 
 func walkToHratli(ctx *context.Status) {
 	ctx.Logger.Debug("Walking to Hratli")
@@ -53,7 +64,7 @@ func walkToHratli(ctx *context.Status) {
 func walkToLarzuk(ctx *context.Status) {
 	ctx.Logger.Debug("Walking to Larzuk")
 
-	target := data.Position{X: 5090, Y: 5080}
+	target := data.Position{X: 5135, Y: 5046}
 
 	// Start walking
 	MoveTo(func() (data.Position, bool) {
@@ -135,6 +146,9 @@ func walkToAnya(ctx *context.Status) {
 
 
 
+// Global variable to track vendor inventory fingerprint
+var lastVendorInventoryItems []string = nil
+
 func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err error) {
 	ctx := botCtx.Get()
 	ctx.SetLastAction("VendorRefill")
@@ -185,68 +199,137 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 		}
 	}
 
-
 	// Buy consumables
-
 	SwitchVendorTab(4)
-
 	ctx.RefreshGameData()
 	town.BuyConsumables(forceRefill)
 
-	// Close refill vendor
+	if ctx.CharacterCfg.Game.ShopVendorsDuringTownVisits {
+		// ---------- SHOP ALL VENDORS ----------
+		shopPlan := NewTownActionShoppingPlan()
+
+		refillVendor := town.GetTownByArea(currentArea).RefillNPC()
+		shopPlan.Vendors = prioritizeVendor(shopPlan.Vendors, refillVendor)
+
+		keepVendorOpen := len(shopPlan.Vendors) > 0 && shopPlan.Vendors[0] == vendorNPC
+
+		if !keepVendorOpen {
+			step.CloseAllMenus()
+			ctx.RefreshGameData()
+		} else {
+			ctx.RefreshGameData()
+		}
+
+		currentItems := getVendorInventoryItems(ctx)
+		shouldShop := !allItemsStillExist(lastVendorInventoryItems, currentItems)
+
+		if !shouldShop {
+			ctx.Logger.Info("Skipping shopping - refill vendor inventory unchanged")
+			return nil
+		}
+
+		for idx, vendor := range shopPlan.Vendors {
+			vendorArea, ok := VendorLocationMap[vendor]
+			if !ok || vendorArea != currentArea {
+				continue
+			}
+
+			// Open vendor unless reusing refill vendor
+			if !(idx == 0 && keepVendorOpen && vendor == vendorNPC) {
+				step.CloseAllMenus()
+				ctx.RefreshGameData()
+
+				if vendor == npc.Hratli {
+					walkToHratli(ctx)
+				}
+				if vendor == npc.Larzuk {
+					walkToLarzuk(ctx)
+				}
+				if vendor == npc.Drehya {
+					walkToAnya(ctx)
+				}
+
+				if err := InteractNPC(vendor); err != nil {
+					ctx.Logger.Warn("Failed to interact vendor", slog.Any("err", err))
+					continue
+				}
+
+				switch vendor {
+				case npc.Jamella, npc.Halbu:
+					ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
+				case npc.Asheara:
+					ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_DOWN, win.VK_RETURN)
+				default:
+					ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+				}
+
+				ctx.RefreshGameData()
+			}
+
+			scanAndPurchaseItems(vendor, shopPlan)
+
+			// Close vendor unless explicitly kept open
+			if !(idx == 0 && keepVendorOpen && vendor == vendorNPC) {
+				step.CloseAllMenus()
+				ctx.RefreshGameData()
+			}
+		}
+
+		// ✅ Store fingerprint AFTER all vendors
+		lastVendorInventoryItems = currentItems
+		ctx.Logger.Debug(
+			"Shopping completed, stored refill vendor inventory items",
+			slog.Int("itemCount", len(lastVendorInventoryItems)),
+		)
+	}
+
+	// Safety close
 	step.CloseAllMenus()
 	ctx.RefreshGameData()
 
-	// ---------- SHOP ALL VENDORS IN CURRENT TOWN ----------
-	shopPlan := NewTownActionShoppingPlan()
-		
-
-	for vendor, vendorArea := range VendorLocationMap {
-	if vendorArea != currentArea {
-		continue
-	}
-
-	ctx.Logger.Debug("Shopping vendor", slog.Int("vendor", int(vendor)))
-
-// 🔑 SPECIAL CASE: Walk to Hratli first
-	if vendor == npc.Hratli {
-		walkToHratli(ctx)
-	}
-
-	// 🔑 SPECIAL CASE: Walk to Larzuk first
-	if vendor == npc.Larzuk {
-		walkToLarzuk(ctx)
-	}
-	
-	// 🔑 SPECIAL CASE: Walk to Larzuk first
-	if vendor == npc.Drehya {
-		walkToAnya(ctx)
-	}
-
-	if err := InteractNPC(vendor); err != nil {
-		ctx.Logger.Warn("Failed to interact vendor", slog.Any("err", err))
-		continue
-	}
-
-		switch vendor {
-case npc.Jamella, npc.Halbu:
-	ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
-
-case npc.Asheara:
-	ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_DOWN, win.VK_RETURN)
-
-default:
-	ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+	return nil
 }
 
-		ctx.RefreshGameData()
-		scanAndPurchaseItems(vendor, shopPlan)
 
-		step.CloseAllMenus()
-		ctx.RefreshGameData()
+// getVendorInventoryItems returns a list of item identifiers from the vendor
+func getVendorInventoryItems(ctx *context.Status) []string {
+	vendorItems := ctx.Data.Inventory.ByLocation(item.LocationVendor)
+	
+	items := make([]string, 0, len(vendorItems))
+	for _, itm := range vendorItems {
+		// Create a unique identifier for each item
+		// Using name + quality + position to ensure uniqueness
+		identifier := string(itm.Name) + "|" + string(itm.Quality) + "|" + 
+			string(rune(itm.Position.X)) + "," + string(rune(itm.Position.Y))
+		items = append(items, identifier)
 	}
+	
+	return items
+}
 
-	return nil
+// allItemsStillExist checks if all items from the original list exist in the current list
+func allItemsStillExist(originalItems []string, currentItems []string) bool {
+	// If no original items stored (first visit), return false to trigger shopping
+	if originalItems == nil || len(originalItems) == 0 {
+		return false
+	}
+	
+	// Create a map of current items for faster lookup
+	currentItemsMap := make(map[string]bool)
+	for _, item := range currentItems {
+		currentItemsMap[item] = true
+	}
+	
+	// Check if all original items still exist
+	for _, originalItem := range originalItems {
+		if !currentItemsMap[originalItem] {
+			// An original item is missing - inventory has changed
+			return false
+		}
+	}
+	
+	// All original items still exist
+	return true
 }
 
 func BuyAtVendor(vendor npc.ID, items ...VendorItemRequest) error {

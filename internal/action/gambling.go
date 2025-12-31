@@ -23,34 +23,79 @@ var sharedStashesEmpty = false
 
 // Gamble initiates the gambling process if personal stash gold is high enough
 func Gamble() error {
-	ctx := context.Get()
-	ctx.SetLastAction("Gamble")
+    ctx := context.Get()
+    ctx.SetLastAction("Gamble")
 
-	if !ctx.CharacterCfg.Gambling.Enabled {
-		return nil
-	}
-//time.Sleep(5000 * time.Millisecond)
-	for {
-		stashedGold, _ := ctx.Data.PlayerUnit.FindStat(stat.StashGold, 0)
-		if stashedGold.Value < 2500000 {
-			ctx.Logger.Info("Not enough stash gold to gamble, trying to refill from shared stash")
+    if !ctx.CharacterCfg.Gambling.Enabled {
+        return nil
+    }
 
-			withdrawGoldFromSharedStash()
-			stashAllGold()
+    const minStashGold = 2500000
 
-			stashedGold, _ = ctx.Data.PlayerUnit.FindStat(stat.StashGold, 0)
-			if stashedGold.Value < 2500000 {
-				ctx.Logger.Info("Still not enough gold after refill, stopping gambling")
-				return nil
-			}
-		}
+    if ctx.CharacterCfg.Gambling.GambleFromSharedStashes && ctx.CharacterCfg.Gambling.Enabled {
+        // Shared stash gambling logic
+        for {
+            stashedGold, _ := ctx.Data.PlayerUnit.FindStat(stat.StashGold, 0)
 
-		if err := runGamblingProcess(); err != nil {
-			return err
-		}
+            if stashedGold.Value < minStashGold {
+                ctx.Logger.Info("Not enough stash gold to gamble, trying to refill from shared stash")
 
-		time.Sleep(500 * time.Millisecond)
-	}
+                withdrawGoldFromSharedStash()
+                stashAllGold()
+
+                stashedGold, _ = ctx.Data.PlayerUnit.FindStat(stat.StashGold, 0)
+                if stashedGold.Value < minStashGold {
+                    ctx.Logger.Info("Still not enough gold after refill, stopping gambling")
+                    return nil
+                }
+            }
+
+            if err := runGamblingProcess(); err != nil {
+                return err
+            }
+
+// ✅ Reset shared stash empty flag after gambling
+if sharedStashesEmpty {
+    ctx.Logger.Debug("Resetting sharedStashesEmpty after gambling")
+    sharedStashesEmpty = false
+}
+
+            break // stop loop after one gambling run
+        }
+    } else {
+        // Original gambling logic without shared stash
+        stashedGold, _ := ctx.Data.PlayerUnit.FindStat(stat.StashGold, 0)
+
+        if stashedGold.Value >= minStashGold {
+            ctx.Logger.Info("Time to gamble! Visiting vendor...")
+
+            vendorNPC := town.GetTownByArea(ctx.Data.PlayerUnit.Area).GamblingNPC()
+
+            // Fix for Anya position
+            if vendorNPC == npc.Drehya {
+                _ = MoveToCoords(data.Position{
+                    X: 5107,
+                    Y: 5119,
+                })
+            }
+
+            InteractNPC(vendorNPC)
+            // Jamella gamble button is the second one
+            if vendorNPC == npc.Jamella {
+                ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+            } else {
+                ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_DOWN, win.VK_RETURN)
+            }
+
+            if !ctx.Data.OpenMenus.NPCShop {
+                return errors.New("failed opening gambling window")
+            }
+
+            return gambleItems()
+        }
+    }
+
+    return nil
 }
 
 func runGamblingProcess() error {
@@ -81,61 +126,118 @@ func runGamblingProcess() error {
 
 // GambleSingleItem gambles for specific items and stops if successful
 func GambleSingleItem(items []string, desiredQuality item.Quality) error {
-	ctx := context.Get()
-	ctx.SetLastAction("GambleSingleItem")
+    ctx := context.Get()
+    ctx.SetLastAction("GambleSingleItem")
 
-	charGold := ctx.Data.PlayerUnit.TotalPlayerGold()
-	var itemBought data.Item
+    const minGold = 150000
+    var itemBought data.Item
 
-	if charGold < 150000 {
-		return errors.New("not enough gold to gamble")
-	}
+    // Check if we should gamble from shared stash
+    if ctx.CharacterCfg.Gambling.Enabled && ctx.CharacterCfg.Gambling.GambleFromSharedStashes {
+        for {
+            charGold := ctx.Data.PlayerUnit.TotalPlayerGold()
 
-	ctx.Logger.Info("Gambling for items", slog.Any("items", items))
+            if charGold < minGold {
+                ctx.Logger.Info("Not enough gold to gamble, trying to refill from shared stash")
+                withdrawGoldFromSharedStash()
+                stashAllGold()
 
-	vendorNPC := town.GetTownByArea(ctx.Data.PlayerUnit.Area).GamblingNPC()
+                charGold = ctx.Data.PlayerUnit.TotalPlayerGold()
+                if charGold < minGold {
+                    ctx.Logger.Info("Still not enough gold after refill, stopping gambling")
+                    return nil
+                }
+            }
 
-	if vendorNPC == npc.Drehya {
-		_ = MoveToCoords(data.Position{X: 5107, Y: 5119})
-	}
+            // Run the normal single-item gambling loop
+            if err := runGambleSingleItemProcess(items, desiredQuality, &itemBought); err != nil {
+                return err
+            }
 
-	InteractNPC(vendorNPC)
+            break // stop loop after one run
+        }
 
-	if vendorNPC == npc.Jamella {
-		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
-	} else {
-		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_DOWN, win.VK_RETURN)
-	}
+    } else if ctx.CharacterCfg.Gambling.Enabled && !ctx.CharacterCfg.Gambling.GambleFromSharedStashes {
+        // Original gambling logic without shared stash
+        charGold := ctx.Data.PlayerUnit.TotalPlayerGold()
+        if charGold >= minGold {
+            return runGambleSingleItemProcess(items, desiredQuality, &itemBought)
+        }
+    }
 
-	if !ctx.Data.OpenMenus.NPCShop {
-		return errors.New("failed opening gambling window")
-	}
+    return nil
+}
 
-	for {
-		if itemBought.Name != "" {
-			processBoughtItem(&itemBought)
-		}
+// Helper to avoid duplicating the gambling loop
+func runGambleSingleItemProcess(items []string, desiredQuality item.Quality, itemBought *data.Item) error {
+    ctx := context.Get()
 
-		if ctx.Data.PlayerUnit.TotalPlayerGold() < 1000000 {
-			return errors.New("gold is below 1000000, stopping gamble")
-		}
+    ctx.Logger.Info("Gambling for items", slog.Any("items", items))
 
-		itemFound := false
-		for _, itmName := range items {
-			itm, found := ctx.Data.Inventory.Find(item.Name(itmName), item.LocationVendor)
-			if found {
-				town.BuyItem(itm, 1)
-				itemBought = itm
-				itemFound = true
-				break
-			}
-		}
+    vendorNPC := town.GetTownByArea(ctx.Data.PlayerUnit.Area).GamblingNPC()
+    if vendorNPC == npc.Drehya {
+        _ = MoveToCoords(data.Position{X: 5107, Y: 5119})
+    }
+    InteractNPC(vendorNPC)
 
-		if !itemFound {
-			refreshGamblingWindow(ctx)
-			utils.Sleep(500)
-		}
-	}
+    if vendorNPC == npc.Jamella {
+        ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+    } else {
+        ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_DOWN, win.VK_RETURN)
+    }
+
+    if !ctx.Data.OpenMenus.NPCShop {
+        return errors.New("failed opening gambling window")
+    }
+
+    for {
+        if itemBought.Name != "" {
+            for _, itm := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+                if itm.UnitID == itemBought.UnitID {
+                    *itemBought = itm
+                    ctx.Logger.Debug("Gambled for item", slog.Any("item", *itemBought))
+                    break
+                }
+            }
+
+            if _, result := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAll(*itemBought); result == nip.RuleResultFullMatch {
+                ctx.Logger.Info("Found item matching nip rules, will be kept", slog.Any("item", *itemBought))
+                *itemBought = data.Item{}
+                continue
+            } else {
+                if itemBought.Quality == desiredQuality {
+                    ctx.Logger.Info("Found item matching desired quality, will be kept", slog.Any("item", *itemBought))
+                    return step.CloseAllMenus()
+                } else {
+                    town.SellItem(*itemBought)
+                    *itemBought = data.Item{}
+                }
+            }
+        }
+
+        if ctx.Data.PlayerUnit.TotalPlayerGold() < 150000 {
+            return errors.New("gold is below 150000, stopping gamble")
+        }
+
+        for _, itmName := range items {
+            itm, found := ctx.Data.Inventory.Find(item.Name(itmName), item.LocationVendor)
+            if found {
+                town.BuyItem(itm, 1)
+                *itemBought = itm
+                break
+            }
+        }
+
+        if itemBought.Name == "" {
+            ctx.Logger.Debug("Desired items not found in gambling window, refreshing...", slog.Any("items", items))
+            if ctx.Data.LegacyGraphics {
+                ctx.HID.Click(game.LeftButton, ui.GambleRefreshButtonXClassic, ui.GambleRefreshButtonYClassic)
+            } else {
+                ctx.HID.Click(game.LeftButton, ui.GambleRefreshButtonX, ui.GambleRefreshButtonY)
+            }
+            utils.Sleep(500)
+        }
+    }
 }
 
 func gambleItems() error {
@@ -308,7 +410,7 @@ time.Sleep(5000 * time.Millisecond)
 		}
 
 		if emptyTabs >= 3 {
-			ctx.Logger.Info("All shared stash tabs are empty, will skip checking them in future")
+			ctx.Logger.Info("All shared stash tabs are empty, will skip checking them until we gamble next time")
 			sharedStashesEmpty = true
 			return
 		}
@@ -370,6 +472,7 @@ func stashAllGold() {
 func safeStashGold() bool {
 	ctx := context.Get()
 
+	// Stash must be open
 	if !ctx.Data.OpenMenus.Stash {
 		return false
 	}
@@ -378,10 +481,15 @@ func safeStashGold() bool {
 	stashGold, _ := ctx.Data.PlayerUnit.FindStat(stat.StashGold, 0)
 	if stashGold.Value >= 2500000 {
 		ctx.Logger.Info("Personal stash full, stopping gold deposit")
+
+		// 🔑 IMPORTANT: clean up UI state
+		step.CloseAllMenus()
+		ctx.RefreshGameData()
+
 		return false
 	}
 
-	beforeGold := stashGold
+	beforeGold := stashGold.Value
 
 	// Deposit gold
 	if ctx.Data.LegacyGraphics {
@@ -398,5 +506,5 @@ func safeStashGold() bool {
 	ctx.RefreshGameData()
 
 	afterGold, _ := ctx.Data.PlayerUnit.FindStat(stat.StashGold, 0)
-	return afterGold.Value > beforeGold.Value
+	return afterGold.Value > beforeGold
 }

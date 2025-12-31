@@ -29,6 +29,7 @@
 {{ define "cows" }}
     <fieldset>
         <label><input type="checkbox" name="gameCowsOpenChests" {{ if .Config.Game.Cows.OpenChests }}checked{{ end }}> Open chests</label>
+		<label><input type="checkbox" name="craftWirtsLeg" title="Cows will run if Wirt's Leg found has 0 Sockets and if the Crafted Wirt's Leg does not match any of your NIP. Will only skip cows while waiting for recipe ingredients" {{ if .Config.Game.Cows.CraftWirtsLeg }}checked{{ end }}> Craft Wirt's Leg</label>
     </fieldset>
 {{ end }}
 

@@ -134,7 +134,7 @@ func (a Cows) preparePortal() error {
 	if !found {
 		return nil
 	}
-
+if a.ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
 	// 🔴 MAGIC LEG — always stash & skip
 	if leg.Quality == item.QualityMagic {
 		a.ctx.Logger.Info("Magic Wirt's Leg detected — stashing and skipping cows")
@@ -170,7 +170,7 @@ func (a Cows) preparePortal() error {
 			return ErrSkipCowRun
 		}
 	}
-
+}
 	// ===== Tome handling =====
 
 	var spareTome data.Item
@@ -254,14 +254,23 @@ func (a Cows) hasWristAndBookInCube() bool {
 	var hasLeg, hasTome bool
 
 	for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationCube) {
-		if itm.Name == "WirtsLeg" && itm.Quality < item.QualityMagic {
-			hasLeg = true
-		}
-		if itm.Name == item.TomeOfTownPortal {
-			hasTome = true
-		}
-	}
-	return hasLeg && hasTome
+	if a.ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
+        if itm.Name == "WirtsLeg" && itm.Quality < item.QualityMagic {
+            hasLeg = true
+        }
+    } else {
+        // If CraftWirtsLeg is false, just check if any Wirt's Leg exists
+        if itm.Name == "WirtsLeg" {
+            hasLeg = true
+        }
+    }
+
+    if itm.Name == item.TomeOfTownPortal {
+        hasTome = true
+    }
+}
+
+return hasLeg && hasTome
 }
 
 func (a Cows) hasWirtsLeg() bool {

@@ -125,7 +125,15 @@ func PreRun(firstRun bool) error {
 
 	CubeRecipes()
 	MakeRunewords()
-
+	
+	
+// --- New addition: ensure upgrade gem is corner-safe for all characters ---
+	ctx.Logger.Info("Ensuring upgrade gem is corner-safe...")
+	EnsureUpgradeGemCornerSafe()
+	ctx.PauseIfNotPriority()
+	ctx.Logger.Info("Upgrade gem placement complete.")
+	
+	
 	if isLevelingChar {
 		OptimizeInventory(item.LocationInventory)
 	}
@@ -151,76 +159,125 @@ func PreRun(firstRun bool) error {
 func InRunReturnTownRoutine() error {
 	ctx := context.Get()
 
+	ctx.Logger.Info("Pausing if not priority at start of town routine...")
 	ctx.PauseIfNotPriority()
 
+	// Return to town
+	ctx.Logger.Info("Returning to town...")
 	if err := ReturnTown(); err != nil {
 		return fmt.Errorf("failed to return to town: %w", err)
 	}
 
-	// Validate we're actually in town before proceeding
+	// Validate we're actually in town
 	if !ctx.Data.PlayerUnit.Area.IsTown() {
 		return fmt.Errorf("failed to verify town location after portal")
 	}
+	ctx.Logger.Info("Confirmed character is in town.")
 
+	// Core town preparations
 	step.SetSkill(skill.Vigor)
+	ctx.Logger.Info("Recovering corpse...")
 	RecoverCorpse()
-	ctx.PauseIfNotPriority() // Check after RecoverCorpse
-	ManageBelt()
-	ctx.PauseIfNotPriority() // Check after ManageBelt
-	RefillBeltFromInventory()
-	ctx.PauseIfNotPriority() // Check after RefillBeltFromInventory
+	ctx.PauseIfNotPriority()
 
-	// Let's stash items that need to be left unidentified
+	ctx.Logger.Info("Managing belt...")
+	ManageBelt()
+	ctx.PauseIfNotPriority()
+
+	ctx.Logger.Info("Refilling belt from inventory...")
+	RefillBeltFromInventory()
+	ctx.PauseIfNotPriority()
+
+	// Stash items that need to remain unidentified
 	if ctx.CharacterCfg.Game.UseCainIdentify && HaveItemsToStashUnidentified() {
+		ctx.Logger.Info("Stashing items to leave unidentified...")
 		Stash(false)
-		ctx.PauseIfNotPriority() // Check after Stash
+		ctx.PauseIfNotPriority()
 	}
 
+	ctx.Logger.Info("Identifying all items...")
 	IdentifyAll(false)
 
-	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
-	if ctx.CharacterCfg.Game.Leveling.AutoEquip && isLevelingChar {
+	// Auto-equip for leveling characters
+	if _, isLevelingChar := ctx.Char.(context.LevelingCharacter); ctx.CharacterCfg.Game.Leveling.AutoEquip && isLevelingChar {
+		ctx.Logger.Info("Auto-equipping items for leveling character...")
 		AutoEquip()
-		ctx.PauseIfNotPriority() // Check after AutoEquip
+		ctx.PauseIfNotPriority()
 	}
-	CubeRecipes()
-	ctx.PauseIfNotPriority() // Check after CubeRecipes
-	VendorRefill(false, true)
-	ctx.PauseIfNotPriority() // Check after VendorRefill
-	Stash(false)
-	ctx.PauseIfNotPriority() // Check after Stash
-	Gamble()
-	ctx.PauseIfNotPriority() // Check after Gamble
-	Stash(false)
-	ctx.PauseIfNotPriority() // Check after Stash
-	MakeRunewords()
 
+	// Vendor interactions and stash management
+	ctx.Logger.Info("Refilling vendor and selling items...")
+	VendorRefill(false, true)
+	ctx.PauseIfNotPriority()
+
+	ctx.Logger.Info("Stashing items after vendor...")
+	Stash(false)
+	ctx.PauseIfNotPriority()
+
+	ctx.Logger.Info("Gambling...")
+	Gamble()
+	ctx.PauseIfNotPriority()
+
+	ctx.Logger.Info("Stashing items after gambling...")
+	Stash(false)
+	ctx.PauseIfNotPriority()
+
+	ctx.Logger.Info("Performing cube recipes...")
+	CubeRecipes()
+	ctx.PauseIfNotPriority()
+
+	ctx.Logger.Info("Making runewords...")
+	MakeRunewords()
+	ctx.PauseIfNotPriority()
+
+	// Leveling related checks
 	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
+		ctx.Logger.Info("Ensuring stat points allocation...")
 		EnsureStatPoints()
-		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
+		ctx.PauseIfNotPriority()
+
+		ctx.Logger.Info("Ensuring skill points allocation...")
 		EnsureSkillPoints()
-		ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
+		ctx.PauseIfNotPriority()
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {
+		ctx.Logger.Info("Ensuring skill key bindings...")
 		EnsureSkillBindings()
-		ctx.PauseIfNotPriority() // Check after EnsureSkillBindings
+		ctx.PauseIfNotPriority()
 	}
 
+	// NPC interactions
+	ctx.Logger.Info("Healing at NPC...")
 	HealAtNPC()
-	ctx.PauseIfNotPriority() // Check after HealAtNPC
-	ReviveMerc()
-	ctx.PauseIfNotPriority() // Check after ReviveMerc
-	HireMerc()
-	ctx.PauseIfNotPriority() // Check after HireMerc
-	Repair()
-	ctx.PauseIfNotPriority() // Check after Repair
+	ctx.PauseIfNotPriority()
 
+	ctx.Logger.Info("Reviving mercenary if needed...")
+	ReviveMerc()
+	ctx.PauseIfNotPriority()
+
+	ctx.Logger.Info("Hiring mercenary if needed...")
+	HireMerc()
+	ctx.PauseIfNotPriority()
+
+	ctx.Logger.Info("Repairing equipment...")
+	Repair()
+	ctx.PauseIfNotPriority()
+
+	// --- New addition: ensure upgrade gem is corner-safe for all characters ---
+	ctx.Logger.Info("Ensuring upgrade gem is corner-safe...")
+	EnsureUpgradeGemCornerSafe()
+	ctx.PauseIfNotPriority()
+	ctx.Logger.Info("Upgrade gem placement complete.")
+
+	// Portal / town exit
 	if ctx.CharacterCfg.Companion.Leader {
+		ctx.Logger.Info("Using portal as town leader...")
 		UsePortalInTown()
 		utils.Sleep(500)
 		return OpenTPIfLeader()
 	}
 
+	ctx.Logger.Info("Using portal to exit town...")
 	return UsePortalInTown()
 }

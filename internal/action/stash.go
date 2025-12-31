@@ -19,6 +19,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
+	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/lxn/win"
 )
 
@@ -164,6 +165,81 @@ func stashInventory(firstRun bool) {
 	currentTab := startTab
 	SwitchStashTab(currentTab)
 
+// ------------------------------------------------------------------
+	// ENSURE GEM TO UPGRADE EXISTS IN INVENTORY
+	// ------------------------------------------------------------------
+	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
+
+		// Safety: stash must be open
+		if !ctx.Data.OpenMenus.Stash {
+			ctx.Logger.Warn("Stash not open while trying to pull gem for upgrade")
+		} else {
+
+			gemName := item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade)
+
+			// Refresh before checking inventory / stash
+			ctx.RefreshGameData()
+
+			// Count gem in inventory
+			invCount := 0
+			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+				if it.Name == gemName {
+					invCount++
+				}
+			}
+
+			// If none in inventory, pull ONE from stash (prefer shared stash)
+			if invCount == 0 {
+
+				ctx.Logger.Debug(
+					"No gem to upgrade in inventory, searching stash",
+					slog.String("gem", string(gemName)),
+				)
+
+				stashedItems := ctx.Data.Inventory.ByLocation(
+					item.LocationSharedStash,
+					item.LocationStash,
+				)
+
+				for _, it := range stashedItems {
+					if it.Name != gemName {
+						continue
+					}
+
+					// Switch to correct stash tab
+					SwitchStashTab(it.Location.Page + 1)
+					utils.PingSleep(utils.Medium, 200)
+
+					// Move gem to inventory
+					screenPos := ui.GetScreenCoordsForItem(it)
+					ctx.HID.MovePointer(screenPos.X, screenPos.Y)
+					ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
+					utils.PingSleep(utils.Medium, 500)
+
+					// Refresh and verify move
+					ctx.RefreshGameData()
+
+					found := false
+					for _, it2 := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+						if it2.Name == gemName {
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						ctx.Logger.Warn("FAILED TO MOVE " + ctx.CharacterCfg.Inventory.GemToUpgrade + " FROM STASH TO INVENTORY")
+						continue
+					}
+
+					ctx.Logger.Debug("MOVED " + ctx.CharacterCfg.Inventory.GemToUpgrade + " FROM STASH TO INVENTORY FOR SHRINE UPGRADE")
+
+					break // ONLY take one
+				}
+			}
+		}
+	}
+
 	// Make a copy of inventory items to avoid issues if the slice changes during iteration
 	itemsToProcess := make([]data.Item, 0)
 	for _, i := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
@@ -198,7 +274,7 @@ func stashInventory(firstRun bool) {
 		if (i.Name == "grandcharm" || i.Name == "smallcharm" || i.Name == "largecharm") && i.Quality == item.QualityUnique {
 			targetStartTab = 2 // Force shared stash for unique charms
 		}
-		if i.Name == "wirt'sleg" || i.Name == "WirtsLeg" {
+		if i.Name == "WirtsLeg" {
 			targetStartTab = 1 // Force personal stash for Wirt's Leg
 		}
 
@@ -298,6 +374,14 @@ func stashInventory(firstRun bool) {
 }
 
 
+
+
+
+
+
+
+
+
 // shouldStashIt now returns stashIt, dropIt, matchedRule, ruleFile
 func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	ctx := context.Get()
@@ -321,31 +405,31 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	
 	
 	
-	
+	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
 	// Count flawless skulls currently in inventory
 invCount := 0
 
 // Loop through all items in the inventory to count the flawless skulls
 for _, itemInInventory := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-    if itemInInventory.Name == "FlawlessSkull" {
+    if itemInInventory.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
         invCount++
     }
 }
 
 // Check if the current item is a flawless skull
-if i.Name == "FlawlessSkull" {
+if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
     if invCount <= 1 {
         // If it's the first flawless skull, KEEP it in inventory
-        ctx.Logger.Debug("KEEPING FIRST FLAWLESS SKULL IN INVENTORY")
+        ctx.Logger.Debug("KEEPING GEM IN INVENTORY TO UPGRADE WITH SHRINE", "gem", ctx.CharacterCfg.Inventory.GemToUpgrade)
         return false, false, "", "" // do NOT stash, do NOT drop
     } else {
         // If it's an extra flawless skull, STASH it, NEVER drop it
-        ctx.Logger.Debug("EXTRA SKULL DETECTED, STASHING THIS ONE")
+        ctx.Logger.Debug("EXTRA " + ctx.CharacterCfg.Inventory.GemToUpgrade + " DETECTED, STASHING THIS ONE")
         return true, false, "", "" // stash=true, drop=false
     }
 }
 
-
+	}
 
 	if i.Name == "TomeOfTownPortal" || i.Name == "TomeOfIdentify" || i.Name == "Key" {
 		fmt.Printf("DEBUG: ABSOLUTELY PREVENTING stash for '%s' (Quest/Special item exclusion).\n", i.Name)
@@ -508,21 +592,25 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 
 	dropLocation := "unknown"
 
-	// log the contents of picked up items
-	ctx.Logger.Debug(fmt.Sprintf("Checking PickedUpItems for %s (UnitID: %d)", i.Name, i.UnitID)) // Changed to Debug as this is internal state
-	if _, found := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]; found {
-		areaId := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]
-		dropLocation = area.ID(areaId).Area().Name // Corrected to use areaId variable
-
-		if slices.Contains(ctx.Data.TerrorZones, area.ID(areaId)) {
-			dropLocation += " (terrorized)"
-		}
-	}
+// Check if the item was picked up in-game
+if areaId, found := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]; found {
+    dropLocation = area.ID(areaId).Area().Name
+    if slices.Contains(ctx.Data.TerrorZones, area.ID(areaId)) {
+        dropLocation += " (terrorized)"
+    }
+} else if vendorName, found := ctx.CurrentGame.PickedUpItemsVendor[int(i.UnitID)]; found {
+    // Item was bought from a vendor
+    dropLocation = vendorName
+}
 
 	// Don't log items that we already have in inventory during first run or that we don't want to notify about (gems, low runes .. etc)
-	if !skipLogging && shouldNotifyAboutStashing(i) && ruleFile != "" {
-		event.Send(event.ItemStashed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%d] stashed", i.Name, i.Quality), screenshot), data.Drop{Item: i, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation}))
-	}
+if !skipLogging && shouldNotifyAboutStashing(i) && ruleFile != "" {
+    if config.Koolo != nil && len(config.Koolo.Discord.MentionID) > 0 {
+        event.Send(event.ItemStashed(event.WithScreenshot(ctx.Name, fmt.Sprintf("%s Item %s [%s] stashed", strings.Join(func() []string { m := []string{}; for _, id := range config.Koolo.Discord.MentionID { if id != "" { m = append(m, "<@" + id + ">") } }; return m }(), " "), i.Name, i.Quality.ToString()), screenshot), data.Drop{Item: i, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation}))
+    } else {
+        event.Send(event.ItemStashed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] stashed", i.Name, i.Quality.ToString()), screenshot), data.Drop{Item: i, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation}))
+    }
+}
 
 	return true // Item successfully stashed
 }
@@ -724,4 +812,126 @@ func TakeItemsFromStash(stashedItems []data.Item) error {
 	}
 
 	return nil
+}
+
+// New function dedicated to upgrading gem corner safety
+func EnsureUpgradeGemCornerSafe() {
+	ctx := context.Get()
+	ctx.Logger.Debug("EnsureUpgradeGemCornerSafe called")
+
+	gemName := ctx.CharacterCfg.Inventory.GemToUpgrade
+	if gemName == "None" {
+		ctx.Logger.Debug("No gem to upgrade configured, skipping")
+		return
+	}
+
+	items := ctx.Data.Inventory.ByLocation(item.LocationInventory)
+	ctx.Logger.Debug("Scanning inventory for upgrade gem", "gem", gemName, "itemCount", len(items))
+
+	var gem *data.Item
+	for i := range items {
+		if items[i].Name == item.Name(gemName) && !IsInLockedInventorySlot(items[i]) {
+			gem = &items[i]
+			ctx.Logger.Debug("Upgrade gem found", "x", gem.Position.X, "y", gem.Position.Y)
+			break
+		}
+	}
+
+	if gem == nil {
+		ctx.Logger.Debug("No upgrade gem found or gem in locked slot")
+		return
+	}
+
+	inv := NewInventoryMask(10, 4)
+
+	// Mark protected slots
+	for y := 0; y < 4; y++ {
+		for x := 0; x < 10; x++ {
+			if ctx.CharacterCfg.Inventory.InventoryLock[y][x] == 0 {
+				inv.Grid[y][x] = true
+			}
+		}
+	}
+	ctx.Logger.Debug("Protected inventory slots marked in mask")
+
+	// Mark all other items
+	for _, it := range items {
+		if it.ID == gem.ID {
+			continue
+		}
+		w, h := it.Desc().InventoryWidth, it.Desc().InventoryHeight
+		if it.Position.X >= 0 && it.Position.Y >= 0 {
+			inv.Place(it.Position.X, it.Position.Y, w, h)
+		}
+	}
+	ctx.Logger.Debug("Inventory mask populated with existing items (excluding gem)")
+
+	// Check if gem is already corner-safe
+	if isCornerSafeInMask(gem.Position.X, gem.Position.Y, inv) {
+		ctx.Logger.Debug("Upgrade gem already corner-safe", "x", gem.Position.X, "y", gem.Position.Y)
+		return
+	}
+
+	// Preferred corners
+	corners := []data.Position{
+		{X: 0, Y: 0}, {X: 9, Y: 0},
+		{X: 0, Y: 3}, {X: 9, Y: 3},
+	}
+
+	var target *data.Position
+	ctx.Logger.Debug("Searching for available corner for upgrade gem")
+	for _, c := range corners {
+		if inv.CanPlace(c.X, c.Y, gem.Desc().InventoryWidth, gem.Desc().InventoryHeight) {
+			ctx.Logger.Debug("Found valid corner for gem", "targetX", c.X, "targetY", c.Y)
+			target = &c
+			break
+		}
+	}
+
+	if target == nil {
+		ctx.Logger.Debug("No valid corner available for upgrade gem, skipping move")
+		return
+	}
+
+	// Move gem
+	if !ctx.Data.OpenMenus.Inventory {
+		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+		utils.PingSleep(utils.Light, 200)
+	}
+
+	ctx.Logger.Debug("Moving upgrade gem to corner",
+		"fromX", gem.Position.X, "fromY", gem.Position.Y,
+		"toX", target.X, "toY", target.Y,
+	)
+
+	screenPos := ui.GetScreenCoordsForItem(*gem)
+	ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
+	utils.PingSleep(utils.Light, 200)
+
+	newPos := ui.GetScreenCoordsForInventoryPosition(*target, item.LocationInventory)
+	ctx.HID.Click(game.LeftButton, newPos.X, newPos.Y)
+	utils.PingSleep(utils.Light, 200)
+}
+
+func isCornerSafeInMask(x, y int, inv *InventoryMask) bool {
+	blocked := 0
+
+	// Left
+	if x == 0 || inv.Grid[y][x-1] {
+		blocked++
+	}
+	// Right
+	if x == inv.Width-1 || inv.Grid[y][x+1] {
+		blocked++
+	}
+	// Up
+	if y == 0 || inv.Grid[y-1][x] {
+		blocked++
+	}
+	// Down
+	if y == inv.Height-1 || inv.Grid[y+1][x] {
+		blocked++
+	}
+
+	return blocked >= 2
 }

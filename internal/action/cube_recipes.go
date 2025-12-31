@@ -536,6 +536,16 @@ var (
 	}
 )
 
+func isRecipeEnabled(name string, recipes []string) bool {
+    for _, r := range recipes {
+        if r == name {
+            return true
+        }
+    }
+    return false
+}
+
+
 func CubeRecipes() error {
 	ctx := context.Get()
 	ctx.SetLastAction("CubeRecipes")
@@ -632,6 +642,7 @@ func CubeRecipes() error {
 		stashingGrandCharm = true
 	} else {
 		DropInventoryItem(it)
+		ctx.Logger.Debug("DROPPING ITEMS NOT PART OF GRANDCHARM RECIPE")
 		utils.Sleep(500)
 	}
 
@@ -657,11 +668,14 @@ func CubeRecipes() error {
 		stashingMonarch = true
 	} else {
 		DropInventoryItem(it)
+		ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
 		utils.Sleep(500)
 	}
 
 } else {
 	DropInventoryItem(it)
+	ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
+
 	utils.Sleep(500)
 }
 					}
@@ -742,14 +756,13 @@ if recipe.Name == "Flawless Topaz" {
     }
 }
 
-// --- SPECIAL CASE: WAIT UNTIL BOT HAS RECIPES FOR BLOOD HELM AND CASTER AMULET BEFORE CRAFTING. THAT WAY WE ALWAYS FORCE TO CRAFT BOTH RECIPES
-if recipe.Name == "Blood Helm" || recipe.Name == "Caster Amulet" {
+// --- SPECIAL CASE: WAIT UNTIL BOT HAS 2x Ral Runes, 2x Jewels, 2x Perfect Amethysts TO BEGIN THE CASTER AMULET RECIPE. THIS WILL GUARANTEE BLOOD HELM TO HAVE 1x Ral, 1x Jewel AND WILL GUARANTEE CASTER BELT TO HAVE 1x Perfect Amethyst, 1x Jewel
+if recipe.Name == "Caster Amulet" && isRecipeEnabled("Caster Amulet", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) && isRecipeEnabled("Blood Helm (Armet)", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) && isRecipeEnabled("Caster Belt (SharkskinBelt)", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) {
+
 
     usableJewelCount := 0
     ralCount := 0
-    hasPerfectAmethyst := false
-    hasPerfectRuby := false
-    hasMagicArmet := false
+    perfectAmethystCount := 0
 
     allItems := ctx.Data.Inventory.ByLocation(
         item.LocationInventory,
@@ -758,7 +771,6 @@ if recipe.Name == "Blood Helm" || recipe.Name == "Caster Amulet" {
     )
 
     for _, it := range allItems {
-
         switch it.Name {
 
         case "Jewel":
@@ -771,53 +783,35 @@ if recipe.Name == "Blood Helm" || recipe.Name == "Caster Amulet" {
             ralCount++
 
         case "PerfectAmethyst":
-            hasPerfectAmethyst = true
-
-        case "PerfectRuby":
-            hasPerfectRuby = true
-
-        case "Armet":
-            if it.Quality == item.QualityMagic {
-                if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); res != nip.RuleResultFullMatch {
-                    hasMagicArmet = true
-                }
-            }
+            perfectAmethystCount++
         }
     }
 
-    readyForBoth :=
-        usableJewelCount >= 2 &&
+    readyForCrafting :=
+        usableJewelCount >= 3 &&
         ralCount >= 2 &&
-        hasPerfectAmethyst &&
-        hasPerfectRuby &&
-        hasMagicArmet
+        perfectAmethystCount >= 2
 
-    if !readyForBoth {
+    if !readyForCrafting {
         missing := []string{}
 
-if usableJewelCount < 2 {
-    missing = append(missing, fmt.Sprintf("Jewels (%d/2, NIP-safe)", usableJewelCount))
-}
-if ralCount < 2 {
-    missing = append(missing, fmt.Sprintf("Ral Runes (%d/2)", ralCount))
-}
-if !hasPerfectAmethyst {
-    missing = append(missing, "Perfect Amethyst (1)")
-}
-if !hasPerfectRuby {
-    missing = append(missing, "Perfect Ruby (1)")
-}
-if !hasMagicArmet {
-    missing = append(missing, "Magic Armet (non-NIP)")
-}
+        if usableJewelCount < 3 {
+            missing = append(missing, fmt.Sprintf("Jewels (%d/3, NIP-safe)", usableJewelCount))
+        }
+        if ralCount < 2 {
+            missing = append(missing, fmt.Sprintf("Ral Runes (%d/2)", ralCount))
+        }
+        if perfectAmethystCount < 2 {
+            missing = append(missing, fmt.Sprintf("Perfect Amethysts (%d/2)", perfectAmethystCount))
+        }
 
-ctx.Logger.Debug(
-    "Deferring Blood Helm / Caster Amulet – missing: " + strings.Join(missing, ", "),
+        ctx.Logger.Debug(
+            "Deferring Caster Amulet – missing: " + strings.Join(missing, ", "),
         )
         return nil, false
     }
-}
 
+}
 
 
 

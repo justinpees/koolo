@@ -58,10 +58,19 @@ func InteractNPC(npcID npc.ID) error {
 			continue
 		}
 
-		distance := ctx.PathFinder.DistanceFromMe(townNPC.Position)
-		if distance > maxDistance {
-			return fmt.Errorf("NPC %d is too far away (distance: %d)", npcID, distance)
-		}
+if npcID == npc.Malah {
+    target := data.Position{X: 5071, Y: 5023}
+    MoveTo(target) // <-- just pass the position directly
+} else {
+    distance := ctx.PathFinder.DistanceFromMe(townNPC.Position)
+    if distance > maxDistance {
+        return fmt.Errorf(
+            "NPC %d is too far away (distance: %d)",
+            npcID,
+            distance,
+        )
+    }
+}
 
 		// Calculate click position
 		x, y := ui.GameCoordsToScreenCords(townNPC.Position.X, townNPC.Position.Y)

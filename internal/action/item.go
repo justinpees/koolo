@@ -52,47 +52,53 @@ func DropMouseItem() {
 }
 
 func DropInventoryItem(i data.Item) error {
-	ctx := context.Get()
-	ctx.SetLastAction("DropInventoryItem")
+    ctx := context.Get()
+    ctx.SetLastAction("DropInventoryItem")
 
-	closeAttempts := 0
+    // ---------- ABSOLUTE PROTECTION ----------
+    if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) || i.Name == "WirtsLeg" {
+        ctx.Logger.Debug("NOT DROPPING " + ctx.CharacterCfg.Inventory.GemToUpgrade + " OR WIRTSLEG")
+        return nil
+    }
 
-	// Check if any other menu is open, except the inventory
-	for ctx.Data.OpenMenus.IsMenuOpen() {
+    closeAttempts := 0
 
-		// Press escape to close it
-		ctx.HID.PressKey(0x1B) // ESC
-		utils.Sleep(500)
-		closeAttempts++
+    // Check if any other menu is open, except the inventory
+    for ctx.Data.OpenMenus.IsMenuOpen() {
 
-		if closeAttempts >= 5 {
-			return fmt.Errorf("failed to close open menu after 5 attempts")
-		}
-	}
+        // Press escape to close it
+        ctx.HID.PressKey(0x1B) // ESC
+        utils.Sleep(500)
+        closeAttempts++
 
-	if i.Location.LocationType == item.LocationInventory {
+        if closeAttempts >= 5 {
+            return fmt.Errorf("failed to close open menu after 5 attempts")
+        }
+    }
 
-		// Check if the inventory is open, if not open it
-		if !ctx.Data.OpenMenus.Inventory {
-			ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
-		}
+    if i.Location.LocationType == item.LocationInventory {
 
-		// Wait a second
-		utils.Sleep(1000)
+        // Check if the inventory is open, if not open it
+        if !ctx.Data.OpenMenus.Inventory {
+            ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+        }
 
-		screenPos := ui.GetScreenCoordsForItem(i)
-		ctx.HID.MovePointer(screenPos.X, screenPos.Y)
-		utils.Sleep(250)
-		ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-		utils.Sleep(500)
+        // Wait a second
+        utils.Sleep(1000)
 
-		// Close the inventory if its still open, which should be at this point
-		if ctx.Data.OpenMenus.Inventory {
-			ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
-		}
-	}
+        screenPos := ui.GetScreenCoordsForItem(i)
+        ctx.HID.MovePointer(screenPos.X, screenPos.Y)
+        utils.Sleep(250)
+        ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
+        utils.Sleep(500)
 
-	return nil
+        // Close the inventory if its still open
+        if ctx.Data.OpenMenus.Inventory {
+            ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+        }
+    }
+
+    return nil
 }
 func IsInLockedInventorySlot(itm data.Item) bool {
 	// Check if item is in inventory

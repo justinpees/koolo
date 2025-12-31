@@ -56,6 +56,7 @@ type KooloCfg struct {
 		EnableDiscordChickenMessages bool     `yaml:"enableDiscordChickenMessages"`
 		EnableDiscordErrorMessages   bool     `yaml:"enableDiscordErrorMessages"`
 		BotAdmins                    []string `yaml:"botAdmins"`
+		MentionID                    []string `yaml:"mentionId"`
 		ChannelID                    string   `yaml:"channelId"`
 		Token                        string   `yaml:"token"`
 	} `yaml:"discord"`
@@ -106,6 +107,7 @@ type CharacterCfg struct {
 	UseCentralizedPickit bool   `yaml:"useCentralizedPickit"`
 	HidePortraits        bool   `yaml:"hidePortraits"`
 	AutoStart            bool   `yaml:"autoStart"`
+	
 
 	ConfigFolderName string `yaml:"-"`
 
@@ -136,6 +138,7 @@ type CharacterCfg struct {
 		HealingPotionCount int         `yaml:"healingPotionCount"`
 		ManaPotionCount    int         `yaml:"manaPotionCount"`
 		RejuvPotionCount   int         `yaml:"rejuvPotionCount"`
+		GemToUpgrade string `yaml:"upgradeGemUsingShrine"`
 	} `yaml:"inventory"`
 	Character struct {
 		Class                        string `yaml:"class"`
@@ -245,6 +248,7 @@ type CharacterCfg struct {
 		ClearTPArea            bool                  `yaml:"clearTPArea"`
 		Difficulty             difficulty.Difficulty `yaml:"difficulty"`
 		RandomizeRuns          bool                  `yaml:"randomizeRuns"`
+		ShopVendorsDuringTownVisits bool `yaml:"shopVendorsDuringTownVisits"`
 		Runs                   []Run                 `yaml:"runs"`
 		CreateLobbyGames       bool                  `yaml:"createLobbyGames"`
 		PublicGameCounter      int                   `yaml:"-"`
@@ -254,6 +258,7 @@ type CharacterCfg struct {
 		} `yaml:"pindleskin"`
 		Cows struct {
 			OpenChests bool `yaml:"openChests"`
+			CraftWirtsLeg bool `yaml:"craftWirtsLeg"`
 		} `yaml:"cows"`
 		Pit struct {
 			MoveThroughBlackMarsh bool `yaml:"moveThroughBlackMarsh"`
@@ -380,6 +385,7 @@ type CharacterCfg struct {
 	} `yaml:"companion"`
 	Gambling struct {
 		Enabled bool        `yaml:"enabled"`
+		GambleFromSharedStashes bool `yaml:"gambleFromSharedStashes"`
 		Items   []item.Name `yaml:"items"`
 	} `yaml:"gambling"`
 	Muling struct {

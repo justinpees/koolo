@@ -78,6 +78,7 @@ type Debug struct {
 type CurrentGameHelper struct {
 	BlacklistedItems []data.Item
 	PickedUpItems    map[int]int
+	PickedUpItemsVendor map[int]string // NEW: UnitID -> Vendor name
 	AreaCorrection   struct {
 		Enabled      bool
 		ExpectedArea area.ID
@@ -141,6 +142,7 @@ func NewGameHelper() *CurrentGameHelper {
 	return &CurrentGameHelper{
 		PickupItems:                true,
 		PickedUpItems:              make(map[int]int),
+		PickedUpItemsVendor: make(map[int]string),
 		BlacklistedItems:           []data.Item{},
 		FailedToCreateGameAttempts: 0,
 	}
