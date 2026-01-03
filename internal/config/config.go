@@ -55,16 +55,30 @@ type KooloCfg struct {
 		EnableRunFinishMessages      bool     `yaml:"enableRunFinishMessages"`
 		EnableDiscordChickenMessages bool     `yaml:"enableDiscordChickenMessages"`
 		EnableDiscordErrorMessages   bool     `yaml:"enableDiscordErrorMessages"`
+		DisableItemStashScreenshots  bool     `yaml:"disableItemStashScreenshots"`
 		BotAdmins                    []string `yaml:"botAdmins"`
 		MentionID                    []string `yaml:"mentionId"`
 		ChannelID                    string   `yaml:"channelId"`
+		ItemChannelID                string   `yaml:"itemChannelId"`
 		Token                        string   `yaml:"token"`
+		UseWebhook                   bool     `yaml:"useWebhook"`
+		WebhookURL                   string   `yaml:"webhookUrl"`
+		ItemWebhookURL               string   `yaml:"itemWebhookUrl"`
 	} `yaml:"discord"`
 	Telegram struct {
 		Enabled bool   `yaml:"enabled"`
 		ChatID  int64  `yaml:"chatId"`
 		Token   string `yaml:"token"`
 	}
+	Ngrok struct {
+		Enabled       bool   `yaml:"enabled"`
+		SendURL       bool   `yaml:"sendUrl"`
+		Authtoken     string `yaml:"authtoken"`
+		Region        string `yaml:"region"`
+		Domain        string `yaml:"domain"`
+		BasicAuthUser string `yaml:"basicAuthUser"`
+		BasicAuthPass string `yaml:"basicAuthPass"`
+	} `yaml:"ngrok"`
 	PingMonitor struct {
 		Enabled           bool `yaml:"enabled"`
 		HighPingThreshold int  `yaml:"highPingThreshold"` // Ping threshold in ms (default 500-1000)
@@ -74,6 +88,8 @@ type KooloCfg struct {
 		Enabled      bool `yaml:"enabled"`
 		DelaySeconds int  `yaml:"delaySeconds"`
 	} `yaml:"autoStart"`
+	RunewordFavoriteRecipes []string `yaml:"runewordFavoriteRecipes"`
+	RunFavoriteRuns         []string `yaml:"runFavoriteRuns"`
 }
 
 type Day struct {
@@ -81,14 +97,79 @@ type Day struct {
 	TimeRanges []TimeRange `yaml:"timeRange"`
 }
 
+// RunewordOverrideConfig stores a character's overrides keyed by the display name (e.g. "Enigma").
+type RunewordOverrideConfig struct {
+	EthMode     string `yaml:"ethMode,omitempty"`     // "any", "eth", "noneth"
+	QualityMode string `yaml:"qualityMode,omitempty"` // "any", "normal", "superior"
+	BaseType    string `yaml:"baseType,omitempty"`    // armor, bow, polearm, etc.
+	BaseTier    string `yaml:"baseTier,omitempty"`    // "", "normal", "exceptional", "elite"
+	BaseName    string `yaml:"baseName,omitempty"`    // optional specific base name
+}
+
+// RunewordTargetStatOverride captures the desired min/max for a stat (and optional layer) when rerolling.
+type RunewordTargetStatOverride struct {
+	StatID stat.ID  `yaml:"statId"`          // numeric stat ID from d2go
+	Layer  int      `yaml:"layer,omitempty"` // optional layer (e.g. skill/aura)
+	Min    float64  `yaml:"min"`             // desired minimum value for this stat
+	Max    *float64 `yaml:"max,omitempty"`   // optional maximum value for this stat
+	Group  string   `yaml:"group,omitempty" json:"group,omitempty"`
+}
+
+// RunewordRerollRule defines filters plus target stats that existing items must satisfy before we keep them.
+type RunewordRerollRule struct {
+	EthMode     string                       `yaml:"ethMode,omitempty"`     // "any", "eth", "noneth"
+	QualityMode string                       `yaml:"qualityMode,omitempty"` // "any", "normal", "superior"
+	BaseType    string                       `yaml:"baseType,omitempty"`    // armor, bow, polearm, etc.
+	BaseTier    string                       `yaml:"baseTier,omitempty"`    // "", "normal", "exceptional", "elite"
+	BaseName    string                       `yaml:"baseName,omitempty"`    // optional specific base (NIP code)
+	TargetStats []RunewordTargetStatOverride `yaml:"targetStats,omitempty"` // per-stat minimums for this rule
+}
+
 type Scheduler struct {
-	Enabled bool  `yaml:"enabled"`
-	Days    []Day `yaml:"days"`
+	Enabled bool   `yaml:"enabled"`
+	Mode    string `yaml:"mode"` // "timeSlots" (default) or "duration"
+
+	// Time Slots Mode (existing)
+	Days              []Day `yaml:"days"`
+	GlobalVarianceMin int   `yaml:"globalVarianceMin,omitempty"` // Default variance for all ranges (+/- minutes)
+
+	// Duration Mode
+	Duration DurationSchedule `yaml:"duration,omitempty"`
+}
+
+// DurationSchedule configures human-like play patterns with randomized breaks
+type DurationSchedule struct {
+	// Wake Up
+	WakeUpTime     string `yaml:"wakeUpTime"`     // Base wake time "HH:MM" (e.g., "08:00")
+	WakeUpVariance int    `yaml:"wakeUpVariance"` // +/- minutes (e.g., 30)
+
+	// Play Duration
+	PlayHours         int `yaml:"playHours"`         // Base play time per day (e.g., 14)
+	PlayHoursVariance int `yaml:"playHoursVariance"` // +/- hours (e.g., 2 means 12-16h)
+
+	// Meal Breaks (longer)
+	MealBreakCount    int `yaml:"mealBreakCount"`    // Number of meal breaks (e.g., 2 for lunch+dinner)
+	MealBreakDuration int `yaml:"mealBreakDuration"` // Base duration in minutes (e.g., 30)
+	MealBreakVariance int `yaml:"mealBreakVariance"` // +/- minutes for duration (e.g., 15)
+
+	// Short Breaks (snack/water/bathroom)
+	ShortBreakCount    int `yaml:"shortBreakCount"`    // Number of short breaks (e.g., 3-4)
+	ShortBreakDuration int `yaml:"shortBreakDuration"` // Base duration in minutes (e.g., 8)
+	ShortBreakVariance int `yaml:"shortBreakVariance"` // +/- minutes for duration (e.g., 5)
+
+	// Timing Variance (when breaks occur)
+	BreakTimingVariance int `yaml:"breakTimingVariance"` // +/- minutes for break start times (e.g., 30)
+
+	// Jitter Range - makes variance itself variable, randomized per roll
+	JitterMin int `yaml:"jitterMin"` // Min jitter multiplier % (e.g., 30)
+	JitterMax int `yaml:"jitterMax"` // Max jitter multiplier % (e.g., 150)
 }
 
 type TimeRange struct {
-	Start time.Time `yaml:"start"`
-	End   time.Time `yaml:"end"`
+	Start            time.Time `yaml:"start"`
+	End              time.Time `yaml:"end"`
+	StartVarianceMin int       `yaml:"startVarianceMin,omitempty"` // +/- minutes for start time
+	EndVarianceMin   int       `yaml:"endVarianceMin,omitempty"`   // +/- minutes for end time
 }
 
 type CharacterCfg struct {
@@ -132,6 +213,21 @@ type CharacterCfg struct {
 		TownChickenAt       int `yaml:"townChickenAt"`
 		MercChickenAt       int `yaml:"mercChickenAt"`
 	} `yaml:"health"`
+	ChickenOnCurses struct {
+		AmplifyDamage bool `yaml:"amplifyDamage"`
+		Decrepify     bool `yaml:"decrepify"`
+		LowerResist   bool `yaml:"lowerResist"`
+		BloodMana     bool `yaml:"bloodMana"`
+	} `yaml:"chickenOnCurses"`
+	ChickenOnAuras struct {
+		Fanaticism bool `yaml:"fanaticism"`
+		Might      bool `yaml:"might"`
+		Conviction bool `yaml:"conviction"`
+		HolyFire   bool `yaml:"holyFire"`
+		BlessedAim bool `yaml:"blessedAim"`
+		HolyFreeze bool `yaml:"holyFreeze"`
+		HolyShock  bool `yaml:"holyShock"`
+	} `yaml:"chickenOnAuras"`
 	Inventory struct {
 		InventoryLock      [][]int     `yaml:"inventoryLock"`
 		BeltColumns        BeltColumns `yaml:"beltColumns"`
@@ -243,6 +339,7 @@ type CharacterCfg struct {
 		DisableIdentifyTome    bool                  `yaml:"disableIdentifyTome"`
 		InteractWithShrines    bool                  `yaml:"interactWithShrines"`
 		InteractWithChests     bool                  `yaml:"interactWithChests"`
+		InteractWithSuperChests bool                 `yaml:"interactWithSuperChests"`
 		StopLevelingAt         int                   `yaml:"stopLevelingAt"`
 		IsNonLadderChar        bool                  `yaml:"isNonLadderChar"`
 		ClearTPArea            bool                  `yaml:"clearTPArea"`
@@ -355,6 +452,13 @@ type CharacterCfg struct {
 			HellRequiredLightRes     int      `yaml:"hellRequiredLightRes"`
 			EnabledRunewordRecipes   []string `yaml:"enabledRunewordRecipes"`
 		} `yaml:"leveling"`
+		RunewordMaker struct {
+			Enabled              bool     `yaml:"enabled"`
+			EnabledRecipes       []string `yaml:"enabledRunewordRecipes"`
+			AutoUpgrade          bool     `yaml:"autoUpgrade"`          // Upgrade when better tier base found
+			OnlyIfWearable       bool     `yaml:"onlyIfWearable"`       // Only make if character meets str/dex requirements
+			AutoTierByDifficulty bool     `yaml:"autoTierByDifficulty"` // Auto-select tier based on difficulty
+		} `yaml:"runewordMaker"`
 		LevelingSequence struct {
 			SequenceFile string `yaml:"sequenceFile"`
 		} `yaml:"leveling_sequence"`
@@ -373,6 +477,9 @@ type CharacterCfg struct {
 		Utility struct {
 			ParkingAct int `yaml:"parkingAct"`
 		} `yaml:"utility"`
+		// RunewordOverrides and RunewordRerollRules are keyed by the display name shown in the UI.
+		RunewordOverrides   map[string]RunewordOverrideConfig `yaml:"runewordOverrides,omitempty"`
+		RunewordRerollRules map[string][]RunewordRerollRule   `yaml:"runewordRerollRules,omitempty"`
 	} `yaml:"game"`
 	Companion struct {
 		Enabled               bool   `yaml:"enabled"`
@@ -403,6 +510,7 @@ type CharacterCfg struct {
 		SkipPerfectAmethysts bool     `yaml:"skipPerfectAmethysts"`
 		SkipPerfectRubies    bool     `yaml:"skipPerfectRubies"`
 		JewelsToKeep         int      `yaml:"jewelsToKeep"` // new field: number of magic jewels to keep
+		PrioritizeRunewords  bool     `yaml:"prioritizeRunewords"`
 	} `yaml:"cubing"`
 	BackToTown struct {
 		NoHpPotions     bool `yaml:"noHpPotions"`
@@ -478,6 +586,9 @@ func Load() error {
 	d := yaml.NewDecoder(r)
 	if err = d.Decode(&Koolo); err != nil {
 		return fmt.Errorf("error reading config %s: %w", kooloPath, err)
+	}
+	if Koolo != nil {
+		sanitizeDiscordConfig(Koolo)
 	}
 
 	configDir := getAbsPath("config")
@@ -560,6 +671,20 @@ func Load() error {
 	return nil
 }
 
+func sanitizeDiscordConfig(cfg *KooloCfg) {
+	if !cfg.Discord.Enabled {
+		return
+	}
+	useWebhook := cfg.Discord.UseWebhook
+	webhookURL := strings.TrimSpace(cfg.Discord.WebhookURL)
+	token := strings.TrimSpace(cfg.Discord.Token)
+	channelID := strings.TrimSpace(cfg.Discord.ChannelID)
+
+	if (useWebhook && webhookURL == "") || (!useWebhook && (token == "" || channelID == "")) {
+		cfg.Discord.Enabled = false
+	}
+}
+
 // Helper function to read a single NIP file using the temp directory workaround
 func readSinglePickitFile(filePath string) (nip.Rules, error) {
 	tempDir := filepath.Join(filepath.Dir(filePath), "temp_single_read")
@@ -614,6 +739,10 @@ func ValidateAndSaveConfig(config KooloCfg) error {
 		return errors.New("D2RPath is not valid")
 	}
 
+	if config.Discord.Enabled {
+		sanitizeDiscordConfig(&config)
+	}
+
 	text, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("error parsing koolo config: %w", err)
@@ -625,6 +754,20 @@ func ValidateAndSaveConfig(config KooloCfg) error {
 	}
 
 	return Load()
+}
+
+func SaveKooloConfig(config *KooloCfg) error {
+	if config == nil {
+		return errors.New("koolo config is nil")
+	}
+	text, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("error parsing koolo config: %w", err)
+	}
+	if err := os.WriteFile("config/koolo.yaml", text, 0644); err != nil {
+		return fmt.Errorf("error writing koolo config: %w", err)
+	}
+	return nil
 }
 
 func SaveSupervisorConfig(supervisorName string, config *CharacterCfg) error {

@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	_ "net/http/pprof"
+	"os"
 	"path/filepath"
 	"runtime/debug"
 	"syscall"
@@ -18,6 +19,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/remote/discord"
 	"github.com/hectorgimenez/koolo/internal/remote/droplog"
+	ngrokremote "github.com/hectorgimenez/koolo/internal/remote/ngrok"
 	"github.com/hectorgimenez/koolo/internal/remote/telegram"
 	"github.com/hectorgimenez/koolo/internal/server"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -98,9 +100,35 @@ func main() {
 	manager := bot.NewSupervisorManager(logger, eventListener)
 	scheduler := bot.NewScheduler(manager, logger)
 	go scheduler.Start()
-	srv, err := server.New(logger, manager)
+	srv, err := server.New(logger, manager, scheduler)
 	if err != nil {
 		log.Fatalf("Error starting local server: %s", err.Error())
+	}
+	eventListener.Register(srv.HandleRunewordHistory)
+	var ngrokTunnel *ngrokremote.Tunnel
+	if config.Koolo.Ngrok.Enabled {
+		if config.Koolo.Ngrok.Authtoken == "" && os.Getenv("NGROK_AUTHTOKEN") == "" {
+			logger.Warn("ngrok enabled but no authtoken set; skipping tunnel start")
+		} else {
+			opts := ngrokremote.Options{
+				LocalAddr:     "http://localhost:8087",
+				Authtoken:     config.Koolo.Ngrok.Authtoken,
+				Region:        config.Koolo.Ngrok.Region,
+				Domain:        config.Koolo.Ngrok.Domain,
+				BasicAuthUser: config.Koolo.Ngrok.BasicAuthUser,
+				BasicAuthPass: config.Koolo.Ngrok.BasicAuthPass,
+			}
+			tunnel, err := ngrokremote.Start(ctx, opts)
+			if err != nil {
+				logger.Error("ngrok tunnel failed to start", slog.Any("error", err))
+			} else {
+				logger.Info("ngrok tunnel established", slog.String("url", tunnel.URL()))
+				if config.Koolo.Ngrok.SendURL {
+					go event.Send(event.NgrokTunnel(tunnel.URL()))
+				}
+			}
+			ngrokTunnel = tunnel
+		}
 	}
 
 	g.Go(wrapWithRecover(logger, func() error {
@@ -142,9 +170,10 @@ func main() {
 			handle := w.Window() // Get native Windows handle
 			user32 := syscall.NewLazyDLL("user32.dll")
 			getWindowRect := user32.NewProc("GetWindowRect")
+			isIconic := user32.NewProc("IsIconic")
 			type RECT struct{ Left, Top, Right, Bottom int32 }
 
-			ticker := time.NewTicker(5 * time.Second) // Check every 5 seconds
+			ticker := time.NewTicker(5 * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -152,18 +181,25 @@ func main() {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
+					// Check if minimized (IsIconic returns non-zero if minimized)
+					minimized, _, _ := isIconic.Call(handle)
+					if minimized != 0 {
+						continue
+					}
+
 					var rect RECT
 					ret, _, _ := getWindowRect.Call(handle, uintptr(unsafe.Pointer(&rect)))
 					if ret != 0 {
-						// Calculate current logical dimensions
 						curW := int(float64(rect.Right-rect.Left) / displayScale)
 						curH := int(float64(rect.Bottom-rect.Top) / displayScale)
 
-						// Only save if the size has actually changed
-						if curW != config.Koolo.WindowWidth || curH != config.Koolo.WindowHeight {
-							config.Koolo.WindowWidth = curW
-							config.Koolo.WindowHeight = curH
-							config.ValidateAndSaveConfig(*config.Koolo) // Save to koolo.yaml
+						// Check if size is valid and has changed
+						if curW > 100 && curH > 100 {
+							if curW != config.Koolo.WindowWidth || curH != config.Koolo.WindowHeight {
+								config.Koolo.WindowWidth = curW
+								config.Koolo.WindowHeight = curH
+								config.ValidateAndSaveConfig(*config.Koolo)
+							}
 						}
 					}
 				}
@@ -178,16 +214,26 @@ func main() {
 
 	// Discord Bot initialization
 	if config.Koolo.Discord.Enabled {
-		discordBot, err := discord.NewBot(config.Koolo.Discord.Token, config.Koolo.Discord.ChannelID, manager)
+		discordBot, err := discord.NewBot(
+			config.Koolo.Discord.Token,
+			config.Koolo.Discord.ChannelID,
+			config.Koolo.Discord.ItemChannelID,
+			manager,
+			config.Koolo.Discord.UseWebhook,
+			config.Koolo.Discord.WebhookURL,
+			config.Koolo.Discord.ItemWebhookURL,
+		)
 		if err != nil {
 			logger.Error("Discord could not been initialized", slog.Any("error", err))
 			return
 		}
 
 		eventListener.Register(discordBot.Handle)
-		g.Go(wrapWithRecover(logger, func() error {
-			return discordBot.Start(ctx)
-		}))
+		if !config.Koolo.Discord.UseWebhook {
+			g.Go(wrapWithRecover(logger, func() error {
+				return discordBot.Start(ctx)
+			}))
+		}
 	}
 
 	// Telegram Bot initialization
@@ -223,6 +269,11 @@ func main() {
 		err = srv.Stop()
 		if err != nil {
 			logger.Error("error stopping local server", slog.Any("error", err))
+		}
+		if ngrokTunnel != nil {
+			if closeErr := ngrokTunnel.Close(); closeErr != nil {
+				logger.Error("error stopping ngrok tunnel", slog.Any("error", closeErr))
+			}
 		}
 
 		return err

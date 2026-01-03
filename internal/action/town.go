@@ -84,7 +84,7 @@ func PreRun(firstRun bool) error {
 		}
 	}
 
-	DropMouseItem()
+	DropAndRecoverCursorItem()
 	step.SetSkill(skill.Vigor)
 	RecoverCorpse()
 	ManageBelt()
@@ -123,17 +123,39 @@ func PreRun(firstRun bool) error {
 	// Stash again if needed
 	Stash(false)
 
-	CubeRecipes()
-	MakeRunewords()
+
 	
 	
+
+	
+	
+
+	if ctx.CharacterCfg.CubeRecipes.PrioritizeRunewords {
+		MakeRunewords()
+		if !isLevelingChar {
+			RerollRunewords()
+		}
+		CubeRecipes()
+	} else {
+		CubeRecipes()
+		MakeRunewords()
+		if !isLevelingChar {
+			RerollRunewords()
+		}
+	}
+
 // --- New addition: ensure upgrade gem is corner-safe for all characters ---
 	ctx.Logger.Info("Ensuring upgrade gem is corner-safe...")
 	EnsureUpgradeGemCornerSafe()
 	ctx.PauseIfNotPriority()
 	ctx.Logger.Info("Upgrade gem placement complete.")
-	
-	
+
+
+	// After creating or rerolling runewords, stash newly created bases/runewords
+	// so we don't carry them out to the next area unnecessarily.
+	Stash(false)
+
+
 	if isLevelingChar {
 		OptimizeInventory(item.LocationInventory)
 	}
@@ -208,7 +230,42 @@ func InRunReturnTownRoutine() error {
 	// Vendor interactions and stash management
 	ctx.Logger.Info("Refilling vendor and selling items...")
 	VendorRefill(false, true)
-	ctx.PauseIfNotPriority()
+
+	ctx.PauseIfNotPriority() // Check after VendorRefill
+	Stash(false)
+	ctx.PauseIfNotPriority() // Check after Stash
+	Gamble()
+	ctx.PauseIfNotPriority() // Check after Gamble
+	Stash(false)
+	ctx.PauseIfNotPriority() // Check after Stash
+	if ctx.CharacterCfg.CubeRecipes.PrioritizeRunewords {
+		MakeRunewords()
+		// Do not reroll runewords while running the leveling sequences.
+		// Leveling characters rely on simpler runeword behavior and base
+		// selection, and rerolling could consume resources unexpectedly.
+		if !isLevelingChar {
+			RerollRunewords()
+		}
+		CubeRecipes()
+		ctx.PauseIfNotPriority() // Check after CubeRecipes
+	} else {
+		CubeRecipes()
+		ctx.PauseIfNotPriority() // Check after CubeRecipes
+		MakeRunewords()
+
+		// Do not reroll runewords while running the leveling sequences.
+		// Leveling characters rely on simpler runeword behavior and base
+		// selection, and rerolling could consume resources unexpectedly.
+		if !isLevelingChar {
+			RerollRunewords()
+		}
+	}
+
+	// Ensure any newly created or rerolled runewords/bases are stashed
+	// before leaving town.
+	Stash(false)
+	ctx.PauseIfNotPriority() // Check after post-reroll Stash
+
 
 	ctx.Logger.Info("Stashing items after vendor...")
 	Stash(false)

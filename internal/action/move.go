@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hectorgimenez/koolo/internal/chicken"
 	"github.com/hectorgimenez/koolo/internal/pather"
 	"github.com/hectorgimenez/koolo/internal/town"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -91,8 +92,8 @@ func ensureAreaSync(ctx *context.Status, expectedArea area.ID) error {
 
 		if ctx.Data.PlayerUnit.Area == expectedArea {
 			// Area ID matches, now verify collision data is loaded
-			if ctx.Data.AreaData.Grid != nil && 
-				ctx.Data.AreaData.Grid.CollisionGrid != nil && 
+			if ctx.Data.AreaData.Grid != nil &&
+				ctx.Data.AreaData.Grid.CollisionGrid != nil &&
 				len(ctx.Data.AreaData.Grid.CollisionGrid) > 0 {
 				// Additional check: ensure we have adjacent level data if this is a cross-area operation
 				// Give it one more refresh cycle to ensure all data is populated
@@ -455,6 +456,10 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 		isSafe := true
 		if !ctx.Data.AreaData.Area.IsTown() {
+			if !ctx.Data.CanTeleport() {
+				chicken.CheckForScaryAuraAndCurse()
+			}
+
 			//Safety first, handle enemies
 			if !opts.IgnoreMonsters() && (!ctx.Data.CanTeleport() || overrideClearPathDist) && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 				actionLastMonsterHandlingTime = time.Now()
@@ -502,13 +507,23 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
     }
 }
 
-			//Check chests nearby
-			if ctx.CharacterCfg.Game.InteractWithChests && shrine.ID == 0 && chest.ID == 0 {
-				if closestChest, chestFound := ctx.PathFinder.GetClosestChest(ctx.Data.PlayerUnit.Position, true); chestFound {
-					blacklisted, exists := blacklistedInteractions[closestChest.ID]
-					if !exists || !blacklisted {
-						chest = *closestChest
-						//ctx.Logger.Debug(fmt.Sprintf("MoveTo: Found chest at %v, redirecting destination from %v", chest.Position, targetPosition))
+			// Check chests nearby
+			if shrine.ID == 0 && chest.ID == 0 {
+				// "Super chests only" has priority over the generic "all chests" mode.
+				if ctx.CharacterCfg.Game.InteractWithSuperChests && !ctx.CharacterCfg.Game.InteractWithChests {
+					if closestChest, chestFound := ctx.PathFinder.GetClosestSuperChest(ctx.Data.PlayerUnit.Position, true); chestFound {
+						blacklisted, exists := blacklistedInteractions[closestChest.ID]
+						if !exists || !blacklisted {
+							chest = *closestChest
+						}
+					}
+				} else if ctx.CharacterCfg.Game.InteractWithChests {
+					if closestChest, chestFound := ctx.PathFinder.GetClosestChest(ctx.Data.PlayerUnit.Position, true); chestFound {
+						blacklisted, exists := blacklistedInteractions[closestChest.ID]
+						if !exists || !blacklisted {
+							chest = *closestChest
+							//ctx.Logger.Debug(fmt.Sprintf("MoveTo: Found chest at %v, redirecting destination from %v", chest.Position, targetPosition))
+						}
 					}
 				}
 			}

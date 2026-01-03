@@ -1,7 +1,12 @@
+let activeRunFilter = 'all';
+let currentSearchTerm = '';
+let runFilterTabs = [];
+
 window.onload = function () {
     let enabled_runs_ul = document.getElementById('enabled_runs');
     let disabled_runs_ul = document.getElementById('disabled_runs');
     let searchInput = document.getElementById('search-disabled-runs');
+    runFilterTabs = document.querySelectorAll('.run-filter-tab');
 
     new Sortable(enabled_runs_ul, {
         group: 'runs',
@@ -23,11 +28,22 @@ window.onload = function () {
     });
 
     searchInput.addEventListener('input', function () {
-        filterDisabledRuns(searchInput.value);
+        currentSearchTerm = searchInput.value;
+        filterDisabledRuns(currentSearchTerm);
     });
 
     // Add event listeners for add and remove buttons
     document.addEventListener('click', function (e) {
+        const favButton = e.target.closest('.run-fav-btn');
+        if (favButton) {
+            e.preventDefault();
+            e.stopPropagation();
+            const runItem = favButton.closest('li');
+            if (runItem) {
+                toggleRunFavorite(runItem);
+            }
+            return;
+        }
         if (e.target.closest('.remove-run')) {
             e.preventDefault();
             const runElement = e.target.closest('li');
@@ -39,6 +55,8 @@ window.onload = function () {
         }
     });
 
+    initializeRunFilters();
+    initializeRunFavorites();
     updateEnabledRunsHiddenField();
 
     const buildSelectElement = document.querySelector('select[name="characterClass"]');
@@ -57,6 +75,23 @@ window.onload = function () {
             alert("This profile requires enabling the leveling run. Please add only the 'leveling' run to the enabled run list and remove the others.");
         }
     });
+
+    // --- Chest toggles ---
+    // Keep "All chests" and "Super chests only" mutually exclusive.
+    const interactWithChests = document.getElementById('interactWithChests');
+    const interactWithSuperChests = document.getElementById('interactWithSuperChests');
+    if (interactWithChests && interactWithSuperChests) {
+        interactWithChests.addEventListener('change', function () {
+            if (interactWithChests.checked) {
+                interactWithSuperChests.checked = false;
+            }
+        });
+        interactWithSuperChests.addEventListener('change', function () {
+            if (interactWithSuperChests.checked) {
+                interactWithChests.checked = false;
+            }
+        });
+    }
 }
 
 function updateEnabledRunsHiddenField() {
@@ -75,17 +110,169 @@ function updateEnabledRunsHiddenField() {
     }
 }
 
-function filterDisabledRuns(searchTerm) {
-    let listItems = document.querySelectorAll('#disabled_runs li');
-    searchTerm = searchTerm.toLowerCase();
-    listItems.forEach(function (item) {
-        let runName = item.getAttribute("value").toLowerCase();
-        if (runName.includes(searchTerm)) {
-            item.style.display = '';
-        } else {
-            item.style.display = 'none';
+function getRunCategory(runName) {
+    const name = runName.toLowerCase();
+
+    if (name.includes('leveling') || name.includes('quests')) {
+        return 'leveling';
+    }
+
+    if (name.includes('key') || name.includes('countess') || name.includes('summoner') || name.includes('nihl')) {
+        return 'key';
+    }
+
+    if (
+        name.includes('andariel') ||
+        name.includes('duriel') ||
+        name.includes('mephisto') ||
+        name.includes('diablo') ||
+        name.includes('baal')
+    ) {
+        return 'act-boss';
+    }
+
+    if (
+        name.includes('pit') ||
+        name.includes('tunnels') ||
+        name.includes('ancient_tunnels') ||
+        name.includes('chaos') ||
+        name.includes('river') ||
+        name.includes('worldstone') ||
+        name.includes('wsk') ||
+        name.includes('stony_tomb') ||
+        name.includes('mausoleum') ||
+        name.includes('arachnid_lair') ||
+        name.includes('drifter_cavern')
+    ) {
+        return 'a85';
+    }
+
+    if (
+        name.includes('pindle') ||
+        name.includes('eldritch') ||
+        name.includes('shenk') ||
+        name.includes('thresh') ||
+        name.includes('bishibosh') ||
+        name.includes('rakanishu') ||
+        name.includes('endugu') ||
+        name.includes('fire_eye') ||
+        name.includes('travincal')
+    ) {
+        return 'super-unique';
+    }
+
+    if (
+        name.includes('cows') ||
+        name.includes('lower_kurast_chest') ||
+        name.includes('terror_zone') ||
+        name.includes('tristram') ||
+        name.includes('council') ||
+        name.includes('dclone') ||
+        name.includes('uber')
+    ) {
+        return 'special';
+    }
+
+    if (
+        name.includes('spider_cavern') ||
+        name.includes('tal_rasha_tombs') ||
+        name.includes('lower_kurast')
+    ) {
+        return 'all-only';
+    }
+
+    return 'other';
+}
+
+function assignRunCategories() {
+    const allRuns = document.querySelectorAll('#enabled_runs li, #disabled_runs li');
+    allRuns.forEach((item) => {
+        const runName = (item.getAttribute('value') || '').toLowerCase();
+        if (!runName) {
+            return;
         }
+        item.dataset.runName = runName;
+        item.dataset.runCategory = getRunCategory(runName);
     });
+}
+
+function applyRunFilter() {
+    const element = document.getElementById('disabled_runs');
+    if (!element) {
+        return;
+    }
+    const listItems = element.querySelectorAll('li');
+    listItems.forEach((item) => {
+        const runName = item.dataset.runName || (item.getAttribute('value') || '').toLowerCase();
+        const category = item.dataset.runCategory || getRunCategory(runName);
+        const isFavorite = item.dataset.favorite === '1';
+        const matchesCategory =
+            activeRunFilter === 'all' ||
+            (activeRunFilter === 'favorite' && isFavorite) ||
+            (category !== 'all-only' && category === activeRunFilter);
+        const matchesSearch = !currentSearchTerm || runName.includes(currentSearchTerm.toLowerCase());
+        item.style.display = matchesCategory && matchesSearch ? '' : 'none';
+    });
+}
+
+function updateRunFavoriteUI(runItem, isFavorite) {
+    const favButton = runItem.querySelector('.run-fav-btn');
+    if (favButton) {
+        favButton.classList.toggle('active', isFavorite);
+        const icon = favButton.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('bi-star-fill', isFavorite);
+            icon.classList.toggle('bi-star', !isFavorite);
+        }
+    }
+    runItem.dataset.favorite = isFavorite ? '1' : '0';
+
+    const existingInput = runItem.querySelector('.run-fav-input');
+    if (isFavorite && !existingInput) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.className = 'run-fav-input';
+        input.name = 'runFavoriteRuns';
+        input.value = runItem.getAttribute('value') || '';
+        runItem.prepend(input);
+    } else if (!isFavorite && existingInput) {
+        existingInput.remove();
+    }
+    applyRunFilter();
+}
+
+function toggleRunFavorite(runItem) {
+    const isFavorite = runItem.dataset.favorite === '1';
+    updateRunFavoriteUI(runItem, !isFavorite);
+}
+
+function initializeRunFavorites() {
+    const runItems = document.querySelectorAll('#enabled_runs li, #disabled_runs li');
+    runItems.forEach((item) => {
+        const isFavorite = item.dataset.favorite === '1';
+        updateRunFavoriteUI(item, isFavorite);
+    });
+}
+
+function initializeRunFilters() {
+    assignRunCategories();
+    if (!runFilterTabs || !runFilterTabs.length) {
+        return;
+    }
+    runFilterTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            activeRunFilter = tab.dataset.runFilter || 'all';
+            runFilterTabs.forEach((btn) => btn.classList.remove('active'));
+            tab.classList.add('active');
+            applyRunFilter();
+        });
+    });
+    applyRunFilter();
+}
+
+function filterDisabledRuns(searchTerm) {
+    currentSearchTerm = searchTerm || '';
+    applyRunFilter();
 }
 
 function checkLevelingProfile() {
@@ -115,6 +302,7 @@ function moveRunToDisabled(runElement) {
     updateButtonForDisabledRun(runElement);
     disabledRunsUl.appendChild(runElement);
     updateEnabledRunsHiddenField();
+    applyRunFilter();
 }
 
 function moveRunToEnabled(runElement) {
@@ -122,10 +310,14 @@ function moveRunToEnabled(runElement) {
     updateButtonForEnabledRun(runElement);
     enabledRunsUl.appendChild(runElement);
     updateEnabledRunsHiddenField();
+    applyRunFilter();
 }
 
 function updateButtonForEnabledRun(runElement) {
-    const button = runElement.querySelector('button');
+    const button = runElement.querySelector('button.add-run, button.remove-run');
+    if (!button) {
+        return;
+    }
     button.classList.remove('add-run');
     button.classList.add('remove-run');
     button.title = "Remove run";
@@ -133,7 +325,10 @@ function updateButtonForEnabledRun(runElement) {
 }
 
 function updateButtonForDisabledRun(runElement) {
-    const button = runElement.querySelector('button');
+    const button = runElement.querySelector('button.add-run, button.remove-run');
+    if (!button) {
+        return;
+    }
     button.classList.remove('remove-run');
     button.classList.add('add-run');
     button.title = "Add run";
@@ -272,7 +467,118 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function toggleSchedulerVisibility() {
-        schedulerSettings.style.display = schedulerEnabled.checked ? 'grid' : 'none';
+        schedulerSettings.style.display = schedulerEnabled.checked ? 'block' : 'none';
+    }
+
+    function toggleSchedulerMode() {
+        const mode = document.getElementById('schedulerMode').value;
+        const timeSlotsMode = document.getElementById('timeSlotsMode');
+        const durationMode = document.getElementById('durationMode');
+
+        if (mode === 'duration') {
+            if (timeSlotsMode) timeSlotsMode.style.display = 'none';
+            if (durationMode) durationMode.style.display = 'block';
+        } else {
+            if (timeSlotsMode) timeSlotsMode.style.display = 'block';
+            if (durationMode) durationMode.style.display = 'none';
+        }
+    }
+
+    // Load scheduler history from API
+    function loadSchedulerHistory() {
+        const historyPanel = document.getElementById('schedulerHistoryPanel');
+        const historyContent = document.getElementById('schedulerHistoryContent');
+        if (!historyPanel || !historyContent) return;
+
+        // Get supervisor name from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const supervisor = urlParams.get('supervisor');
+        if (!supervisor) {
+            historyContent.innerHTML = '<p class="history-empty">No supervisor selected</p>';
+            return;
+        }
+
+        fetch(`/api/scheduler-history?supervisor=${encodeURIComponent(supervisor)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (!data.history || data.history.length === 0) {
+                    historyContent.innerHTML = '<p class="history-empty">No play history yet. History is recorded when using Duration mode.</p>';
+                    return;
+                }
+
+                // Calculate stats
+                let totalPlayMinutes = 0;
+                let totalWakeMinutes = 0;
+                let totalSleepMinutes = 0;
+                let count = 0;
+
+                data.history.forEach(entry => {
+                    totalPlayMinutes += entry.totalPlayMinutes || 0;
+                    if (entry.wakeTime) {
+                        const [h, m] = entry.wakeTime.split(':').map(Number);
+                        totalWakeMinutes += h * 60 + m;
+                    }
+                    if (entry.sleepTime) {
+                        const [h, m] = entry.sleepTime.split(':').map(Number);
+                        totalSleepMinutes += h * 60 + m;
+                    }
+                    count++;
+                });
+
+                const avgPlayHours = count > 0 ? (totalPlayMinutes / count / 60).toFixed(1) : 0;
+                const avgWakeMinutes = count > 0 ? Math.round(totalWakeMinutes / count) : 0;
+                const avgSleepMinutes = count > 0 ? Math.round(totalSleepMinutes / count) : 0;
+                const avgWakeTime = `${String(Math.floor(avgWakeMinutes / 60)).padStart(2, '0')}:${String(avgWakeMinutes % 60).padStart(2, '0')}`;
+                const avgSleepTime = `${String(Math.floor(avgSleepMinutes / 60)).padStart(2, '0')}:${String(avgSleepMinutes % 60).padStart(2, '0')}`;
+                const totalHours = (totalPlayMinutes / 60).toFixed(1);
+
+                // Build HTML
+                let html = `
+                    <div class="history-stats">
+                        <div class="stat-item"><strong>Avg Play:</strong> ${avgPlayHours}h/day</div>
+                        <div class="stat-item"><strong>Avg Wake:</strong> ${avgWakeTime}</div>
+                        <div class="stat-item"><strong>Avg Sleep:</strong> ${avgSleepTime}</div>
+                        <div class="stat-item"><strong>Total:</strong> ${totalHours}h over ${count} days</div>
+                    </div>
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Play</th>
+                                <th>Wake</th>
+                                <th>Sleep</th>
+                                <th>Breaks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                data.history.slice(0, 10).forEach(entry => {
+                    const playHours = ((entry.totalPlayMinutes || 0) / 60).toFixed(1);
+                    const breakCount = entry.breaks ? entry.breaks.length : 0;
+                    html += `
+                        <tr>
+                            <td>${entry.date}</td>
+                            <td>${playHours}h</td>
+                            <td>${entry.wakeTime || '-'}</td>
+                            <td>${entry.sleepTime || '-'}</td>
+                            <td>${breakCount}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+
+                if (data.history.length > 10) {
+                    html += `<p class="history-more">Showing 10 of ${data.history.length} days</p>`;
+                }
+
+                historyContent.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Failed to load scheduler history:', error);
+                historyContent.innerHTML = '<p class="history-error">Failed to load history</p>';
+            });
     }
 
     function updateCharacterOptions() {
@@ -482,9 +788,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Set initial state
     toggleSchedulerVisibility();
+    toggleSchedulerMode();
+    loadSchedulerHistory();
     updateNovaSorceressOptions();
 
     schedulerEnabled.addEventListener('change', toggleSchedulerVisibility);
+
+    // Mode toggle event listener
+    const schedulerModeSelect = document.getElementById('schedulerMode');
+    if (schedulerModeSelect) {
+        schedulerModeSelect.addEventListener('change', toggleSchedulerMode);
+    }
 
     document.querySelectorAll('.add-time-range').forEach(button => {
         button.addEventListener('click', function () {
@@ -497,6 +811,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     <input type="time" name="scheduler[${day}][start][]" required>
                     <span>to</span>
                     <input type="time" name="scheduler[${day}][end][]" required>
+                    <span>Var:</span>
+                    <input type="number" name="scheduler[${day}][startVar][]" min="0" max="60" step="5" placeholder="0" title="Start variance (+/- min)" style="width:60px;">
+                    <span>/</span>
+                    <input type="number" name="scheduler[${day}][endVar][]" min="0" max="60" step="5" placeholder="0" title="End variance (+/- min)" style="width:60px;">
                     <button type="button" class="remove-time-range"><i class="bi bi-trash"></i></button>
                 `;
                 timeRangesDiv.appendChild(newTimeRange);
@@ -737,6 +1055,97 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     updateLevelingSequenceActionState();
+
+    const navLinks = Array.from(document.querySelectorAll('.settings-nav a'));
+    const navContainer = document.querySelector('.settings-nav');
+    const hoverToggle = document.getElementById('navHoverToggle');
+    const hoverToggleIcon = document.getElementById('navHoverToggleIcon');
+    const hoverToggleText = document.getElementById('navHoverToggleText');
+    const HOVER_EXPAND_KEY = 'koolo:navHoverExpand';
+
+    if (navContainer && hoverToggle) {
+        const updateHoverToggleUI = (enabled) => {
+            if (hoverToggleIcon) {
+                hoverToggleIcon.classList.toggle('bi-arrows-angle-expand', !enabled);
+                hoverToggleIcon.classList.toggle('bi-arrows-angle-contract', enabled);
+            }
+            if (hoverToggleText) {
+                hoverToggleText.textContent = enabled ? 'Hover expand on' : 'Hover expand off';
+            }
+        };
+
+        let hoverEnabled = true;
+        try {
+            hoverEnabled = window.localStorage.getItem(HOVER_EXPAND_KEY) !== '0';
+        } catch (error) {
+            hoverEnabled = true;
+        }
+        navContainer.classList.toggle('hover-expand', hoverEnabled);
+        hoverToggle.checked = hoverEnabled;
+        updateHoverToggleUI(hoverEnabled);
+        hoverToggle.addEventListener('change', () => {
+            const enabled = hoverToggle.checked;
+            navContainer.classList.toggle('hover-expand', enabled);
+            updateHoverToggleUI(enabled);
+            try {
+                window.localStorage.setItem(HOVER_EXPAND_KEY, enabled ? '1' : '0');
+            } catch (error) {
+                // Ignore storage errors; toggle still works for the session.
+            }
+        });
+    }
+    const sectionLinks = new Map();
+
+    navLinks.forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        if (!href.startsWith('#')) {
+            return;
+        }
+        const targetId = href.slice(1);
+        const section = document.getElementById(targetId);
+        if (!section) {
+            return;
+        }
+        sectionLinks.set(section, link);
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            history.replaceState(null, '', href);
+        });
+    });
+
+    const setActiveLink = (active) => {
+        navLinks.forEach((link) => {
+            link.classList.toggle('active', link === active);
+        });
+    };
+
+    if (sectionLinks.size) {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) {
+                        return;
+                    }
+                    const activeLink = sectionLinks.get(entry.target);
+                    if (activeLink) {
+                        setActiveLink(activeLink);
+                    }
+                });
+            },
+            {
+                rootMargin: '-20% 0px -70% 0px',
+                threshold: 0,
+            }
+        );
+
+        sectionLinks.forEach((_, section) => observer.observe(section));
+
+        const hashLink = window.location.hash
+            ? navLinks.find((link) => link.getAttribute('href') === window.location.hash)
+            : null;
+        setActiveLink(hashLink || navLinks[0]);
+    }
 });
 
 function handleBossStaticThresholdChange() {

@@ -66,19 +66,30 @@ type ConfigLevelingSettings struct {
 }
 
 type HealthLevelingSettings struct {
-	HealingPotionAt     *int      `json:"healingPotionAt,omitempty"`
-	ManaPotionAt        *int      `json:"manaPotionAt,omitempty"`
-	RejuvPotionAtLife   *int      `json:"rejuvPotionAtLife,omitempty"`
-	RejuvPotionAtMana   *int      `json:"rejuvPotionAtMana,omitempty"`
-	MercHealingPotionAt *int      `json:"mercHealingPotionAt,omitempty"`
-	MercRejuvPotionAt   *int      `json:"mercRejuvPotionAt,omitempty"`
-	ChickenAt           *int      `json:"chickenAt,omitempty"`
-	TownChickenAt       *int      `json:"townChickenAt,omitempty"`
-	MercChickenAt       *int      `json:"mercChickenAt,omitempty"`
-	HealingPotionCount  *int      `json:"healingPotionCount,omitempty"`
-	ManaPotionCount     *int      `json:"manaPotionCount,omitempty"`
-	RejuvPotionCount    *int      `json:"rejuvPotionCount,omitempty"`
-	BeltColumns         *[]string `json:"beltColumns,omitempty"`
+	HealingPotionAt      *int      `json:"healingPotionAt,omitempty"`
+	ManaPotionAt         *int      `json:"manaPotionAt,omitempty"`
+	RejuvPotionAtLife    *int      `json:"rejuvPotionAtLife,omitempty"`
+	RejuvPotionAtMana    *int      `json:"rejuvPotionAtMana,omitempty"`
+	MercHealingPotionAt  *int      `json:"mercHealingPotionAt,omitempty"`
+	MercRejuvPotionAt    *int      `json:"mercRejuvPotionAt,omitempty"`
+	ChickenAt            *int      `json:"chickenAt,omitempty"`
+	TownChickenAt        *int      `json:"townChickenAt,omitempty"`
+	MercChickenAt        *int      `json:"mercChickenAt,omitempty"`
+	HealingPotionCount   *int      `json:"healingPotionCount,omitempty"`
+	ManaPotionCount      *int      `json:"manaPotionCount,omitempty"`
+	RejuvPotionCount     *int      `json:"rejuvPotionCount,omitempty"`
+	BeltColumns          *[]string `json:"beltColumns,omitempty"`
+	ChickenAmplifyDamage *bool     `json:"chickenAmplifyDamage,omitempty"`
+	ChickenDecrepify     *bool     `json:"chickenDecrepify,omitempty"`
+	ChickenLowerResist   *bool     `json:"chickenLowerResist,omitempty"`
+	ChickenBloodMana     *bool     `json:"chickenBloodMana,omitempty"`
+	ChickenFanaticism    *bool     `json:"chickenFanaticism,omitempty"`
+	ChickenMight         *bool     `json:"chickenMight,omitempty"`
+	ChickenConviction    *bool     `json:"chickenConviction,omitempty"`
+	ChickenHolyFire      *bool     `json:"chickenHolyFire,omitempty"`
+	ChickenBlessedAim    *bool     `json:"chickenBlessedAim,omitempty"`
+	ChickenHolyFreeze    *bool     `json:"chickenHolyFreeze,omitempty"`
+	ChickenHolyShock     *bool     `json:"chickenHolyShock,omitempty"`
 }
 
 func NewLevelingSequence() *LevelingSequence {
@@ -401,6 +412,39 @@ func (ls LevelingSequence) ApplyHealthSetting(healthSetting HealthLevelingSettin
 	if healthSetting.BeltColumns != nil {
 		ls.applyBeltColumnsOverride(*healthSetting.BeltColumns)
 	}
+	if healthSetting.ChickenAmplifyDamage != nil {
+		ls.ctx.CharacterCfg.ChickenOnCurses.AmplifyDamage = *healthSetting.ChickenAmplifyDamage
+	}
+	if healthSetting.ChickenDecrepify != nil {
+		ls.ctx.CharacterCfg.ChickenOnCurses.Decrepify = *healthSetting.ChickenDecrepify
+	}
+	if healthSetting.ChickenLowerResist != nil {
+		ls.ctx.CharacterCfg.ChickenOnCurses.LowerResist = *healthSetting.ChickenLowerResist
+	}
+	if healthSetting.ChickenBloodMana != nil {
+		ls.ctx.CharacterCfg.ChickenOnCurses.BloodMana = *healthSetting.ChickenBloodMana
+	}
+	if healthSetting.ChickenFanaticism != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.Fanaticism = *healthSetting.ChickenFanaticism
+	}
+	if healthSetting.ChickenMight != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.Might = *healthSetting.ChickenMight
+	}
+	if healthSetting.ChickenConviction != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.Conviction = *healthSetting.ChickenConviction
+	}
+	if healthSetting.ChickenHolyFire != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.HolyFire = *healthSetting.ChickenHolyFire
+	}
+	if healthSetting.ChickenBlessedAim != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.BlessedAim = *healthSetting.ChickenBlessedAim
+	}
+	if healthSetting.ChickenHolyFreeze != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.HolyFreeze = *healthSetting.ChickenHolyFreeze
+	}
+	if healthSetting.ChickenHolyShock != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.HolyShock = *healthSetting.ChickenHolyShock
+	}
 
 	return nil
 }
@@ -640,8 +684,8 @@ func (ls LevelingSequence) setupLevelOneConfig() {
 	ls.ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation = true
 	ls.ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding = true
 	ls.ctx.CharacterCfg.Game.Leveling.AutoEquip = true
-	ls.ctx.CharacterCfg.Game.Leveling.EnableRunewordMaker = true
-	ls.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = ls.GetRunewords()
+	ls.ctx.CharacterCfg.Game.RunewordMaker.Enabled = true
+	ls.ctx.CharacterCfg.Game.RunewordMaker.EnabledRecipes = ls.GetRunewords()
 	ls.ctx.CharacterCfg.Character.UseTeleport = false
 	ls.ctx.CharacterCfg.Character.UseMerc = false
 	ls.ctx.CharacterCfg.Character.StashToShared = false
@@ -704,7 +748,7 @@ func (ls LevelingSequence) AdjustDifficultyConfig() {
 		return
 	}
 
-	ls.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = ls.GetRunewords()
+	ls.ctx.CharacterCfg.Game.RunewordMaker.EnabledRecipes = ls.GetRunewords()
 	ls.ctx.CharacterCfg.Game.MinGoldPickupThreshold = 5000 * lvl.Value
 
 	if !ls.ctx.CharacterCfg.Character.UseMerc && ls.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() {
