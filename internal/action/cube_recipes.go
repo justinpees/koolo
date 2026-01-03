@@ -612,6 +612,13 @@ func CubeRecipes() error {
 						if it.Name == "Key" || it.IsPotion() || it.Name == item.TomeOfTownPortal || it.Name == item.TomeOfIdentify {
 							continue
 						}
+						
+						 // ✅ FORCE STASH MAGIC / CRAFTED WIRT'S LEG
+        if it.Name == "WirtsLeg" && it.Quality >= item.QualityMagic {
+            ctx.Logger.Debug("FORCING STASH OF WIRT'S LEG AFTER CUBING", "quality", it.Quality.ToString())
+            stashingRequired = true
+            continue
+        }
 
 						shouldStash, _, reason, _ := shouldStashIt(it, false)
 
@@ -870,7 +877,7 @@ if recipe.Name == "Flawless Emerald" {
 		if count, ok := recipeItems[string(item.Name)]; ok {
 
 			// Let's make sure we don't use an item we don't want to. Add more if needed (depending on the recipes we have) "WirtsLeg" should be the correct name
-			if item.Name == "Jewel" || item.Name == "Ring" || item.Name == "grandcharm" || item.Name == "Amulet" || item.Name == "Wirt'sLeg" || item.Name == "WirtsLeg" || item.Name == "MithrilCoil" || item.Name == "MeshBelt" || item.Name == "VampirefangBelt" || item.Name == "HeavyBracers" || item.Name == "SharkskinGloves" || item.Name == "Armet" || item.Name == "SharkskinBelt" || item.Name == "VampireboneGloves" {
+			if item.Name == "Jewel" || item.Name == "Ring" || item.Name == "Monarch" || item.Name == "grandcharm" || item.Name == "Amulet" || item.Name == "Wirt'sLeg" || item.Name == "WirtsLeg" || item.Name == "MithrilCoil" || item.Name == "MeshBelt" || item.Name == "VampirefangBelt" || item.Name == "HeavyBracers" || item.Name == "SharkskinGloves" || item.Name == "Armet" || item.Name == "SharkskinBelt" || item.Name == "VampireboneGloves" {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(item); result == nip.RuleResultFullMatch {
 					continue
 				}

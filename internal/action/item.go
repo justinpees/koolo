@@ -56,10 +56,19 @@ func DropInventoryItem(i data.Item) error {
     ctx.SetLastAction("DropInventoryItem")
 
     // ---------- ABSOLUTE PROTECTION ----------
-    if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) || i.Name == "WirtsLeg" {
-        ctx.Logger.Debug("NOT DROPPING " + ctx.CharacterCfg.Inventory.GemToUpgrade + " OR WIRTSLEG")
+	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
+    if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
+        ctx.Logger.Debug("NOT DROPPING " + ctx.CharacterCfg.Inventory.GemToUpgrade)
         return nil
     }
+	}
+
+if ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
+	if i.Name == "WirtsLeg" {
+		ctx.Logger.Debug("NOT DROPPING WIRT'S LEG")
+		return nil
+	}
+}
 
     closeAttempts := 0
 

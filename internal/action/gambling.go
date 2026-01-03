@@ -348,7 +348,16 @@ func withdrawGoldFromSharedStash() {
 		ctx.Logger.Info("Personal stash full, skipping withdrawal from shared stash")
 		return
 	}
-time.Sleep(5000 * time.Millisecond)
+if ctx.CharacterCfg.ClassicMode {
+    if !ctx.Data.LegacyGraphics { // wait only if legacy graphics is not active yet
+        ctx.Logger.Info("Waiting up to 5 seconds for Legacy Graphics to activate...")
+        if !waitForLegacyGraphics(5 * time.Second) {
+            ctx.Logger.Warn("Legacy Graphics not detected after 5 seconds, proceeding anyway")
+        } else {
+            ctx.Logger.Info("Legacy Graphics detected, continuing...")
+        }
+    }
+}
 	// Ensure stash is open initially
 	if !ctx.Data.OpenMenus.Stash {
 		if err := OpenStash(); err != nil {
@@ -507,4 +516,19 @@ func safeStashGold() bool {
 
 	afterGold, _ := ctx.Data.PlayerUnit.FindStat(stat.StashGold, 0)
 	return afterGold.Value > beforeGold
+}
+
+// waitForLegacyGraphics waits until LegacyGraphics is true or timeout is reached
+func waitForLegacyGraphics(timeout time.Duration) bool {
+	ctx := context.Get()
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		if ctx.Data.LegacyGraphics {
+			return true
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	return false
 }

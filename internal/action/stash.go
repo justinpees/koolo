@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"path/filepath"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -606,7 +607,7 @@ if areaId, found := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]; found {
 	// Don't log items that we already have in inventory during first run or that we don't want to notify about (gems, low runes .. etc)
 if !skipLogging && shouldNotifyAboutStashing(i) && ruleFile != "" {
     if config.Koolo != nil && len(config.Koolo.Discord.MentionID) > 0 {
-        event.Send(event.ItemStashed(event.WithScreenshot(ctx.Name, fmt.Sprintf("%s Item %s [%s] stashed", strings.Join(func() []string { m := []string{}; for _, id := range config.Koolo.Discord.MentionID { if id != "" { m = append(m, "<@" + id + ">") } }; return m }(), " "), i.Name, i.Quality.ToString()), screenshot), data.Drop{Item: i, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation}))
+event.Send(event.ItemStashed(event.WithScreenshot(ctx.Name, fmt.Sprintf("%s %s [%s] found in \"%s\" (%s)", strings.Join(func() []string { m := []string{}; for _, id := range config.Koolo.Discord.MentionID { if id != "" { m = append(m, "<@"+id+">") } }; return m }(), " "), i.Name, i.Quality.ToString(), dropLocation, filepath.Base(ruleFile)), screenshot), data.Drop{Item: i, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation}))
     } else {
         event.Send(event.ItemStashed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] stashed", i.Name, i.Quality.ToString()), screenshot), data.Drop{Item: i, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation}))
     }
@@ -690,9 +691,17 @@ func shouldNotifyAboutStashing(i data.Item) bool {
 	if strings.Contains(i.Desc().Type, "gem") {
 		return false
 	}
+// Don't notify tokens (NAME-based)
+if strings.Contains(strings.ToLower(string(i.Name)), "tokenofabsolution") {
+	return false
+}
 
+// Don't notify keys (NAME-based: Terror / Hate / Destruction)
+if strings.Contains(strings.ToLower(string(i.Name)), "keyofterror") || strings.Contains(strings.ToLower(string(i.Name)), "keyofdestruction") || strings.Contains(strings.ToLower(string(i.Name)), "keyofhate") {
+	return false
+}
 	// Skip low runes (below lem)
-	lowRunes := []string{"elrune", "eldrune", "tirrune", "nefrune", "ethrune", "ithrune", "talrune", "ralrune", "ortrune", "thulrune", "amnrune", "solrune", "shaelrune", "dolrune", "helrune", "iorune", "lumrune", "korune", "falrune"}
+	lowRunes := []string{"elrune", "eldrune", "tirrune", "nefrune", "ethrune", "ithrune", "talrune", "ralrune", "ortrune", "thulrune", "amnrune", "solrune", "shaelrune", "dolrune", "helrune", "iorune", "lumrune", "korune", "falrune", "pulrune", "lemrune"}
 	if i.Desc().Type == item.TypeRune {
 		itemName := strings.ToLower(string(i.Name))
 		for _, runeName := range lowRunes {
