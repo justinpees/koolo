@@ -370,16 +370,15 @@ func StartGame(username string, password string, authmethod string, authToken st
 		// If we got to here we've successfully updated the auth token :)
 	}
 
-
 	// Start the game with retry logic for GPU initialization errors
 	for attempt := 0; attempt < maxGPURetries; attempt++ {
 		cmd := exec.Command(config.Koolo.D2RPath+"\\D2R.exe", fullArgs...)
 		err = cmd.Start()
 		if err != nil {
 			return 0, 0, err
-	}
-	
-// Launch PowerShell script after 5 seconds
+		}
+		
+		// Launch PowerShell script after 5 seconds
 go func() {
 	time.Sleep(5 * time.Second)
 
@@ -408,15 +407,6 @@ psScript := filepath.Join(kooloDir, "TailLogs.ps1")
 
 	_ = cmd.Start()
 }()
-
-	var foundHwnd windows.HWND
-	cb := syscall.NewCallback(func(hwnd windows.HWND, lParam uintptr) uintptr {
-		var pid uint32
-		windows.GetWindowThreadProcessId(hwnd, &pid)
-		if pid == uint32(cmd.Process.Pid) {
-			foundHwnd = hwnd
-			return 0
-		}
 
 		var foundHwnd windows.HWND
 		cb := syscall.NewCallback(func(hwnd windows.HWND, lParam uintptr) uintptr {

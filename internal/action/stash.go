@@ -369,11 +369,15 @@ func stashInventory(firstRun bool) {
 		// 5. Final warning
 		
 
-		stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
-		if !stashed {
-			ctx.Logger.Warn(fmt.Sprintf("ERROR: Item %s [%s] could not be stashed into any tab. All stash tabs might be full.", i.Desc().Name, i.Quality.ToString()))
-
-		}
+		if !itemStashed {
+    stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
+    if !stashed {
+        ctx.Logger.Warn(fmt.Sprintf(
+            "ERROR: Item %s [%s] could not be stashed into any tab. All stash tabs might be full.",
+            i.Desc().Name, i.Quality.ToString(),
+        ))
+    }
+}
 	}
 
 	step.CloseAllMenus()
@@ -625,7 +629,7 @@ func shouldKeepRecipeItem(i data.Item) bool {
 func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool) bool {
 	ctx := context.Get()
 	ctx.SetLastAction("stashItemAction")
-	displayName := formatItemName(i)
+	
 
 	screenPos := ui.GetScreenCoordsForItem(i)
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
@@ -658,13 +662,52 @@ if areaId, found := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]; found {
     dropLocation = vendorName
 }
 
-	// Don't log items that we already have in inventory during first run or that we don't want to notify about (gems, low runes .. etc)
+// Don't log items that we already have in inventory during first run or that we don't want to notify about (gems, low runes .. etc)
 if !skipLogging && shouldNotifyAboutStashing(i) && ruleFile != "" {
-    if config.Koolo != nil && len(config.Koolo.Discord.MentionID) > 0 {
-event.Send(event.ItemStashed(event.WithScreenshot(ctx.Name, fmt.Sprintf("%s %s [%s] found in \"%s\" (%s)", strings.Join(func() []string { m := []string{}; for _, id := range config.Koolo.Discord.MentionID { if id != "" { m = append(m, "<@"+id+">") } }; return m }(), " "), i.Name, i.Quality.ToString(), dropLocation, filepath.Base(ruleFile)), screenshot), data.Drop{Item: i, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation}))
-    } else {
-        event.Send(event.ItemStashed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] stashed", i.Name, i.Quality.ToString()), screenshot), data.Drop{Item: i, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation}))
+    var message string
+  mentions := []string{}
+if config.Koolo != nil {
+    for _, id := range config.Koolo.Discord.MentionID {
+        if strings.TrimSpace(id) != "" {
+            mentions = append(mentions, "<@"+id+">")
+        }
     }
+}
+
+if len(mentions) > 0 {
+        // Include Discord mentions
+        mentions := []string{}
+        for _, id := range config.Koolo.Discord.MentionID {
+            if id != "" {
+                mentions = append(mentions, "<@"+id+">")
+            }
+        }
+        message = fmt.Sprintf("%s %s [%s] found in \"%s\" (%s)",
+            strings.Join(mentions, " "),
+            i.Name,
+            i.Quality.ToString(),
+            dropLocation,
+            filepath.Base(ruleFile),
+        )
+    } else {
+        // No Discord mentions
+        message = fmt.Sprintf("%s [%s] found in \"%s\" (%s)",
+            i.Name,
+            i.Quality.ToString(),
+            dropLocation,
+            filepath.Base(ruleFile),
+        )
+    }
+
+    event.Send(event.ItemStashed(
+        event.WithScreenshot(ctx.Name, message, screenshot),
+        data.Drop{
+            Item:         i,
+            Rule:         rule,
+            RuleFile:     ruleFile,
+            DropLocation: dropLocation,
+        },
+    ))
 }
 
 

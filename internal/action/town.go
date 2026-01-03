@@ -180,6 +180,8 @@ func PreRun(firstRun bool) error {
 
 func InRunReturnTownRoutine() error {
 	ctx := context.Get()
+	
+_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 
 	ctx.Logger.Info("Pausing if not priority at start of town routine...")
 	ctx.PauseIfNotPriority()
