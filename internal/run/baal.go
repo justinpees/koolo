@@ -8,6 +8,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
@@ -215,7 +216,29 @@ func (s *Baal) Run(parameters *RunParameters) error {
 			}
 		}
 
-		return s.ctx.Char.KillBaal()
+		// Kill Baal and mark any dropped Grand Charm for reroll (do not overwrite existing mark)
+		if err := s.ctx.Char.KillBaal(); err != nil {
+			return err
+		}
+
+		foundCharm := false
+		for _, it := range s.ctx.Data.Inventory.ByLocation(item.LocationGround) {
+			if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
+				if s.ctx.MarkedGrandCharm == nil {
+					s.ctx.Logger.Debug("GRAND CHARM DROPPED BY BAAL, MARKING FOR REROLL")
+					s.ctx.MarkedGrandCharm = &it
+				} else {
+					s.ctx.Logger.Debug("GRAND CHARM ALREADY MARKED, NOT MARKING THIS ONE FOR REROLL")
+				}
+				foundCharm = true
+				break
+			}
+		}
+		if !foundCharm {
+			s.ctx.Logger.Debug("NO GRAND CHARM DROPPED BY BAAL")
+		}
+
+		return nil
 	}
 
 	return nil

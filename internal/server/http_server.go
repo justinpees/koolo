@@ -791,12 +791,12 @@ func (s *HttpServer) reloadConfig(w http.ResponseWriter, r *http.Request) {
 
 // SchedulerHistoryEntry matches bot.HistoryEntry for JSON serialization
 type SchedulerHistoryEntry struct {
-	Date              string                  `json:"date"`
-	WakeTime          string                  `json:"wakeTime"`
-	SleepTime         string                  `json:"sleepTime"`
-	TotalPlayMinutes  int                     `json:"totalPlayMinutes"`
-	TotalBreakMinutes int                     `json:"totalBreakMinutes"`
-	Breaks            []SchedulerBreakEntry   `json:"breaks"`
+	Date              string                `json:"date"`
+	WakeTime          string                `json:"wakeTime"`
+	SleepTime         string                `json:"sleepTime"`
+	TotalPlayMinutes  int                   `json:"totalPlayMinutes"`
+	TotalBreakMinutes int                   `json:"totalBreakMinutes"`
+	Breaks            []SchedulerBreakEntry `json:"breaks"`
 }
 
 type SchedulerBreakEntry struct {
@@ -1363,41 +1363,39 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Discord.WebhookURL = strings.TrimSpace(r.Form.Get("discord_webhook_url"))
 		newConfig.Discord.ItemWebhookURL = strings.TrimSpace(r.Form.Get("discord_item_webhook_url"))
 
-
 		// Get Discord admins from form input
-discordAdmins := r.Form.Get("discord_admins")
+		discordAdmins := r.Form.Get("discord_admins")
 
-// Split on commas, spaces, or brackets
-fields := strings.FieldsFunc(discordAdmins, func(r rune) bool {
-    return r == ',' || r == ' ' || r == '[' || r == ']'
-})
+		// Split on commas, spaces, or brackets
+		fields := strings.FieldsFunc(discordAdmins, func(r rune) bool {
+			return r == ',' || r == ' ' || r == '[' || r == ']'
+		})
 
-// Remove empty strings just in case
-var cleanedAdmins []string
-for _, f := range fields {
-    if f != "" {
-        cleanedAdmins = append(cleanedAdmins, f)
-    }
-}
+		// Remove empty strings just in case
+		var cleanedAdmins []string
+		for _, f := range fields {
+			if f != "" {
+				cleanedAdmins = append(cleanedAdmins, f)
+			}
+		}
 
-newConfig.Discord.BotAdmins = cleanedAdmins
+		newConfig.Discord.BotAdmins = cleanedAdmins
 
-// Same logic for MentionID
-discordMentions := r.Form.Get("discord_mention_user_id")
-fields = strings.FieldsFunc(discordMentions, func(r rune) bool {
-    return r == ',' || r == ' ' || r == '[' || r == ']'
-})
+		// Same logic for MentionID
+		discordMentions := r.Form.Get("discord_mention_user_id")
+		fields = strings.FieldsFunc(discordMentions, func(r rune) bool {
+			return r == ',' || r == ' ' || r == '[' || r == ']'
+		})
 
-var cleanedMentions []string
-for _, f := range fields {
-    if f != "" {
-        cleanedMentions = append(cleanedMentions, f)
-    }
-}
+		var cleanedMentions []string
+		for _, f := range fields {
+			if f != "" {
+				cleanedMentions = append(cleanedMentions, f)
+			}
+		}
 
-newConfig.Discord.MentionID = cleanedMentions
-		
-		
+		newConfig.Discord.MentionID = cleanedMentions
+
 		newConfig.Telegram.Enabled = r.Form.Get("telegram_enabled") == "true"
 		newConfig.Telegram.Token = r.Form.Get("telegram_token")
 		telegramChatId, err := strconv.ParseInt(r.Form.Get("telegram_chat_id"), 10, 64)
@@ -1664,8 +1662,7 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		cfg.Character.StashToShared = values.Has("characterStashToShared")
 		cfg.Character.UseTeleport = values.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = values.Has("characterUseExtraBuffs")
-       
-		
+
 		// Game Settings (General)
 		if v := values.Get("gameMinGoldPickupThreshold"); v != "" {
 			cfg.Game.MinGoldPickupThreshold, _ = strconv.Atoi(v)
@@ -1729,7 +1726,7 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 			if v := values.Get("rejuvPotionCount"); v != "" {
 				cfg.Inventory.RejuvPotionCount, _ = strconv.Atoi(v)
 			}
-            cfg.Inventory.GemToUpgrade = values.Get("upgradeGemUsingShrine")
+			cfg.Inventory.GemToUpgrade = values.Get("upgradeGemUsingShrine")
 			cfg.Game.CreateLobbyGames = values.Has("createLobbyGames")
 			cfg.Game.IsNonLadderChar = values.Has("isNonLadderChar")
 			cfg.Game.Difficulty = difficulty.Difficulty(values.Get("gameDifficulty"))

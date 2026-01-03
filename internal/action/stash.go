@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
-	"path/filepath"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -15,12 +15,12 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
-	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/lxn/win"
 )
 
@@ -83,9 +83,9 @@ func isStashingRequired(firstRun bool) bool {
 
 		stashIt, dropIt, _, _ := shouldStashIt(i, firstRun)
 
-    if stashIt || dropIt {
-        return true
-    }
+		if stashIt || dropIt {
+			return true
+		}
 	}
 
 	isStashFull := true
@@ -166,7 +166,7 @@ func stashInventory(firstRun bool) {
 	currentTab := startTab
 	SwitchStashTab(currentTab)
 
-// ------------------------------------------------------------------
+	// ------------------------------------------------------------------
 	// ENSURE GEM TO UPGRADE EXISTS IN INVENTORY
 	// ------------------------------------------------------------------
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
@@ -268,7 +268,6 @@ func stashInventory(firstRun bool) {
 			continue
 		}
 
-
 		// Determine target tab for this specific item
 		targetStartTab := startTab
 
@@ -281,7 +280,7 @@ func stashInventory(firstRun bool) {
 		}
 
 		itemStashed := false
-			maxTab := 4
+		maxTab := 4
 		name := i.Desc().Name
 		lowerName := strings.ToLower(name)
 
@@ -367,22 +366,20 @@ func stashInventory(firstRun bool) {
 		}
 
 		// 5. Final warning
-		
 
 		if !itemStashed {
-    stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
-    if !stashed {
-        ctx.Logger.Warn(fmt.Sprintf(
-            "ERROR: Item %s [%s] could not be stashed into any tab. All stash tabs might be full.",
-            i.Desc().Name, i.Quality.ToString(),
-        ))
-    }
-}
+			stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
+			if !stashed {
+				ctx.Logger.Warn(fmt.Sprintf(
+					"ERROR: Item %s [%s] could not be stashed into any tab. All stash tabs might be full.",
+					i.Desc().Name, i.Quality.ToString(),
+				))
+			}
+		}
 	}
 
 	step.CloseAllMenus()
 }
-
 
 // stashItemAcrossTabs attempts to stash the given item across available tabs, applying the same logic
 // used by the main stash routine. It returns true if the item was stashed successfully.
@@ -438,7 +435,6 @@ func stashItemAcrossTabs(i data.Item, matchedRule string, ruleFile string, first
 	return itemStashed
 }
 
-
 // shouldStashIt now returns stashIt, dropIt, matchedRule, ruleFile
 func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	ctx := context.Get()
@@ -455,36 +451,30 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		fmt.Printf("DEBUG: ABSOLUTELY PREVENTING stash for '%s' (Horadric Staff exclusion).\n", i.Name)
 		return false, false, "", "" // Explicitly do NOT stash the Horadric Staff
 	}
-	
-	
-	
-	
-	
-	
-	
+
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-	// Count flawless skulls currently in inventory
-invCount := 0
+		// Count flawless skulls currently in inventory
+		invCount := 0
 
-// Loop through all items in the inventory to count the flawless skulls
-for _, itemInInventory := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-    if itemInInventory.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
-        invCount++
-    }
-}
+		// Loop through all items in the inventory to count the flawless skulls
+		for _, itemInInventory := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+			if itemInInventory.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
+				invCount++
+			}
+		}
 
-// Check if the current item is a flawless skull
-if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
-    if invCount <= 1 {
-        // If it's the first flawless skull, KEEP it in inventory
-        ctx.Logger.Debug("KEEPING GEM IN INVENTORY TO UPGRADE WITH SHRINE", "gem", ctx.CharacterCfg.Inventory.GemToUpgrade)
-        return false, false, "", "" // do NOT stash, do NOT drop
-    } else {
-        // If it's an extra flawless skull, STASH it, NEVER drop it
-        ctx.Logger.Debug("EXTRA " + ctx.CharacterCfg.Inventory.GemToUpgrade + " DETECTED, STASHING THIS ONE")
-        return true, false, "", "" // stash=true, drop=false
-    }
-}
+		// Check if the current item is a flawless skull
+		if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
+			if invCount <= 1 {
+				// If it's the first flawless skull, KEEP it in inventory
+				ctx.Logger.Debug("KEEPING GEM IN INVENTORY TO UPGRADE WITH SHRINE", "gem", ctx.CharacterCfg.Inventory.GemToUpgrade)
+				return false, false, "", "" // do NOT stash, do NOT drop
+			} else {
+				// If it's an extra flawless skull, STASH it, NEVER drop it
+				ctx.Logger.Debug("EXTRA " + ctx.CharacterCfg.Inventory.GemToUpgrade + " DETECTED, STASHING THIS ONE")
+				return true, false, "", "" // stash=true, drop=false
+			}
+		}
 
 	}
 
@@ -500,6 +490,11 @@ if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
 	if firstRun {
 		fmt.Printf("DEBUG: Allowing stash for '%s' (first run).\n", i.Name)
 		return true, false, "FirstRun", ""
+	}
+
+	if ctx.MarkedGrandCharm != nil && i.UnitID == ctx.MarkedGrandCharm.UnitID {
+		ctx.Logger.Debug("STASHING MARKED GRAND CHARM FOR REROLL RECIPE!!!!")
+		return true, false, "MarkedGrandCharm", ""
 	}
 
 	// Stash items that are part of a recipe which are not covered by the NIP rules
@@ -629,7 +624,6 @@ func shouldKeepRecipeItem(i data.Item) bool {
 func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool) bool {
 	ctx := context.Get()
 	ctx.SetLastAction("stashItemAction")
-	
 
 	screenPos := ui.GetScreenCoordsForItem(i)
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
@@ -650,66 +644,64 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 
 	dropLocation := "unknown"
 
+	// Check if the item was picked up in-game
+	if areaId, found := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]; found {
+		dropLocation = area.ID(areaId).Area().Name
+		if slices.Contains(ctx.Data.TerrorZones, area.ID(areaId)) {
+			dropLocation += " (terrorized)"
+		}
+	} else if vendorName, found := ctx.CurrentGame.PickedUpItemsVendor[int(i.UnitID)]; found {
+		// Item was bought from a vendor
+		dropLocation = vendorName
+	}
 
-// Check if the item was picked up in-game
-if areaId, found := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]; found {
-    dropLocation = area.ID(areaId).Area().Name
-    if slices.Contains(ctx.Data.TerrorZones, area.ID(areaId)) {
-        dropLocation += " (terrorized)"
-    }
-} else if vendorName, found := ctx.CurrentGame.PickedUpItemsVendor[int(i.UnitID)]; found {
-    // Item was bought from a vendor
-    dropLocation = vendorName
-}
+	// Don't log items that we already have in inventory during first run or that we don't want to notify about (gems, low runes .. etc)
+	if !skipLogging && shouldNotifyAboutStashing(i) && ruleFile != "" {
+		var message string
+		mentions := []string{}
+		if config.Koolo != nil {
+			for _, id := range config.Koolo.Discord.MentionID {
+				if strings.TrimSpace(id) != "" {
+					mentions = append(mentions, "<@"+id+">")
+				}
+			}
+		}
 
-// Don't log items that we already have in inventory during first run or that we don't want to notify about (gems, low runes .. etc)
-if !skipLogging && shouldNotifyAboutStashing(i) && ruleFile != "" {
-    var message string
-  mentions := []string{}
-if config.Koolo != nil {
-    for _, id := range config.Koolo.Discord.MentionID {
-        if strings.TrimSpace(id) != "" {
-            mentions = append(mentions, "<@"+id+">")
-        }
-    }
-}
+		if len(mentions) > 0 {
+			// Include Discord mentions
+			mentions := []string{}
+			for _, id := range config.Koolo.Discord.MentionID {
+				if id != "" {
+					mentions = append(mentions, "<@"+id+">")
+				}
+			}
+			message = fmt.Sprintf("%s %s [%s] found in \"%s\" (%s)",
+				strings.Join(mentions, " "),
+				i.Name,
+				i.Quality.ToString(),
+				dropLocation,
+				filepath.Base(ruleFile),
+			)
+		} else {
+			// No Discord mentions
+			message = fmt.Sprintf("%s [%s] found in \"%s\" (%s)",
+				i.Name,
+				i.Quality.ToString(),
+				dropLocation,
+				filepath.Base(ruleFile),
+			)
+		}
 
-if len(mentions) > 0 {
-        // Include Discord mentions
-        mentions := []string{}
-        for _, id := range config.Koolo.Discord.MentionID {
-            if id != "" {
-                mentions = append(mentions, "<@"+id+">")
-            }
-        }
-        message = fmt.Sprintf("%s %s [%s] found in \"%s\" (%s)",
-            strings.Join(mentions, " "),
-            i.Name,
-            i.Quality.ToString(),
-            dropLocation,
-            filepath.Base(ruleFile),
-        )
-    } else {
-        // No Discord mentions
-        message = fmt.Sprintf("%s [%s] found in \"%s\" (%s)",
-            i.Name,
-            i.Quality.ToString(),
-            dropLocation,
-            filepath.Base(ruleFile),
-        )
-    }
-
-    event.Send(event.ItemStashed(
-        event.WithScreenshot(ctx.Name, message, screenshot),
-        data.Drop{
-            Item:         i,
-            Rule:         rule,
-            RuleFile:     ruleFile,
-            DropLocation: dropLocation,
-        },
-    ))
-}
-
+		event.Send(event.ItemStashed(
+			event.WithScreenshot(ctx.Name, message, screenshot),
+			data.Drop{
+				Item:         i,
+				Rule:         rule,
+				RuleFile:     ruleFile,
+				DropLocation: dropLocation,
+			},
+		))
+	}
 
 	return true // Item successfully stashed
 }
@@ -742,7 +734,6 @@ func dropExcessItems() {
 		if i.IsPotion() {
 			continue
 		}
-		
 
 		_, dropIt, _, _ := shouldStashIt(i, false) // Re-evaluate if it should be dropped (not firstRun)
 		if dropIt {
@@ -807,15 +798,15 @@ func shouldNotifyAboutStashing(i data.Item) bool {
 	if strings.Contains(i.Desc().Type, "gem") {
 		return false
 	}
-// Don't notify tokens (NAME-based)
-if strings.Contains(strings.ToLower(string(i.Name)), "tokenofabsolution") {
-	return false
-}
+	// Don't notify tokens (NAME-based)
+	if strings.Contains(strings.ToLower(string(i.Name)), "tokenofabsolution") {
+		return false
+	}
 
-// Don't notify keys (NAME-based: Terror / Hate / Destruction)
-if strings.Contains(strings.ToLower(string(i.Name)), "keyofterror") || strings.Contains(strings.ToLower(string(i.Name)), "keyofdestruction") || strings.Contains(strings.ToLower(string(i.Name)), "keyofhate") {
-	return false
-}
+	// Don't notify keys (NAME-based: Terror / Hate / Destruction)
+	if strings.Contains(strings.ToLower(string(i.Name)), "keyofterror") || strings.Contains(strings.ToLower(string(i.Name)), "keyofdestruction") || strings.Contains(strings.ToLower(string(i.Name)), "keyofhate") {
+		return false
+	}
 	// Skip low runes (below lem)
 	lowRunes := []string{"elrune", "eldrune", "tirrune", "nefrune", "ethrune", "ithrune", "talrune", "ralrune", "ortrune", "thulrune", "amnrune", "solrune", "shaelrune", "dolrune", "helrune", "iorune", "lumrune", "korune", "falrune", "pulrune", "lemrune"}
 	if i.Desc().Type == item.TypeRune {

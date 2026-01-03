@@ -68,6 +68,8 @@ type Context struct {
 	LastPortalTick        time.Time     // NEW FIELD: Tracks last portal creation for spam prevention
 	IsBossEquipmentActive bool          // flag for barb leveling
 	Drop                  *drop.Manager // Drop: Per-supervisor Drop manager
+	MarkedGrandCharm      *data.Item    // NEW FIELD: Tracks the Grand Charm marked for reroll after Diablo kill
+	//MarkedGrandCharmUnitID int
 }
 
 type Debug struct {
@@ -76,10 +78,10 @@ type Debug struct {
 }
 
 type CurrentGameHelper struct {
-	BlacklistedItems []data.Item
-	PickedUpItems    map[int]int
+	BlacklistedItems    []data.Item
+	PickedUpItems       map[int]int
 	PickedUpItemsVendor map[int]string // NEW: UnitID -> Vendor name
-	AreaCorrection   struct {
+	AreaCorrection      struct {
 		Enabled      bool
 		ExpectedArea area.ID
 	}
@@ -142,7 +144,7 @@ func NewGameHelper() *CurrentGameHelper {
 	return &CurrentGameHelper{
 		PickupItems:                true,
 		PickedUpItems:              make(map[int]int),
-		PickedUpItemsVendor: make(map[int]string),
+		PickedUpItemsVendor:        make(map[int]string),
 		BlacklistedItems:           []data.Item{},
 		FailedToCreateGameAttempts: 0,
 	}

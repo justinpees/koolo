@@ -9,6 +9,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
@@ -243,6 +244,24 @@ func (d *Diablo) Run(parameters *RunParameters) error {
 			return err
 		}
 
+		// After killing Diablo and picking up items, mark any Grand Charm dropped for reroll (do not overwrite existing mark)
+		foundCharm := false
+		for _, it := range d.ctx.Data.Inventory.ByLocation(item.LocationGround) {
+			if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
+				if d.ctx.MarkedGrandCharm == nil {
+					d.ctx.Logger.Debug("GRAND CHARM PICKED UP FROM DIABLO, MARKING FOR REROLL")
+					d.ctx.MarkedGrandCharm = &it
+				} else {
+					d.ctx.Logger.Debug("GRAND CHARM ALREADY MARKED, NOT MARKING THIS ONE FOR REROLL")
+				}
+				foundCharm = true
+				break
+			}
+		}
+		if !foundCharm {
+			d.ctx.Logger.Debug("NO GRAND CHARM FOUND AFTER DIABLO PICKUP")
+		}
+		// Pick up items after scanning ground for Grand Charm
 		action.ItemPickup(30)
 
 		if IsQuestRun(parameters) {

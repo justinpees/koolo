@@ -1,9 +1,9 @@
 package action
 
 import (
+	"fmt"
 	"slices"
 	"strings"
-	"fmt"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -27,137 +27,137 @@ var (
 			Name:  "Flawed Amethyst",
 			Items: []string{"ChippedAmethyst", "ChippedAmethyst", "ChippedAmethyst"},
 		},
-		
+
 		{
 			Name:  "Flawed Diamond",
 			Items: []string{"ChippedDiamond", "ChippedDiamond", "ChippedDiamond"},
 		},
-		
+
 		{
 			Name:  "Flawed Emerald",
 			Items: []string{"ChippedEmerald", "ChippedEmerald", "ChippedEmerald"},
 		},
-		
+
 		{
 			Name:  "Flawed Ruby",
 			Items: []string{"ChippedRuby", "ChippedRuby", "ChippedRuby"},
 		},
-		
+
 		{
 			Name:  "Flawed Sapphire",
 			Items: []string{"ChippedSapphire", "ChippedSapphire", "ChippedSapphire"},
 		},
-		
+
 		{
 			Name:  "Flawed Topaz",
 			Items: []string{"ChippedTopaz", "ChippedTopaz", "ChippedTopaz"},
 		},
-		
+
 		{
 			Name:  "Flawed Skull",
 			Items: []string{"ChippedSkull", "ChippedSkull", "ChippedSkull"},
 		},
-		
+
 		{
 			Name:  "Amethyst",
 			Items: []string{"FlawedAmethyst", "FlawedAmethyst", "FlawedAmethyst"},
 		},
-		
+
 		{
 			Name:  "Diamond",
 			Items: []string{"FlawedDiamond", "FlawedDiamond", "FlawedDiamond"},
 		},
-		
+
 		{
 			Name:  "Emerald",
 			Items: []string{"FlawedEmerald", "FlawedEmerald", "FlawedEmerald"},
 		},
-		
+
 		{
 			Name:  "Ruby",
 			Items: []string{"FlawedRuby", "FlawedRuby", "FlawedRuby"},
 		},
-		
+
 		{
 			Name:  "Sapphire",
 			Items: []string{"FlawedSapphire", "FlawedSapphire", "FlawedSapphire"},
 		},
-		
+
 		{
 			Name:  "Topaz",
 			Items: []string{"FlawedTopaz", "FlawedTopaz", "FlawedTopaz"},
 		},
-		
+
 		{
 			Name:  "Skull",
 			Items: []string{"FlawedSkull", "FlawedSkull", "FlawedSkull"},
 		},
-		
+
 		{
 			Name:  "Flawless Amethyst",
 			Items: []string{"Amethyst", "Amethyst", "Amethyst"},
 		},
-		
+
 		{
 			Name:  "Flawless Diamond",
 			Items: []string{"Diamond", "Diamond", "Diamond"},
 		},
-		
+
 		{
 			Name:  "Flawless Emerald",
 			Items: []string{"Emerald", "Emerald", "Emerald"},
 		},
-		
+
 		{
 			Name:  "Flawless Ruby",
 			Items: []string{"Ruby", "Ruby", "Ruby"},
 		},
-		
+
 		{
 			Name:  "Flawless Sapphire",
 			Items: []string{"Sapphire", "Sapphire", "Sapphire"},
 		},
-		
+
 		{
 			Name:  "Flawless Topaz",
 			Items: []string{"Topaz", "Topaz", "Topaz"},
 		},
-		
+
 		{
 			Name:  "Flawless Skull",
 			Items: []string{"Skull", "Skull", "Skull"},
 		},
-		
+
 		{
 			Name:  "Perfect Amethyst",
 			Items: []string{"FlawlessAmethyst", "FlawlessAmethyst", "FlawlessAmethyst"},
 		},
-		
+
 		{
 			Name:  "Perfect Diamond",
 			Items: []string{"FlawlessDiamond", "FlawlessDiamond", "FlawlessDiamond"},
 		},
-		
+
 		{
 			Name:  "Perfect Emerald",
 			Items: []string{"FlawlessEmerald", "FlawlessEmerald", "FlawlessEmerald"},
 		},
-		
+
 		{
 			Name:  "Perfect Ruby",
 			Items: []string{"FlawlessRuby", "FlawlessRuby", "FlawlessRuby"},
 		},
-		
+
 		{
 			Name:  "Perfect Sapphire",
 			Items: []string{"FlawlessSapphire", "FlawlessSapphire", "FlawlessSapphire"},
 		},
-		
+
 		{
 			Name:  "Perfect Topaz",
 			Items: []string{"FlawlessTopaz", "FlawlessTopaz", "FlawlessTopaz"},
 		},
-		
+
 		{
 			Name:  "Perfect Skull",
 			Items: []string{"FlawlessSkull", "FlawlessSkull", "FlawlessSkull"},
@@ -298,23 +298,20 @@ var (
 			Name:  "Upgrade Cham",
 			Items: []string{"ChamRune", "ChamRune", "FlawlessEmerald"},
 		},
-		
-		
-// STEP 1: MAKE WIRTSLEG MAGIC
+
+		// STEP 1: MAKE WIRTSLEG MAGIC
 		{
-			Name: "MagicWirtsLegStep1",
-			Items: []string{"WirtsLeg", "", "", ""},
+			Name:             "MagicWirtsLegStep1",
+			Items:            []string{"WirtsLeg", "", "", ""},
 			PurchaseRequired: false,
 		},
-    
 
-
-// STEP 2: MAKE WIRTSLEG CRAFTED
+		// STEP 2: MAKE WIRTSLEG CRAFTED
 		{
-            Name:             "MagicWirtsLegStep2",
-            Items:            []string{"WirtsLeg", "TirRune", "PerfectSapphire", "Jewel"},
-            PurchaseRequired: false,
-        },
+			Name:             "MagicWirtsLegStep2",
+			Items:            []string{"WirtsLeg", "TirRune", "PerfectSapphire", "Jewel"},
+			PurchaseRequired: false,
+		},
 
 		// add sockets
 		{
@@ -334,8 +331,6 @@ var (
 			Items: []string{"TalRune", "AmnRune", "PerfectRuby", "NormalShield"},
 		},
 
-		
-
 		// Caster Ring
 		{
 			Name:             "Caster Ring",
@@ -343,7 +338,7 @@ var (
 			PurchaseRequired: false,
 			PurchaseItems:    []string{"Ring"},
 		},
-		
+
 		// Caster Belt
 		{
 			Name:             "Caster Belt (VampirefangBelt)",
@@ -359,14 +354,14 @@ var (
 			PurchaseRequired: false,
 			PurchaseItems:    []string{"DemonhideBoots", "WyrmhideBoots"},
 		},
-		
+
 		// Blood Amulet
 		{
 			Name:             "Blood Amulet",
 			Items:            []string{"AmnRune", "PerfectRuby", "Jewel"},
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Amulet"},
-		},	
+		},
 
 		// Blood Ring
 		{
@@ -374,7 +369,7 @@ var (
 			Items:            []string{"SolRune", "PerfectRuby", "Jewel", "Ring"},
 			PurchaseRequired: false,
 			PurchaseItems:    []string{"Ring"},
-		},	
+		},
 
 		// Blood Gloves
 		{
@@ -511,7 +506,7 @@ var (
 			PurchaseRequired: false,
 			PurchaseItems:    []string{"FieldPlate", "Sharktooth", "KrakenShell"},
 		},
-		
+
 		// Caster Amulet
 		{
 			Name:             "Caster Amulet",
@@ -519,32 +514,29 @@ var (
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Amulet"},
 		},
-		
+
 		// Reroll Grand Charms
 		{
 			Name:  "Reroll GrandCharms",
 			Items: []string{"GrandCharm", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
 		},
-		
+
 		// Reroll Monarch
 		{
 			Name:  "Reroll Monarch",
 			Items: []string{"Monarch", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
 		},
-		
-		
 	}
 )
 
 func isRecipeEnabled(name string, recipes []string) bool {
-    for _, r := range recipes {
-        if r == name {
-            return true
-        }
-    }
-    return false
+	for _, r := range recipes {
+		if r == name {
+			return true
+		}
+	}
+	return false
 }
-
 
 func CubeRecipes() error {
 	ctx := context.Get()
@@ -612,79 +604,79 @@ func CubeRecipes() error {
 						if it.Name == "Key" || it.IsPotion() || it.Name == item.TomeOfTownPortal || it.Name == item.TomeOfIdentify {
 							continue
 						}
-						
-						 // ✅ FORCE STASH MAGIC / CRAFTED WIRT'S LEG
-        if it.Name == "WirtsLeg" && it.Quality >= item.QualityMagic {
-            ctx.Logger.Debug("FORCING STASH OF WIRT'S LEG AFTER CUBING", "quality", it.Quality.ToString())
-            stashingRequired = true
-            continue
-        }
+
+						// ✅ FORCE STASH MAGIC / CRAFTED WIRT'S LEG
+						if it.Name == "WirtsLeg" && it.Quality >= item.QualityMagic {
+							ctx.Logger.Debug("FORCING STASH OF WIRT'S LEG AFTER CUBING", "quality", it.Quality.ToString())
+							stashingRequired = true
+							continue
+						}
 
 						shouldStash, _, reason, _ := shouldStashIt(it, false)
 
 						if shouldStash {
-	ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
-	stashingRequired = true
+							ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
+							stashingRequired = true
 
-} else if it.Name == "GrandCharm" {
-	ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
+						} else if it.Name == "GrandCharm" {
+							ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
 
-	hasUnmatchedGrandCharm := false
-	for _, stashItem := range itemsInStash {
-		// Skip non-magic grand charms (e.g., Gheeds Fortune)
-		if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
-			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
-				hasUnmatchedGrandCharm = true
-				break
-			}
-		}
-	}
+							hasUnmatchedGrandCharm := false
+							for _, stashItem := range itemsInStash {
+								// Skip non-magic grand charms (e.g., Gheeds Fortune)
+								if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
+									if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
+										hasUnmatchedGrandCharm = true
+										break
+									}
+								}
+							}
 
-	if !hasUnmatchedGrandCharm {
-		ctx.Logger.Debug(
-			"GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
-			"recipe", recipe.Name,
-		)
-		stashingRequired = true
-		stashingGrandCharm = true
-	} else {
-		DropInventoryItem(it)
-		ctx.Logger.Debug("DROPPING ITEMS NOT PART OF GRANDCHARM RECIPE")
-		utils.Sleep(500)
-	}
+							if !hasUnmatchedGrandCharm {
+								ctx.Logger.Debug(
+									"GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
+									"recipe", recipe.Name,
+								)
+								stashingRequired = true
+								stashingGrandCharm = true
+							} else {
+								DropInventoryItem(it)
+								ctx.Logger.Debug("DROPPING ITEMS NOT PART OF GRANDCHARM RECIPE")
+								utils.Sleep(500)
+							}
 
-} else if it.Name == "Monarch" {
-	ctx.Logger.Debug("Checking if we need to stash a Monarch that doesn't match any NIP rules.", "recipe", recipe.Name)
+						} else if it.Name == "Monarch" {
+							ctx.Logger.Debug("Checking if we need to stash a Monarch that doesn't match any NIP rules.", "recipe", recipe.Name)
 
-	hasUnmatchedMonarch := false
-	for _, stashItem := range itemsInStash {
-		if stashItem.Name == "Monarch" && stashItem.Quality == item.QualityMagic {
-			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
-				hasUnmatchedMonarch = true
-				break
-			}
-		}
-	}
+							hasUnmatchedMonarch := false
+							for _, stashItem := range itemsInStash {
+								if stashItem.Name == "Monarch" && stashItem.Quality == item.QualityMagic {
+									if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
+										hasUnmatchedMonarch = true
+										break
+									}
+								}
+							}
 
-	if !hasUnmatchedMonarch {
-		ctx.Logger.Debug(
-			"Monarch doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
-			"recipe", recipe.Name,
-		)
-		stashingRequired = true
-		stashingMonarch = true
-	} else {
-		DropInventoryItem(it)
-		ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
-		utils.Sleep(500)
-	}
+							if !hasUnmatchedMonarch {
+								ctx.Logger.Debug(
+									"Monarch doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
+									"recipe", recipe.Name,
+								)
+								stashingRequired = true
+								stashingMonarch = true
+							} else {
+								DropInventoryItem(it)
+								ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
+								utils.Sleep(500)
+							}
 
-} else {
-	DropInventoryItem(it)
-	ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
+						} else {
+							DropInventoryItem(it)
+							ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
 
-	utils.Sleep(500)
-}
+							utils.Sleep(500)
+						}
 					}
 				}
 
@@ -695,7 +687,7 @@ func CubeRecipes() error {
 					// Force stashing of the invetory
 					_ = Stash(true)
 				}
-				
+
 				// Add monarch to the stash if needed
 				if stashingRequired && !stashingMonarch {
 					_ = Stash(false)
@@ -706,6 +698,11 @@ func CubeRecipes() error {
 
 				// Remove or decrement the used items from itemsInStash
 				itemsInStash = removeUsedItems(itemsInStash, items)
+				// Reset marked Grand Charm after successfully stashing it
+				if recipe.Name == "Reroll GrandCharms" && ctx.MarkedGrandCharm != nil {
+					ctx.Logger.Debug("RESET MARKEDGRANDCHARM AFTER SUCCESSFUL REROLL RECIPE")
+					ctx.MarkedGrandCharm = nil
+				}
 			} else {
 				continueProcessing = false
 			}
@@ -732,11 +729,11 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	if recipe.Name == "Reroll Monarch" {
 		return hasItemsForMonarchReroll(ctx, items)
 	}
-	
+
 	if recipe.Name == "MagicWirtsLegStep1" {
 		return hasItemsForMagicWirtsLegReroll(ctx, items)
 	}
-	
+
 	if recipe.Name == "MagicWirtsLegStep2" {
 		return hasItemsForCraftedWirtsLeg(ctx, items)
 	}
@@ -745,130 +742,110 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	for _, item := range recipe.Items {
 		recipeItems[item]++
 	}
-	
-	
+
 	// --- SPECIAL CASE: Require 6+ Topaz for Flawless Topaz recipe ---
-if recipe.Name == "Flawless Topaz" {
-    topazCount := 0
-    for _, stashItem := range items {
-        if stashItem.Name == "Topaz" {
-            topazCount++
-        }
-    }
+	if recipe.Name == "Flawless Topaz" {
+		topazCount := 0
+		for _, stashItem := range items {
+			if stashItem.Name == "Topaz" {
+				topazCount++
+			}
+		}
 
-    // Only allow recipe if we have 6 or more
-    if topazCount < 6 {
-        ctx.Logger.Debug("Skipping Flawless Topaz recipe: need at least 6 Topaz, have", "count", topazCount)
-        return nil, false
-    }
-}
+		// Only allow recipe if we have 6 or more
+		if topazCount < 6 {
+			ctx.Logger.Debug("Skipping Flawless Topaz recipe: need at least 6 Topaz, have", "count", topazCount)
+			return nil, false
+		}
+	}
 
-// --- SPECIAL CASE: WAIT UNTIL BOT HAS 2x Ral Runes, 2x Jewels, 2x Perfect Amethysts TO BEGIN THE CASTER AMULET RECIPE. THIS WILL GUARANTEE BLOOD HELM TO HAVE 1x Ral, 1x Jewel AND WILL GUARANTEE CASTER BELT TO HAVE 1x Perfect Amethyst, 1x Jewel
-if recipe.Name == "Caster Amulet" && isRecipeEnabled("Caster Amulet", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) && isRecipeEnabled("Blood Helm (Armet)", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) && isRecipeEnabled("Caster Belt (SharkskinBelt)", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) {
+	// --- SPECIAL CASE: WAIT UNTIL BOT HAS 2x Ral Runes, 2x Jewels, 2x Perfect Amethysts TO BEGIN THE CASTER AMULET RECIPE. THIS WILL GUARANTEE BLOOD HELM TO HAVE 1x Ral, 1x Jewel AND WILL GUARANTEE CASTER BELT TO HAVE 1x Perfect Amethyst, 1x Jewel
+	if recipe.Name == "Caster Amulet" && isRecipeEnabled("Caster Amulet", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) && isRecipeEnabled("Blood Helm (Armet)", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) && isRecipeEnabled("Caster Belt (SharkskinBelt)", ctx.CharacterCfg.CubeRecipes.EnabledRecipes) {
 
+		usableJewelCount := 0
+		ralCount := 0
+		perfectAmethystCount := 0
 
-    usableJewelCount := 0
-    ralCount := 0
-    perfectAmethystCount := 0
+		allItems := ctx.Data.Inventory.ByLocation(
+			item.LocationInventory,
+			item.LocationStash,
+			item.LocationSharedStash,
+		)
 
-    allItems := ctx.Data.Inventory.ByLocation(
-        item.LocationInventory,
-        item.LocationStash,
-        item.LocationSharedStash,
-    )
+		for _, it := range allItems {
+			switch it.Name {
 
-    for _, it := range allItems {
-        switch it.Name {
+			case "Jewel":
+				// ✅ ONLY count jewels that do NOT match a NIP rule
+				if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); res != nip.RuleResultFullMatch {
+					usableJewelCount++
+				}
 
-        case "Jewel":
-            // ✅ ONLY count jewels that do NOT match a NIP rule
-            if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); res != nip.RuleResultFullMatch {
-                usableJewelCount++
-            }
+			case "RalRune":
+				ralCount++
 
-        case "RalRune":
-            ralCount++
+			case "PerfectAmethyst":
+				perfectAmethystCount++
+			}
+		}
 
-        case "PerfectAmethyst":
-            perfectAmethystCount++
-        }
-    }
+		readyForCrafting :=
+			usableJewelCount >= 3 &&
+				ralCount >= 2 &&
+				perfectAmethystCount >= 2
 
-    readyForCrafting :=
-        usableJewelCount >= 3 &&
-        ralCount >= 2 &&
-        perfectAmethystCount >= 2
+		if !readyForCrafting {
+			missing := []string{}
 
-    if !readyForCrafting {
-        missing := []string{}
+			if usableJewelCount < 3 {
+				missing = append(missing, fmt.Sprintf("Jewels (%d/3, NIP-safe)", usableJewelCount))
+			}
+			if ralCount < 2 {
+				missing = append(missing, fmt.Sprintf("Ral Runes (%d/2)", ralCount))
+			}
+			if perfectAmethystCount < 2 {
+				missing = append(missing, fmt.Sprintf("Perfect Amethysts (%d/2)", perfectAmethystCount))
+			}
 
-        if usableJewelCount < 3 {
-            missing = append(missing, fmt.Sprintf("Jewels (%d/3, NIP-safe)", usableJewelCount))
-        }
-        if ralCount < 2 {
-            missing = append(missing, fmt.Sprintf("Ral Runes (%d/2)", ralCount))
-        }
-        if perfectAmethystCount < 2 {
-            missing = append(missing, fmt.Sprintf("Perfect Amethysts (%d/2)", perfectAmethystCount))
-        }
+			ctx.Logger.Debug(
+				"Deferring Caster Amulet – missing: " + strings.Join(missing, ", "),
+			)
+			return nil, false
+		}
 
-        ctx.Logger.Debug(
-            "Deferring Caster Amulet – missing: " + strings.Join(missing, ", "),
-        )
-        return nil, false
-    }
-
-}
-
-
-
-
-
-
-
-
-
-
+	}
 
 	// --- SPECIAL CASE: Require 6+ Diamond for Flawless Diamond recipe ---
-if recipe.Name == "Flawless Diamond" {
-    diamondCount := 0
-    for _, stashItem := range items {
-        if stashItem.Name == "Diamond" {
-            diamondCount++
-        }
-    }
+	if recipe.Name == "Flawless Diamond" {
+		diamondCount := 0
+		for _, stashItem := range items {
+			if stashItem.Name == "Diamond" {
+				diamondCount++
+			}
+		}
 
-    // Only allow recipe if we have 6 or more
-    if diamondCount < 6 {
-        ctx.Logger.Debug("Skipping Flawless Diamond recipe: need at least 6 Diamond, have", "count", diamondCount)
-        return nil, false
-    }
-}
+		// Only allow recipe if we have 6 or more
+		if diamondCount < 6 {
+			ctx.Logger.Debug("Skipping Flawless Diamond recipe: need at least 6 Diamond, have", "count", diamondCount)
+			return nil, false
+		}
+	}
 
 	// --- SPECIAL CASE: Require 6+ Emerald for Flawless Emerald recipe ---
-if recipe.Name == "Flawless Emerald" {
-    emeraldCount := 0
-    for _, stashItem := range items {
-        if stashItem.Name == "Emerald" {
-            emeraldCount++
-        }
-    }
+	if recipe.Name == "Flawless Emerald" {
+		emeraldCount := 0
+		for _, stashItem := range items {
+			if stashItem.Name == "Emerald" {
+				emeraldCount++
+			}
+		}
 
-    // Only allow recipe if we have 6 or more
-    if emeraldCount < 6 {
-        ctx.Logger.Debug("Skipping Flawless Emerald recipe: need at least 6 Emerald, have", "count", emeraldCount)
-        return nil, false
-    }
-}
-	
-	
-	
-	
-	
-	
-	
-	
+		// Only allow recipe if we have 6 or more
+		if emeraldCount < 6 {
+			ctx.Logger.Debug("Skipping Flawless Emerald recipe: need at least 6 Emerald, have", "count", emeraldCount)
+			return nil, false
+		}
+	}
 
 	itemsForRecipe := []data.Item{}
 
@@ -1025,15 +1002,36 @@ func isSocketableItemMultiType(itm data.Item, targetTypes []string) bool {
 }
 
 func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
-	var grandCharm data.Item
+	var grandCharm *data.Item
 	perfectGems := make([]data.Item, 0, 3)
-// Count Perfect Amethyst and Perfect Ruby in inventory
 	countAmethyst := 0
 	countRuby := 0
 	countSapphire := 0
-	
+
+	// Prefer marked Grand Charm if available
+	if ctx.MarkedGrandCharm != nil {
+		for _, itm := range items {
+			if itm.UnitID == ctx.MarkedGrandCharm.UnitID {
+				grandCharm = &itm
+				break
+			}
+		}
+	}
+
+	/* 	// Fallback: find any eligible Grand Charm
+	   	if grandCharm == nil {
+	   		for _, itm := range items {
+	   			if itm.Name == "GrandCharm" {
+	   				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
+	   					grandCharm = &itm
+	   					break
+	   				}
+	   			}
+	   		}
+	   	} */
+
+	// Collect perfect gems
 	for _, itm := range items {
-		
 		switch itm.Name {
 		case "PerfectAmethyst":
 			countAmethyst++
@@ -1042,44 +1040,33 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 		case "PerfectSapphire":
 			countSapphire++
 		}
-		
-		if itm.Name == "GrandCharm" {
-			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
-				grandCharm = itm
-			}
-		} else if isPerfectGem(itm) && len(perfectGems) < 3 {
-			// Skip perfect amethysts and rubies when i have less than 4 (if configured) AND skip perfect sapphires when I only have 2 
+		if isPerfectGem(itm) && len(perfectGems) < 3 {
 			if (ctx.CharacterCfg.CubeRecipes.SkipPerfectAmethysts && itm.Name == "PerfectAmethyst" && countAmethyst <= 3) ||
-				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) || (itm.Name == "PerfectSapphire" && countSapphire <= 3) {
+				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) ||
+				(itm.Name == "PerfectSapphire" && countSapphire <= 3) {
 				continue
 			}
 			perfectGems = append(perfectGems, itm)
 		}
+	}
 
-		if grandCharm.Name != "" && len(perfectGems) == 3 {
-			return append([]data.Item{grandCharm}, perfectGems...), true
-		}
+	if grandCharm != nil && len(perfectGems) == 3 {
+		return append([]data.Item{*grandCharm}, perfectGems...), true
 	}
 
 	return nil, false
 }
 
-
-
-
-
-
-
 func hasItemsForMonarchReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
 	var monarch data.Item
 	perfectGems := make([]data.Item, 0, 3)
-// Count Perfect Amethyst and Perfect Ruby in inventory
+	// Count Perfect Amethyst and Perfect Ruby in inventory
 	countAmethyst := 0
 	countRuby := 0
 	countSapphire := 0
-	
+
 	for _, itm := range items {
-		
+
 		switch itm.Name {
 		case "PerfectAmethyst":
 			countAmethyst++
@@ -1088,13 +1075,13 @@ func hasItemsForMonarchReroll(ctx *context.Status, items []data.Item) ([]data.It
 		case "PerfectSapphire":
 			countSapphire++
 		}
-		
+
 		if itm.Name == "Monarch" {
 			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
 				monarch = itm
 			}
 		} else if isPerfectGem(itm) && len(perfectGems) < 3 {
-			// Skip perfect amethysts and rubies when i have less than 4 (if configured) AND skip perfect sapphires when I only have 2 
+			// Skip perfect amethysts and rubies when i have less than 4 (if configured) AND skip perfect sapphires when I only have 2
 			if (ctx.CharacterCfg.CubeRecipes.SkipPerfectAmethysts && itm.Name == "PerfectAmethyst" && countAmethyst <= 3) ||
 				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) || (itm.Name == "PerfectSapphire" && countSapphire <= 3) {
 				continue
@@ -1110,19 +1097,18 @@ func hasItemsForMonarchReroll(ctx *context.Status, items []data.Item) ([]data.It
 	return nil, false
 }
 
-
 func hasItemsForMagicWirtsLegReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
 	var magicwirtsleg data.Item
 	standardGems := make([]data.Item, 0, 3)
-	
+
 	for _, itm := range items {
-		
+
 		if itm.Name == "WirtsLeg" && itm.HasSockets {
 			if itm.Quality <= item.QualitySuperior {
 				magicwirtsleg = itm
 			}
 		} else if isStandardGem(itm) && len(standardGems) < 3 {
-			
+
 			standardGems = append(standardGems, itm)
 		}
 
@@ -1133,8 +1119,6 @@ func hasItemsForMagicWirtsLegReroll(ctx *context.Status, items []data.Item) ([]d
 
 	return nil, false
 }
-
-
 
 func hasItemsForCraftedWirtsLeg(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
 	var leg data.Item
@@ -1165,7 +1149,6 @@ func hasItemsForCraftedWirtsLeg(ctx *context.Status, items []data.Item) ([]data.
 	return nil, false
 }
 
-
 func isPerfectGem(item data.Item) bool {
 	perfectGems := []string{"PerfectDiamond", "PerfectEmerald", "PerfectRuby", "PerfectTopaz", "PerfectAmethyst", "PerfectSapphire"} //took out PerfectSkulls (keep for rolling) and Perfect Sapphires (for wirts leg)
 	for _, gemName := range perfectGems {
@@ -1176,7 +1159,6 @@ func isPerfectGem(item data.Item) bool {
 	return false
 }
 
-
 func isStandardGem(item data.Item) bool {
 	perfectGems := []string{"Diamond", "Emerald", "Topaz"} //USE ONLY DIAMONDS, EMERALDS AND TOPAZ FOR WIRTS LEG STEP 1
 	for _, gemName := range perfectGems {
@@ -1186,8 +1168,6 @@ func isStandardGem(item data.Item) bool {
 	}
 	return false
 }
-
-
 
 func removeUsedItems(stash []data.Item, usedItems []data.Item) []data.Item {
 	remainingItems := make([]data.Item, 0)
