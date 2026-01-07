@@ -1074,14 +1074,15 @@
                 <button type="button" class="run-filter-tab" data-run-filter="other">Utils</button>
             </div>
 
-<fieldset class="grid">
+            <fieldset class="grid">
             <label>
                 <input type="checkbox" name="gameRandomizeRuns" {{ if .Config.Game.RandomizeRuns }}checked{{ end }}/>
                 Randomize run order
             </label>
 			<label>
-                        <input type="checkbox" id="shopVendorsDuringTownVisits" name="shopVendorsDuringTownVisits" {{ if .Config.Game.ShopVendorsDuringTownVisits }}checked{{ end }}/> Shop vendors during town visits
-                    </label>
+                        <input type="checkbox" name="shopVendorsDuringTownVisits" {{ if .Config.Game.ShopVendorsDuringTownVisits }}checked{{ end }}/>
+                        Shop vendors during town visits
+            </label>
 					</fieldset>
 					<br>
             <input type="hidden" id="gameRuns" name="gameRuns" value="">
@@ -1300,6 +1301,10 @@
             <label>
                 <input type="checkbox" name="skipPerfectRubies" {{ if .Config.CubeRecipes.SkipPerfectRubies }}checked{{ end }}/>
                 Don't use Perfect Rubies when rolling charms
+            </label><br>
+            <label>
+                <input type="checkbox" name="rerollGrandCharms" {{ if .Config.CubeRecipes.RerollGrandCharms }}checked{{ end }} title="If turned on, you must make sure you don't have a junk grand charm in stash already" />
+                Reroll only ilvl >= 91 gcs for 41-45 life skillers
             </label><br>
             <div class="recipe-grid">
                 {{ range $index, $recipe := .RecipeList }}

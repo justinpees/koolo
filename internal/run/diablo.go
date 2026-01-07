@@ -243,27 +243,96 @@ func (d *Diablo) Run(parameters *RunParameters) error {
 		if err := d.ctx.Char.KillDiablo(); err != nil {
 			return err
 		}
+		if d.ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+			// 🔒 Only attempt to mark a new GC if none is currently marked
+			if d.ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint != "" {
+				d.ctx.Logger.Warn("GRAND CHARM ALREADY MARKED, PROCEED WITH NORMAL PICKUP")
+			} else {
 
-		// After killing Diablo and picking up items, mark any Grand Charm dropped for reroll (do not overwrite existing mark)
-		foundCharm := false
-		for _, it := range d.ctx.Data.Inventory.ByLocation(item.LocationGround) {
-			if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
-				if d.ctx.MarkedGrandCharm == nil {
-					d.ctx.Logger.Debug("GRAND CHARM PICKED UP FROM DIABLO, MARKING FOR REROLL")
-					d.ctx.MarkedGrandCharm = &it
-				} else {
-					d.ctx.Logger.Debug("GRAND CHARM ALREADY MARKED, NOT MARKING THIS ONE FOR REROLL")
+				// Give the game time to spawn loot
+				utils.Sleep(500)
+				d.ctx.RefreshGameData()
+
+				foundCharm := false
+
+				for _, it := range d.ctx.Data.Inventory.ByLocation(item.LocationGround) {
+					if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
+
+						d.ctx.Logger.Warn(
+							"GRAND CHARM DROPPED BY DIABLO, MARKING FOR REROLL",
+							"unitID", it.UnitID,
+						)
+
+						d.ctx.MarkedGrandCharmUnitID = it.UnitID
+
+						// --- Pickup the Grand Charm first ---
+						err := action.ItemPickup(40)
+
+						d.ctx.Logger.Warn("Waiting 5 seconds after pickup...")
+						utils.Sleep(5000)
+
+						if err != nil {
+							d.ctx.Logger.Error(
+								"Failed to pick up Grand Charm",
+								"unitID", it.UnitID,
+								"err", err,
+							)
+							break
+						}
+
+						d.ctx.RefreshInventory() // ensure it is in inventory
+
+						// --- Fetch the picked-up charm from inventory manually ---
+						var charmInInv data.Item
+						found := false
+						for _, invItem := range d.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+							if invItem.UnitID == d.ctx.MarkedGrandCharmUnitID {
+								charmInInv = invItem
+								found = true
+								break
+							}
+						}
+						if !found {
+							d.ctx.Logger.Error("Picked up Grand Charm but cannot find it in inventory", "unitID", d.ctx.MarkedGrandCharmUnitID)
+							break
+						}
+
+						// --- Tome Identification ---
+						idTome, found := d.ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
+						if !found {
+							d.ctx.Logger.Warn("Tome of Identify not found, skipping identification")
+						} else {
+							step.CloseAllMenus()
+							for !d.ctx.Data.OpenMenus.Inventory {
+								d.ctx.HID.PressKeyBinding(d.ctx.Data.KeyBindings.Inventory)
+								utils.PingSleep(utils.Critical, 1000)
+							}
+
+							d.ctx.Logger.Warn("Identifying Grand Charm via Tome of Identify...")
+							identifyMarkedItem(idTome, charmInInv)
+
+							step.CloseAllMenus()
+							d.ctx.RefreshInventory()
+							d.ctx.Logger.Warn("Grand Charm successfully identified")
+						}
+						// --- End Identification ---
+
+						foundCharm = true
+						break
+
+					}
 				}
-				foundCharm = true
-				break
-			}
-		}
-		if !foundCharm {
-			d.ctx.Logger.Debug("NO GRAND CHARM FOUND AFTER DIABLO PICKUP")
-		}
-		// Pick up items after scanning ground for Grand Charm
-		action.ItemPickup(30)
 
+				utils.Sleep(150)
+
+				if !foundCharm {
+					d.ctx.Logger.Warn("NO GRAND CHARM DROPPED BY DIABLO")
+				}
+			}
+		} else {
+
+			action.ItemPickup(30) // if reroll ilvl91 not enabled, original item pickup from diablo
+		}
 		if IsQuestRun(parameters) {
 			if err := d.goToAct5(); err != nil {
 				return err

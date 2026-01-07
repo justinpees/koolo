@@ -443,11 +443,11 @@ func probeSharedStashTab() bool {
 	if ctx.Data.OpenMenus.Stash {
 		if ctx.Data.LegacyGraphics {
 			ctx.HID.Click(game.LeftButton, ui.WithdrawStashGoldBtnXClassic, ui.WithdrawStashGoldBtnYClassic)
-			utils.Sleep(150)
+			utils.Sleep(1000)
 			ctx.HID.Click(game.LeftButton, ui.WithdrawStashGoldBtnConfirmXClassic, ui.WithdrawStashGoldBtnConfirmYClassic)
 		} else {
 			ctx.HID.Click(game.LeftButton, ui.WithdrawStashGoldBtnX, ui.WithdrawStashGoldBtnY)
-			utils.Sleep(150)
+			utils.Sleep(1000)
 			ctx.HID.Click(game.LeftButton, ui.WithdrawStashGoldBtnConfirmX, ui.WithdrawStashGoldBtnConfirmY)
 		}
 
@@ -467,9 +467,9 @@ func stashAllGold() {
 	}
 
 	SwitchStashTab(1) // personal stash tab
-	utils.Sleep(200)
+	utils.Sleep(1000)
 	ctx.RefreshGameData()
-	time.Sleep(300)
+	time.Sleep(1000)
 
 	for safeStashGold() {
 		// If stash is full, safeStashGold() will return false and break loop
@@ -503,11 +503,11 @@ func safeStashGold() bool {
 	// Deposit gold
 	if ctx.Data.LegacyGraphics {
 		ctx.HID.Click(game.LeftButton, ui.StashGoldBtnXClassic, ui.StashGoldBtnYClassic)
-		time.Sleep(150)
+		time.Sleep(1000)
 		ctx.HID.Click(game.LeftButton, ui.StashGoldBtnConfirmXClassic, ui.StashGoldBtnConfirmYClassic)
 	} else {
 		ctx.HID.Click(game.LeftButton, ui.StashGoldBtnX, ui.StashGoldBtnY)
-		time.Sleep(150)
+		time.Sleep(1000)
 		ctx.HID.Click(game.LeftButton, ui.StashGoldBtnConfirmX, ui.StashGoldBtnConfirmY)
 	}
 

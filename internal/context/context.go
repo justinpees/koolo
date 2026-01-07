@@ -68,8 +68,8 @@ type Context struct {
 	LastPortalTick        time.Time     // NEW FIELD: Tracks last portal creation for spam prevention
 	IsBossEquipmentActive bool          // flag for barb leveling
 	Drop                  *drop.Manager // Drop: Per-supervisor Drop manager
-	MarkedGrandCharm      *data.Item    // NEW FIELD: Tracks the Grand Charm marked for reroll after Diablo kill
-	//MarkedGrandCharmUnitID int
+	//MarkedGrandCharm      *data.Item    // NEW FIELD: Tracks the Grand Charm marked for reroll after Diablo kill
+	MarkedGrandCharmUnitID data.UnitID
 }
 
 type Debug struct {

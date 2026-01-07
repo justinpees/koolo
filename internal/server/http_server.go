@@ -1775,6 +1775,12 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		}
 		cfg.CubeRecipes.SkipPerfectAmethysts = values.Has("skipPerfectAmethysts")
 		cfg.CubeRecipes.SkipPerfectRubies = values.Has("skipPerfectRubies")
+		cfg.CubeRecipes.RerollGrandCharms = values.Has("rerollGrandCharms")
+		// 🔒 Cleanup: disabling reroll clears stored fingerprint
+		if !cfg.CubeRecipes.RerollGrandCharms {
+			cfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
+		}
+
 		if v := values.Get("jewelsToKeep"); v != "" {
 			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 				cfg.CubeRecipes.JewelsToKeep = n
@@ -2458,6 +2464,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Inventory.HealingPotionCount, _ = strconv.Atoi(r.Form.Get("healingPotionCount"))
 		cfg.Inventory.ManaPotionCount, _ = strconv.Atoi(r.Form.Get("manaPotionCount"))
 		cfg.Inventory.RejuvPotionCount, _ = strconv.Atoi(r.Form.Get("rejuvPotionCount"))
+		cfg.Inventory.GemToUpgrade = r.Form.Get("upgradeGemUsingShrine")
 
 		// Game
 		cfg.Game.CreateLobbyGames = r.Form.Has("createLobbyGames")
@@ -2483,6 +2490,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.PacketCasting.UseForSkillSelection = r.Form.Has("packetCastingUseForSkillSelection")
 		cfg.Game.Difficulty = difficulty.Difficulty(r.Form.Get("gameDifficulty"))
 		cfg.Game.RandomizeRuns = r.Form.Has("gameRandomizeRuns")
+		cfg.Game.ShopVendorsDuringTownVisits = r.Form.Has("shopVendorsDuringTownVisits")
 
 		// Runs specific config
 		enabledRuns := make([]config.Run, 0)
@@ -2494,6 +2502,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		s.applyShoppingFromForm(r.Form, cfg)
 
 		cfg.Game.Cows.OpenChests = r.Form.Has("gameCowsOpenChests")
+		cfg.Game.Cows.CraftWirtsLeg = r.Form.Has("craftWirtsLeg")
 
 		cfg.Game.Pit.MoveThroughBlackMarsh = r.Form.Has("gamePitMoveThroughBlackMarsh")
 		cfg.Game.Pit.OpenChests = r.Form.Has("gamePitOpenChests")
@@ -2608,13 +2617,14 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 		// Gambling
 		cfg.Gambling.Enabled = r.Form.Has("gamblingEnabled")
-
+		cfg.Gambling.GambleFromSharedStashes = r.Form.Has("gambleFromSharedStashes")
 		// Cube Recipes
 		cfg.CubeRecipes.Enabled = r.Form.Has("enableCubeRecipes")
 		enabledRecipes := r.Form["enabledRecipes"]
 		cfg.CubeRecipes.EnabledRecipes = enabledRecipes
 		cfg.CubeRecipes.SkipPerfectAmethysts = r.Form.Has("skipPerfectAmethysts")
 		cfg.CubeRecipes.SkipPerfectRubies = r.Form.Has("skipPerfectRubies")
+		cfg.CubeRecipes.RerollGrandCharms = r.Form.Has("rerollGrandCharms")
 		// New: parse jewelsToKeep
 		if v := r.Form.Get("jewelsToKeep"); v != "" {
 			if n, err := strconv.Atoi(v); err == nil && n >= 0 {

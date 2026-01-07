@@ -7,7 +7,9 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
+	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/nip"
+	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
@@ -619,30 +621,43 @@ func CubeRecipes() error {
 							stashingRequired = true
 
 						} else if it.Name == "GrandCharm" {
-							ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
 
-							hasUnmatchedGrandCharm := false
-							for _, stashItem := range itemsInStash {
-								// Skip non-magic grand charms (e.g., Gheeds Fortune)
-								if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
-									if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
-										hasUnmatchedGrandCharm = true
-										break
-									}
-								}
-							}
+							// 🔒 Special case: ONLY when rerolling marked GCs
+							if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+								// 🛡️ ALWAYS KEEP THE MARKED GRAND CHARM (POST-REROLL)
 
-							if !hasUnmatchedGrandCharm {
-								ctx.Logger.Debug(
-									"GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
-									"recipe", recipe.Name,
-								)
+								ctx.Logger.Warn("KEEPING MARKED GRAND CHARM AFTER REROLL — FORCING STASH")
 								stashingRequired = true
 								stashingGrandCharm = true
+								continue
+
 							} else {
-								DropInventoryItem(it)
-								ctx.Logger.Debug("DROPPING ITEMS NOT PART OF GRANDCHARM RECIPE")
-								utils.Sleep(500)
+								ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
+
+								hasUnmatchedGrandCharm := false
+								for _, stashItem := range itemsInStash {
+									// Skip non-magic grand charms (e.g., Gheeds Fortune)
+									if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
+										if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
+											hasUnmatchedGrandCharm = true
+											break
+										}
+									}
+
+								}
+
+								if !hasUnmatchedGrandCharm {
+									ctx.Logger.Error(
+										"GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
+										"recipe", recipe.Name,
+									)
+									stashingRequired = true
+									stashingGrandCharm = true
+								} else {
+									DropInventoryItem(it)
+									ctx.Logger.Debug("DROPPING ITEMS NOT PART OF GRANDCHARM RECIPE")
+									utils.Sleep(500)
+								}
 							}
 
 						} else if it.Name == "Monarch" {
@@ -698,17 +713,41 @@ func CubeRecipes() error {
 
 				// Remove or decrement the used items from itemsInStash
 				itemsInStash = removeUsedItems(itemsInStash, items)
-				// Reset marked Grand Charm after successfully stashing it
-				if recipe.Name == "Reroll GrandCharms" && ctx.MarkedGrandCharm != nil {
-					ctx.Logger.Debug("RESET MARKEDGRANDCHARM AFTER SUCCESSFUL REROLL RECIPE")
-					ctx.MarkedGrandCharm = nil
+
+				if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+					// Reset fingerprint of marked Grand Charm after successfully stashing it
+					if recipe.Name == "Reroll GrandCharms" {
+						for _, it := range itemsInInv {
+							if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
+								// Generate new fingerprint for rerolled charm
+								newFP := utils.GrandCharmFingerprint(it)
+
+								ctx.Logger.Warn("MARKED GRAND CHARM REROLLED — UPDATING FINGERPRINT", "newFP", newFP)
+								ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = newFP
+
+								// Reset UnitID so the bot can mark it again if needed
+								if ctx.MarkedGrandCharmUnitID != 0 {
+									ctx.Logger.Warn("RESETTING MARKED GRAND CHARM UNITID AFTER SUCCESSFUL REROLL")
+									ctx.MarkedGrandCharmUnitID = 0
+								}
+
+								// Save updated config
+								if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+									ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER UPDATING FINGERPRINT", "err", err)
+								}
+
+								break // Only handle one marked charm
+							}
+						}
+					}
 				}
 			} else {
 				continueProcessing = false
 			}
 		}
 	}
-
+	ctx.Logger.Warn("Marked GrandCharm UnitID", "unitID", ctx.MarkedGrandCharmUnitID)
+	ctx.Logger.Warn("Current marked GrandCharm fingerprint", "fp", ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint)
 	return nil
 }
 
@@ -849,28 +888,45 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 
 	itemsForRecipe := []data.Item{}
 
-	// Iterate over the items in our stash to see if we have the items for the recipie.
-	for _, item := range items {
-		if count, ok := recipeItems[string(item.Name)]; ok {
+	// Iterate over the items in our stash to see if we have the items for the recipe.
+	for _, it := range items {
+		if count, ok := recipeItems[string(it.Name)]; ok {
 
-			// Let's make sure we don't use an item we don't want to. Add more if needed (depending on the recipes we have) "WirtsLeg" should be the correct name
-			if item.Name == "Jewel" || item.Name == "Ring" || item.Name == "Monarch" || item.Name == "grandcharm" || item.Name == "Amulet" || item.Name == "Wirt'sLeg" || item.Name == "WirtsLeg" || item.Name == "MithrilCoil" || item.Name == "MeshBelt" || item.Name == "VampirefangBelt" || item.Name == "HeavyBracers" || item.Name == "SharkskinGloves" || item.Name == "Armet" || item.Name == "SharkskinBelt" || item.Name == "VampireboneGloves" {
-				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(item); result == nip.RuleResultFullMatch {
+			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == "Monarch" || it.Name == "GrandCharm" || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
+				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); result == nip.RuleResultFullMatch {
+					ctx.Logger.Debug("Skipping item that matches NIP rules for cubing recipe", "item", it.Name, "recipe", recipe.Name)
+					if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+						if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
+							fp := utils.GrandCharmFingerprint(it)
+
+							// If it’s the marked charm and it would be kept by NIP rules,
+							// we can clear the fingerprint because it’s being used now
+							if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
+								ctx.Logger.Warn("MARKED GRAND CHARM WILL BE KEPT — CLEARING FINGERPRINT")
+								ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
+
+								if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+									ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER CLEARING FINGERPRINT", "err", err)
+								}
+							}
+						}
+					}
+					// Skip this item for cubing
 					continue
 				}
 			}
 
-			itemsForRecipe = append(itemsForRecipe, item)
+			itemsForRecipe = append(itemsForRecipe, it)
 
 			// Check if we now have exactly the needed count before decrementing
 			count -= 1
 			if count == 0 {
-				delete(recipeItems, string(item.Name))
+				delete(recipeItems, string(it.Name))
 				if len(recipeItems) == 0 {
 					return itemsForRecipe, true
 				}
 			} else {
-				recipeItems[string(item.Name)] = count
+				recipeItems[string(it.Name)] = count
 			}
 		}
 	}
@@ -1008,27 +1064,62 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 	countRuby := 0
 	countSapphire := 0
 
-	// Prefer marked Grand Charm if available
-	if ctx.MarkedGrandCharm != nil {
+	// Use only ilvl 91 or higher to roll grand charm
+	// Use only ilvl 91 or higher to roll grand charm
+	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
 		for _, itm := range items {
-			if itm.UnitID == ctx.MarkedGrandCharm.UnitID {
+			if itm.Name != "GrandCharm" || itm.Quality != item.QualityMagic {
+				continue
+			}
+
+			fp := utils.GrandCharmFingerprint(itm)
+			if fp != ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
+				continue
+			}
+
+			// ✅ Ignore NIP; evaluate keeper rules only
+			if !isKeeperGrandCharm(itm) {
+				// ❌ Not a keeper → reroll
 				grandCharm = &itm
+				ctx.Logger.Warn(
+					"USING NON-GODLY MARKED GRAND CHARM FOR REROLL RECIPE",
+					"fp", fp,
+				)
 				break
+			}
+
+			// ✅ Keeper GC → stop rerolling forever
+			ctx.Logger.Warn(
+				"GODLY!!!! GRAND CHARM FOUND — STOPPING REROLL",
+				"fp", fp,
+			)
+			// LOG STATS OF GODLY CHARM
+			ctx.Logger.Warn(
+				"GODLY GRAND CHARM RAW STATS",
+				"stats", itm.Stats,
+			)
+
+			ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
+			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+				ctx.Logger.Error("FAILED TO SAVE CONFIG AFTER KEEPER GC", "err", err)
+			}
+
+			// Do not select for reroll; stash logic will handle it
+		}
+	} else {
+
+		// Use any magic grand charm that does NOT match NIP
+		if grandCharm == nil {
+			for _, itm := range items {
+				if itm.Name == "GrandCharm" && itm.Quality == item.QualityMagic {
+					if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch {
+						grandCharm = &itm
+						break
+					}
+				}
 			}
 		}
 	}
-
-	/* 	// Fallback: find any eligible Grand Charm
-	   	if grandCharm == nil {
-	   		for _, itm := range items {
-	   			if itm.Name == "GrandCharm" {
-	   				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
-	   					grandCharm = &itm
-	   					break
-	   				}
-	   			}
-	   		}
-	   	} */
 
 	// Collect perfect gems
 	for _, itm := range items {
@@ -1145,7 +1236,7 @@ func hasItemsForCraftedWirtsLeg(ctx *context.Status, items []data.Item) ([]data.
 		return []data.Item{leg, runeItem, gem, jewel}, true
 	}
 
-	ctx.Logger.Error("SKIPPING RECIPE... missing ingredients for MagicWirtsLegStep2")
+	ctx.Logger.Debug("SKIPPING RECIPE... missing ingredients for MagicWirtsLegStep2")
 	return nil, false
 }
 
@@ -1200,4 +1291,52 @@ func getPurchasedItem(ctx *context.Status, purchaseItems []string) data.Item {
 		}
 	}
 	return data.Item{}
+}
+
+func isKeeperGrandCharm(itm data.Item) bool {
+	skillTab, _ := itm.FindStat(stat.AddSkillTab, 0)
+	maxLife, _ := itm.FindStat(stat.MaxLife, 0)
+	//fhr, _ := itm.FindStat(stat.FasterHitRecovery, 0)
+	maxDmg, _ := itm.FindStat(stat.MaxDamage, 0)
+	ar, _ := itm.FindStat(stat.AttackRating, 0)
+	frw, _ := itm.FindStat(stat.FasterRunWalk, 0)
+	fireRes, _ := itm.FindStat(stat.FireResist, 0)
+	coldRes, _ := itm.FindStat(stat.ColdResist, 0)
+	lightRes, _ := itm.FindStat(stat.LightningResist, 0)
+	poisonRes, _ := itm.FindStat(stat.PoisonResist, 0)
+
+	lightDmg, _ := itm.FindStat(stat.LightningMaxDamage, 0)
+	coldDmg, _ := itm.FindStat(stat.ColdMaxDamage, 0)
+
+	// 🎯 Frw test
+	if frw.Value >= 1 {
+		return true
+	}
+	// 🎯 Frw test
+	if lightDmg.Value >= 1 {
+		return true
+	}
+	// 🎯 Frw test
+	if coldDmg.Value >= 1 {
+		return true
+	}
+
+	// 🎯 Skiller + Life
+	if skillTab.Value == 1 && maxLife.Value >= 41 {
+		return true
+	}
+	// 🎯 Melee GC example
+	if maxDmg.Value >= 10 && ar.Value >= 70 && maxLife.Value >= 40 {
+		return true
+	}
+	// 🎯 Melee GC example
+	if ar.Value >= 130 && maxLife.Value >= 41 {
+		return true
+	}
+	// 🎯 Melee GC example
+	if maxLife.Value >= 41 && fireRes.Value+coldRes.Value+poisonRes.Value+lightRes.Value == 60 {
+		return true
+	}
+
+	return false
 }

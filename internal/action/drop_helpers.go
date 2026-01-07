@@ -2,14 +2,15 @@ package action
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
-
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/town"
+	"github.com/hectorgimenez/koolo/internal/utils"
 	"github.com/lxn/win"
 )
 
@@ -57,6 +58,56 @@ func IsDropProtected(i data.Item) bool {
 
 	if DropperOnly {
 		return true
+	}
+
+	// Low runes below Lem
+	blockedNames := map[string]bool{
+		"ElRune":    true,
+		"EldRune":   true,
+		"TirRune":   true,
+		"NefRune":   true,
+		"EthRune":   true,
+		"IthRune":   true,
+		"TalRune":   true,
+		"RalRune":   true,
+		"OrtRune":   true,
+		"ThulRune":  true,
+		"AmnRune":   true,
+		"SolRune":   true,
+		"ShaelRune": true,
+		"DolRune":   true,
+		"HelRune":   true,
+		"IoRune":    true,
+		"FalRune":   true,
+
+		"WirtsLeg": true,
+	}
+
+	// All Gems
+	if strings.Contains(strings.ToLower(i.Desc().Type), "gem") {
+		return true
+	}
+
+	// Token of Absolution
+	if strings.Contains(strings.ToLower(string(i.Name)), "tokenofabsolution") {
+		return true
+	}
+
+	// Essence items
+	if strings.Contains(strings.ToLower(string(i.Name)), "essence") {
+		return true
+	}
+
+	// PerfectSkull and low runes
+	if blockedNames[strings.ToLower(string(i.Name))] {
+		return true
+	}
+
+	// diablo/baal Grand Charm with fingerprint if enabled
+	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+		if i.Name == "GrandCharm" && i.Quality == item.QualityMagic && ctx != nil && utils.GrandCharmFingerprint(i) == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
+			return true
+		}
 	}
 
 	// Everything else should be dropped for Drop to ensure the stash empties fully.

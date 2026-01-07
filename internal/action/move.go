@@ -484,28 +484,28 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 			//Check shrine nearby
 			if !ignoreShrines && shrine.ID == 0 {
-    if closestShrine := findClosestShrine(50.0); closestShrine != nil {
-        blacklisted, exists := blacklistedInteractions[closestShrine.ID]
-        if !exists || !blacklisted {
-            shrine = *closestShrine
-            // Log when a Gem Shrine is found and will be interacted with
-            if shrine.Shrine.ShrineType == object.GemShrine && ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-                ctx.Logger.Debug("GEM SHRINE FOUND AND WILL BE INTERACTED WITH", slog.String("position", fmt.Sprintf("(%d, %d)", shrine.Position.X, shrine.Position.Y)))
-				  utils.Sleep(400) // 300–500 ms works best
-				  // FORCE immediate pickup of the new Perfect Gem
-        lootErr := ItemPickup(40)
-        if lootErr != nil {
-            ctx.Logger.Warn("Error picking up gem shrine loot", slog.String("error", lootErr.Error()))
-        } else {
-            ctx.Logger.Debug("GEM SHRINE LOOT PICKED UP SUCCESSFULLY")
-        }
-            }
+				if closestShrine := findClosestShrine(50.0); closestShrine != nil {
+					blacklisted, exists := blacklistedInteractions[closestShrine.ID]
+					if !exists || !blacklisted {
+						shrine = *closestShrine
+						// Log when a Gem Shrine is found and will be interacted with
+						if shrine.Shrine.ShrineType == object.GemShrine && ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
+							ctx.Logger.Debug("GEM SHRINE FOUND AND WILL BE INTERACTED WITH", slog.String("position", fmt.Sprintf("(%d, %d)", shrine.Position.X, shrine.Position.Y)))
+							utils.Sleep(400) // 300–500 ms works best
+							// FORCE immediate pickup of the new Perfect Gem
+							lootErr := ItemPickup(40)
+							if lootErr != nil {
+								ctx.Logger.Warn("Error picking up gem shrine loot", slog.String("error", lootErr.Error()))
+							} else {
+								ctx.Logger.Debug("GEM SHRINE LOOT PICKED UP SUCCESSFULLY")
+							}
+						}
 
-            // Reset target chest
-            chest = (data.Object{})
-        }
-    }
-}
+						// Reset target chest
+						chest = (data.Object{})
+					}
+				}
+			}
 
 			// Check chests nearby
 			if shrine.ID == 0 && chest.ID == 0 {
@@ -759,11 +759,11 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 			for _, sType := range alwaysTakeShrines {
 				if o.Shrine.ShrineType == sType {
 
-	// 🔒 Skip Gem Shrine if no gem configured
-	if sType == object.GemShrine &&
-		ctx.CharacterCfg.Inventory.GemToUpgrade == "None" {
-		continue
-	}
+					// 🔒 Skip Gem Shrine if no gem configured
+					if sType == object.GemShrine &&
+						ctx.CharacterCfg.Inventory.GemToUpgrade == "None" {
+						continue
+					}
 					if sType == object.HealthShrine && ctx.Data.PlayerUnit.HPPercent() > 95 {
 						continue
 					}

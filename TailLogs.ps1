@@ -41,7 +41,8 @@ while ($true) {
         if (Test-Path $new -PathType Container) {
             $tailDir = $new
             Write-Host "`nDirectory changed to: $tailDir`n"
-        } else {
+        }
+        else {
             Write-Host "`nDirectory does not exist: $new`n" -ForegroundColor Red
         }
         continue
@@ -57,14 +58,15 @@ while ($true) {
 Write-Host "`nSearching for newest file containing: supervisor-log-"
 
 $autoFile = Get-ChildItem -Path $tailDir -File |
-    Where-Object { $_.Name -like "*supervisor-log-*" } |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
+Where-Object { $_.Name -like "*supervisor-log-*" } |
+Sort-Object LastWriteTime -Descending |
+Select-Object -First 1
 	
 if ($autoFile) {
     Write-Host "Auto-selected file:"
     Write-Host "  $($autoFile.Name)"
-} else {
+}
+else {
     Write-Host "No matching log file found!" -ForegroundColor Red
 }
 
@@ -82,7 +84,8 @@ if (-not [string]::IsNullOrWhiteSpace($manual)) {
         exit
     }
     $fileToTail = $manualPath
-} else {
+}
+else {
     if (-not $autoFile) {
         Write-Host "`nERROR: No auto-selected file and no manual file provided." -ForegroundColor Red
         Read-Host "`nPress ENTER to close"
@@ -95,8 +98,27 @@ Write-Host "`nTailing file:"
 Write-Host "  $fileToTail"
 Write-Host "-----------------------------------------`n"
 
-# --- EXECUTE TAIL ---
-Get-Content -Path $fileToTail -Tail 50 -Wait
+# --- EXECUTE TAIL WITH CONDITIONAL COLORS ---
+Get-Content -Path $fileToTail -Tail 50 -Wait | ForEach-Object {
+    $line = $_
+    if ($line -match "level=INFO") {
+        # Orange text for INFO lines
+        Write-Host $line -ForegroundColor Green
+    }
+    elseif ($line -match "level=DEBUG") {
+        Write-Host $line -ForegroundColor Green
+    }
+    elseif ($line -match "level=WARN") {
+        Write-Host $line -ForegroundColor Magenta
+    }
+    elseif ($line -match "level=ERROR") {
+        Write-Host $line -ForegroundColor Red
+    }
+    else {
+        # Default color for anything else
+        Write-Host $line -ForegroundColor Green
+    }
+}
 
 Write-Host "`nScript finished. Press ENTER to close."
 Read-Host

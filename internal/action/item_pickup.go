@@ -113,6 +113,7 @@ outer:
 		}
 
 		var itemToPickup data.Item
+
 		for _, i := range itemsToPickup {
 			// Prefer items that we can actually place.
 			if !itemNeedsInventorySpace(i) || itemFitsInventory(i) {
@@ -481,6 +482,12 @@ func shouldBePickedUp(i data.Item) bool {
 			return true
 		}
 	}
+
+	if i.Name == "GrandCharm" && i.Quality == item.QualityMagic && i.UnitID == ctx.Context.MarkedGrandCharmUnitID {
+		ctx.Logger.Warn("FORCE PICKUP: Marked Grand Charm detected for testing", "unitID", i.UnitID)
+		return true
+	}
+
 	// Specific ID checks (e.g. Book of Skill and Scroll of Inifuss).
 	if i.ID == 552 || i.ID == 524 {
 		return true

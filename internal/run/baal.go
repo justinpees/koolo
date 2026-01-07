@@ -13,10 +13,13 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
+	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/game"
+	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
@@ -216,28 +219,100 @@ func (s *Baal) Run(parameters *RunParameters) error {
 			}
 		}
 
-		// Kill Baal and mark any dropped Grand Charm for reroll (do not overwrite existing mark)
+		prevPickup := s.ctx.CurrentGame.PickupItems
+		s.ctx.CurrentGame.PickupItems = false
+		defer func() {
+			s.ctx.CurrentGame.PickupItems = prevPickup
+		}()
+
+		// Kill Baal
 		if err := s.ctx.Char.KillBaal(); err != nil {
 			return err
 		}
+		// 🔒 Special case: ONLY when rerolling marked GCs
+		if s.ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+			// 🚫 Already have a marked GC — do NOT mark another
+			if s.ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint != "" {
+				s.ctx.Logger.Warn("GRAND CHARM ALREADY MARKED, PROCEED WITH NORMAL PICKUP")
+			} else {
 
-		foundCharm := false
-		for _, it := range s.ctx.Data.Inventory.ByLocation(item.LocationGround) {
-			if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
-				if s.ctx.MarkedGrandCharm == nil {
-					s.ctx.Logger.Debug("GRAND CHARM DROPPED BY BAAL, MARKING FOR REROLL")
-					s.ctx.MarkedGrandCharm = &it
-				} else {
-					s.ctx.Logger.Debug("GRAND CHARM ALREADY MARKED, NOT MARKING THIS ONE FOR REROLL")
+				// Give the game time to spawn loot
+				utils.Sleep(500)
+				s.ctx.RefreshGameData()
+
+				foundCharm := false
+
+				for _, it := range s.ctx.Data.Inventory.ByLocation(item.LocationGround) {
+					if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
+
+						s.ctx.Logger.Warn(
+							"GRAND CHARM DROPPED BY BAAL, MARKING FOR REROLL",
+							"unitID", it.UnitID,
+						)
+
+						s.ctx.MarkedGrandCharmUnitID = it.UnitID
+
+						// --- Pickup the Grand Charm first ---
+						err := action.ItemPickup(40)
+
+						s.ctx.Logger.Warn("Waiting 5 seconds after pickup...")
+						utils.Sleep(5000)
+
+						if err != nil {
+							s.ctx.Logger.Error("Failed to pick up Grand Charm", "unitID", it.UnitID, "err", err)
+							break
+						}
+
+						s.ctx.RefreshInventory() // make sure it is in inventory
+
+						// --- Fetch the picked-up charm from inventory manually ---
+						var charmInInv data.Item
+						found := false
+						for _, invItem := range s.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+							if invItem.UnitID == s.ctx.MarkedGrandCharmUnitID {
+								charmInInv = invItem
+								found = true
+								break
+							}
+						}
+						if !found {
+							s.ctx.Logger.Error("Picked up Grand Charm but cannot find it in inventory", "unitID", s.ctx.MarkedGrandCharmUnitID)
+							break
+						}
+
+						// --- Tome Identification Starts Here ---
+						idTome, found := s.ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
+						if !found {
+							s.ctx.Logger.Warn("Tome of Identify not found, skipping identification")
+						} else {
+							// Open inventory if not already open
+							step.CloseAllMenus()
+							for !s.ctx.Data.OpenMenus.Inventory {
+								s.ctx.HID.PressKeyBinding(s.ctx.Data.KeyBindings.Inventory)
+								utils.PingSleep(utils.Critical, 1000)
+							}
+
+							s.ctx.Logger.Warn("Identifying Grand Charm via Tome of Identify...")
+							identifyMarkedItem(idTome, charmInInv) // now using the correct inventory item
+
+							step.CloseAllMenus()
+							s.ctx.RefreshInventory()
+							s.ctx.Logger.Warn("Grand Charm successfully identified")
+						}
+						// --- End Tome Identification ---
+
+						foundCharm = true
+						break
+					}
 				}
-				foundCharm = true
-				break
+
+				utils.Sleep(150)
+
+				if !foundCharm {
+					s.ctx.Logger.Warn("NO GRAND CHARM DROPPED BY BAAL")
+				}
 			}
 		}
-		if !foundCharm {
-			s.ctx.Logger.Debug("NO GRAND CHARM DROPPED BY BAAL")
-		}
-
 		return nil
 	}
 
@@ -368,5 +443,88 @@ func (s *Baal) preAttackBaalWaves() {
 		step.CastAtPosition(skill.ShockWeb, true, throneCenter)
 		s.preAtkLast = time.Now()
 		return
+	}
+}
+func identifyMarkedItem(idTome data.Item, i data.Item) {
+	ctx := context.Get()
+
+	// Right-click Tome of Identify
+	screenPos := ui.GetScreenCoordsForItem(idTome)
+	utils.PingSleep(utils.Medium, 500)
+	ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
+	utils.PingSleep(utils.Critical, 1000)
+	ctx.Logger.Warn("Right-clicked Tome of Identify", "unitID", idTome.UnitID)
+
+	// Left-click the item
+	screenPos = ui.GetScreenCoordsForItem(i)
+	ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
+	ctx.Logger.Warn("Left-clicked item to identify", "unitID", i.UnitID)
+
+	// 🔎 Poll until the item is identified or timeout occurs
+	var identified data.Item
+	found := false
+	pollCount := 0
+	itemSeen := false
+
+	timeout := time.Now().Add(5 * time.Second) // Max 5 seconds to identify
+	for time.Now().Before(timeout) {
+		ctx.RefreshGameData()
+		for _, it := range ctx.Data.Inventory.ByLocation(
+			item.LocationInventory,
+			item.LocationStash,
+			item.LocationSharedStash,
+		) {
+			if it.UnitID == i.UnitID {
+				itemSeen = true
+				if it.Identified {
+					identified = it
+					found = true
+					break
+				}
+			}
+		}
+
+		if found {
+			ctx.Logger.Warn("Item successfully identified", "unitID", i.UnitID, "polls", pollCount)
+			break
+		}
+
+		pollCount++
+		if pollCount%5 == 0 { // Log every 5 polls (~0.5s)
+			ctx.Logger.Warn("Waiting for item to be identified...", "unitID", i.UnitID, "polls", pollCount)
+		}
+
+		utils.PingSleep(utils.Light, 100) // Poll every 100ms
+	}
+
+	if !itemSeen {
+		ctx.Logger.Warn("Item may never have been left-clicked; left-click might have failed", "unitID", i.UnitID)
+	}
+
+	if !found {
+		ctx.Logger.Error("FAILED TO IDENTIFY ITEM AFTER TIMEOUT", "unitID", i.UnitID)
+		return
+	}
+
+	// ✅ Fingerprint logic for marked Grand Charm (NOW SAFE)
+	if identified.Name == "GrandCharm" &&
+		identified.Quality == item.QualityMagic &&
+		ctx.MarkedGrandCharmUnitID == identified.UnitID {
+
+		if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(identified); res != nip.RuleResultFullMatch {
+			fp := utils.GrandCharmFingerprint(identified)
+
+			ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = fp
+			ctx.Logger.Warn("SAVED MARKED GRAND CHARM FINGERPRINT", "fp", fp)
+
+			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
+			}
+		} else {
+			ctx.Logger.Warn("GRAND CHARM THAT I WAS GOING TO MARK TURNED OUT TO BE A KEEPER, NOT MARKING IT")
+		}
+
+		// Clear temporary UnitID tracking (runtime-only)
+		ctx.MarkedGrandCharmUnitID = 0
 	}
 }

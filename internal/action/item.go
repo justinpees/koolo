@@ -139,62 +139,74 @@ func DropAndRecoverCursorItem() {
 }
 
 func DropInventoryItem(i data.Item) error {
-    ctx := context.Get()
-    ctx.SetLastAction("DropInventoryItem")
+	ctx := context.Get()
+	ctx.SetLastAction("DropInventoryItem")
 
-    // ---------- ABSOLUTE PROTECTION ----------
+	// ---------- PROTECT REROLLED MARKED GRAND CHARM ----------
+	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+		// If this is the marked Grand Charm, don't drop it
+		if i.Name == "GrandCharm" && i.Quality == item.QualityMagic {
+			fp := utils.GrandCharmFingerprint(i)
+			if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
+				ctx.Logger.Debug("NOT DROPPING MARKED GRAND CHARM", "fp", fp)
+				return nil
+			}
+		}
+	}
+
+	// ---------- ABSOLUTE PROTECTION ----------
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-    if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
-        ctx.Logger.Debug("NOT DROPPING " + ctx.CharacterCfg.Inventory.GemToUpgrade)
-        return nil
-    }
+		if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
+			ctx.Logger.Debug("NOT DROPPING " + ctx.CharacterCfg.Inventory.GemToUpgrade)
+			return nil
+		}
 	}
 
-if ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
-	if i.Name == "WirtsLeg" {
-		ctx.Logger.Debug("NOT DROPPING WIRT'S LEG")
-		return nil
+	if ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
+		if i.Name == "WirtsLeg" {
+			ctx.Logger.Debug("NOT DROPPING WIRT'S LEG")
+			return nil
+		}
 	}
-}
 
-    closeAttempts := 0
+	closeAttempts := 0
 
-    // Check if any other menu is open, except the inventory
-    for ctx.Data.OpenMenus.IsMenuOpen() {
+	// Check if any other menu is open, except the inventory
+	for ctx.Data.OpenMenus.IsMenuOpen() {
 
-        // Press escape to close it
-        ctx.HID.PressKey(0x1B) // ESC
-        utils.Sleep(500)
-        closeAttempts++
+		// Press escape to close it
+		ctx.HID.PressKey(0x1B) // ESC
+		utils.Sleep(500)
+		closeAttempts++
 
-        if closeAttempts >= 5 {
-            return fmt.Errorf("failed to close open menu after 5 attempts")
-        }
-    }
+		if closeAttempts >= 5 {
+			return fmt.Errorf("failed to close open menu after 5 attempts")
+		}
+	}
 
-    if i.Location.LocationType == item.LocationInventory {
+	if i.Location.LocationType == item.LocationInventory {
 
-        // Check if the inventory is open, if not open it
-        if !ctx.Data.OpenMenus.Inventory {
-            ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
-        }
+		// Check if the inventory is open, if not open it
+		if !ctx.Data.OpenMenus.Inventory {
+			ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+		}
 
-        // Wait a second
-        utils.Sleep(1000)
+		// Wait a second
+		utils.Sleep(1000)
 
-        screenPos := ui.GetScreenCoordsForItem(i)
-        ctx.HID.MovePointer(screenPos.X, screenPos.Y)
-        utils.Sleep(250)
-        ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-        utils.Sleep(500)
+		screenPos := ui.GetScreenCoordsForItem(i)
+		ctx.HID.MovePointer(screenPos.X, screenPos.Y)
+		utils.Sleep(250)
+		ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
+		utils.Sleep(500)
 
-        // Close the inventory if its still open
-        if ctx.Data.OpenMenus.Inventory {
-            ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
-        }
-    }
+		// Close the inventory if its still open
+		if ctx.Data.OpenMenus.Inventory {
+			ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+		}
+	}
 
-    return nil
+	return nil
 }
 func IsInLockedInventorySlot(itm data.Item) bool {
 	// Check if item is in inventory

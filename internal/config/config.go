@@ -188,7 +188,6 @@ type CharacterCfg struct {
 	UseCentralizedPickit bool   `yaml:"useCentralizedPickit"`
 	HidePortraits        bool   `yaml:"hidePortraits"`
 	AutoStart            bool   `yaml:"autoStart"`
-	
 
 	ConfigFolderName string `yaml:"-"`
 
@@ -234,7 +233,7 @@ type CharacterCfg struct {
 		HealingPotionCount int         `yaml:"healingPotionCount"`
 		ManaPotionCount    int         `yaml:"manaPotionCount"`
 		RejuvPotionCount   int         `yaml:"rejuvPotionCount"`
-		GemToUpgrade string `yaml:"upgradeGemUsingShrine"`
+		GemToUpgrade       string      `yaml:"upgradeGemUsingShrine"`
 	} `yaml:"inventory"`
 	Character struct {
 		Class                        string `yaml:"class"`
@@ -334,27 +333,27 @@ type CharacterCfg struct {
 	} `yaml:"character"`
 
 	Game struct {
-		MinGoldPickupThreshold int                   `yaml:"minGoldPickupThreshold"`
-		UseCainIdentify        bool                  `yaml:"useCainIdentify"`
-		DisableIdentifyTome    bool                  `yaml:"disableIdentifyTome"`
-		InteractWithShrines    bool                  `yaml:"interactWithShrines"`
-		InteractWithChests     bool                  `yaml:"interactWithChests"`
-		InteractWithSuperChests bool                 `yaml:"interactWithSuperChests"`
-		StopLevelingAt         int                   `yaml:"stopLevelingAt"`
-		IsNonLadderChar        bool                  `yaml:"isNonLadderChar"`
-		ClearTPArea            bool                  `yaml:"clearTPArea"`
-		Difficulty             difficulty.Difficulty `yaml:"difficulty"`
-		RandomizeRuns          bool                  `yaml:"randomizeRuns"`
-		ShopVendorsDuringTownVisits bool `yaml:"shopVendorsDuringTownVisits"`
-		Runs                   []Run                 `yaml:"runs"`
-		CreateLobbyGames       bool                  `yaml:"createLobbyGames"`
-		PublicGameCounter      int                   `yaml:"-"`
-		MaxFailedMenuAttempts  int                   `yaml:"maxFailedMenuAttempts"`
-		Pindleskin             struct {
+		MinGoldPickupThreshold      int                   `yaml:"minGoldPickupThreshold"`
+		UseCainIdentify             bool                  `yaml:"useCainIdentify"`
+		DisableIdentifyTome         bool                  `yaml:"disableIdentifyTome"`
+		InteractWithShrines         bool                  `yaml:"interactWithShrines"`
+		InteractWithChests          bool                  `yaml:"interactWithChests"`
+		InteractWithSuperChests     bool                  `yaml:"interactWithSuperChests"`
+		StopLevelingAt              int                   `yaml:"stopLevelingAt"`
+		IsNonLadderChar             bool                  `yaml:"isNonLadderChar"`
+		ClearTPArea                 bool                  `yaml:"clearTPArea"`
+		Difficulty                  difficulty.Difficulty `yaml:"difficulty"`
+		RandomizeRuns               bool                  `yaml:"randomizeRuns"`
+		ShopVendorsDuringTownVisits bool                  `yaml:"shopVendorsDuringTownVisits"`
+		Runs                        []Run                 `yaml:"runs"`
+		CreateLobbyGames            bool                  `yaml:"createLobbyGames"`
+		PublicGameCounter           int                   `yaml:"-"`
+		MaxFailedMenuAttempts       int                   `yaml:"maxFailedMenuAttempts"`
+		Pindleskin                  struct {
 			SkipOnImmunities []stat.Resist `yaml:"skipOnImmunities"`
 		} `yaml:"pindleskin"`
 		Cows struct {
-			OpenChests bool `yaml:"openChests"`
+			OpenChests    bool `yaml:"openChests"`
 			CraftWirtsLeg bool `yaml:"craftWirtsLeg"`
 		} `yaml:"cows"`
 		Pit struct {
@@ -491,9 +490,9 @@ type CharacterCfg struct {
 		CompanionGamePassword string `yaml:"companionGamePassword"`
 	} `yaml:"companion"`
 	Gambling struct {
-		Enabled bool        `yaml:"enabled"`
-		GambleFromSharedStashes bool `yaml:"gambleFromSharedStashes"`
-		Items   []item.Name `yaml:"items"`
+		Enabled                 bool        `yaml:"enabled"`
+		GambleFromSharedStashes bool        `yaml:"gambleFromSharedStashes"`
+		Items                   []item.Name `yaml:"items"`
 	} `yaml:"gambling"`
 	Muling struct {
 		Enabled      bool     `yaml:"enabled"`
@@ -505,12 +504,14 @@ type CharacterCfg struct {
 		CurrentMuleIndex int `yaml:"currentMuleIndex"`
 	} `yaml:"mulingState"`
 	CubeRecipes struct {
-		Enabled              bool     `yaml:"enabled"`
-		EnabledRecipes       []string `yaml:"enabledRecipes"`
-		SkipPerfectAmethysts bool     `yaml:"skipPerfectAmethysts"`
-		SkipPerfectRubies    bool     `yaml:"skipPerfectRubies"`
-		JewelsToKeep         int      `yaml:"jewelsToKeep"` // new field: number of magic jewels to keep
-		PrioritizeRunewords  bool     `yaml:"prioritizeRunewords"`
+		Enabled                     bool     `yaml:"enabled"`
+		EnabledRecipes              []string `yaml:"enabledRecipes"`
+		RerollGrandCharms           bool     `yaml:"rerollGrandCharms"` // <-- new field
+		SkipPerfectAmethysts        bool     `yaml:"skipPerfectAmethysts"`
+		SkipPerfectRubies           bool     `yaml:"skipPerfectRubies"`
+		JewelsToKeep                int      `yaml:"jewelsToKeep"` // new field: number of magic jewels to keep
+		PrioritizeRunewords         bool     `yaml:"prioritizeRunewords"`
+		MarkedGrandCharmFingerprint string   `yaml:"markedGrandCharmFingerprint"` //new field to track reroll grand charm fingerprint across restarts
 	} `yaml:"cubing"`
 	BackToTown struct {
 		NoHpPotions     bool `yaml:"noHpPotions"`

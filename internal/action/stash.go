@@ -492,10 +492,64 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		return true, false, "FirstRun", ""
 	}
 
-	if ctx.MarkedGrandCharm != nil && i.UnitID == ctx.MarkedGrandCharm.UnitID {
-		ctx.Logger.Debug("STASHING MARKED GRAND CHARM FOR REROLL RECIPE!!!!")
-		return true, false, "MarkedGrandCharm", ""
+	// DONT KNOW IF I NEED THIS, LOG DOESNT SHOW UP
+	// 🔒 Grand Charm handling when rerolling marked GCs
+	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
+		i.Name == "GrandCharm" &&
+		i.Quality == item.QualityMagic &&
+		ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint != "" {
+
+		fp := utils.GrandCharmFingerprint(i)
+		if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
+			ctx.Logger.Warn("FORCING STASH OF MARKED GRAND CHARM", "fp", fp)
+			return true, false, "MarkedGrandCharm", "" // Always stash
+		}
 	}
+
+	/* // 🔒 Grand Charm handling when rerolling marked GCs
+	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
+		i.Name == "GrandCharm" &&
+		i.Quality == item.QualityMagic {
+
+		markedFP := ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint
+		if markedFP != "" {
+
+			fp := utils.GrandCharmFingerprint(i)
+
+			// 🎯 MARKED GRAND CHARM
+			if fp == markedFP {
+				// ✅ Check for godly roll: +1 Skill Tab AND MaxHP ≥ 41
+				skillTabStat, _ := i.FindStat(stat.AddSkillTab, 0)
+				maxHPStat, _ := i.FindStat(stat.MaxLife, 0)
+
+				if skillTabStat.Value == 1 && maxHPStat.Value >= 41 {
+					// Godly roll — stop rerolling and stash
+					ctx.Logger.Warn("GODLY GRAND CHARM FOUND — STOPPING REROLL")
+					// Clear fingerprint to indicate reroll is complete
+					ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
+					if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+						ctx.Logger.Error("FAILED TO SAVE CONFIG AFTER GODLY GC", "err", err)
+					}
+					return true, false, "GodlyGrandCharm", ""
+				}
+
+				// Not godly — keep rerolling
+				ctx.Logger.Warn("MARKED GRAND CHARM NOT GODLY — KEEP REROLLING")
+				return true, false, "MarkedGrandCharm", ""
+			}
+
+			// 🚫 UNMARKED GC — do NOT touch fingerprint here
+			if fp != markedFP {
+				if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i); res != nip.RuleResultFullMatch {
+					ctx.Logger.Warn("DROPPING UNMARKED NON-NIP GRAND CHARM (only reroll >= ilvl91 mode)")
+					return false, false, "", ""
+				}
+
+				ctx.Logger.Warn("STASHING UNMARKED GRAND CHARM BECAUSE IT MATCHES NIP")
+				return true, false, "", ""
+			}
+		}
+	} */
 
 	// Stash items that are part of a recipe which are not covered by the NIP rules
 	if shouldKeepRecipeItem(i) {
@@ -525,6 +579,26 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	rule, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAllIgnoreTiers(i)
 
 	if res == nip.RuleResultFullMatch {
+
+		// 🔒 Special case: ONLY when rerolling marked GCs
+		if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+			// 🔑 CHECK IF THIS IS THE MARKED GRAND CHARM
+			if i.Name == "GrandCharm" && i.Quality == item.QualityMagic {
+				fp := utils.GrandCharmFingerprint(i)
+
+				if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
+					ctx.Logger.Error("REROLLED GRAND CHARM MATCHES NIP — CLEARING MARK")
+
+					// ✅ RESET STATE
+					ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
+					ctx.MarkedGrandCharmUnitID = 0
+
+					// Persist config so restart is safe
+					config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg)
+				}
+			}
+		}
+
 		if doesExceedQuantity(rule) {
 			// If it matches a rule but exceeds quantity, we want to drop it, not stash.
 			fmt.Printf("DEBUG: Dropping '%s' because MaxQuantity is exceeded.\n", i.Name)
@@ -594,6 +668,14 @@ func shouldKeepRecipeItem(i data.Item) bool {
 
 	// Check if the item is part of an enabled recipe
 	for _, recipe := range Recipes {
+
+		// 🔒 Special case: ignore GrandCharm as a recipe ingredient when rerolling marked GCs
+		if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
+			recipe.Name == "Reroll GrandCharms" &&
+			i.Name == "GrandCharm" {
+			continue
+		}
+
 		if slices.Contains(recipe.Items, string(i.Name)) &&
 			slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, recipe.Name) {
 			recipeMatch = true
