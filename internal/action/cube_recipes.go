@@ -1082,7 +1082,7 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 				// ❌ Not a keeper → reroll
 				grandCharm = &itm
 				ctx.Logger.Warn(
-					"USING NON-GODLY MARKED GRAND CHARM FOR REROLL RECIPE",
+					"CURRENTLY HAVE NON-GODLY MARKED GRAND CHARM PENDING REROLL RECIPE",
 					"fp", fp,
 				)
 				break
@@ -1294,30 +1294,60 @@ func getPurchasedItem(ctx *context.Status, purchaseItems []string) data.Item {
 }
 
 func isKeeperGrandCharm(itm data.Item) bool {
+
 	skillTab, _ := itm.FindStat(stat.AddSkillTab, 0)
 	maxLife, _ := itm.FindStat(stat.MaxLife, 0)
-	//fhr, _ := itm.FindStat(stat.FasterHitRecovery, 0)
+	fhr, _ := itm.FindStat(stat.FasterHitRecovery, 0)
 	maxDmg, _ := itm.FindStat(stat.MaxDamage, 0)
 	ar, _ := itm.FindStat(stat.AttackRating, 0)
-	frw, _ := itm.FindStat(stat.FasterRunWalk, 0)
+	//frw, _ := itm.FindStat(stat.FasterRunWalk, 0)
 	fireRes, _ := itm.FindStat(stat.FireResist, 0)
 	coldRes, _ := itm.FindStat(stat.ColdResist, 0)
 	lightRes, _ := itm.FindStat(stat.LightningResist, 0)
 	poisonRes, _ := itm.FindStat(stat.PoisonResist, 0)
+	//tests
+	def, _ := itm.FindStat(stat.Defense, 0)
+	mf, _ := itm.FindStat(stat.MagicFind, 0)
+	mana, _ := itm.FindStat(stat.MaxMana, 0)
+	//minDmg, _ := itm.FindStat(stat.MinDamage, 0)
+	//lightDmg, _ := itm.FindStat(stat.LightningMaxDamage, 0)
+	//coldDmg, _ := itm.FindStat(stat.ColdMaxDamage, 0)
 
-	lightDmg, _ := itm.FindStat(stat.LightningMaxDamage, 0)
-	coldDmg, _ := itm.FindStat(stat.ColdMaxDamage, 0)
-
-	// 🎯 Frw test
-	if frw.Value >= 1 {
+	// 🎯 Skiller + fhr
+	if fhr.Value >= 12 && fireRes.Value+coldRes.Value+poisonRes.Value+lightRes.Value == 60 {
 		return true
 	}
-	// 🎯 Frw test
-	if lightDmg.Value >= 1 {
+	// 🎯 Skiller + fhr
+	if fhr.Value >= 12 && skillTab.Value == 1 {
 		return true
 	}
-	// 🎯 Frw test
-	if coldDmg.Value >= 1 {
+	// 🎯 def / hp
+	if mf.Value >= 12 && maxLife.Value >= 45 {
+		return true
+	}
+	// 🎯 def / hp
+	if def.Value >= 100 && maxLife.Value >= 41 {
+		return true
+	}
+	// 🎯 mana / hp
+	if mana.Value >= 59 && maxLife.Value >= 45 {
+		return true
+	}
+
+	// 🎯 psnres / hp
+	if poisonRes.Value >= 30 && maxLife.Value >= 45 {
+		return true
+	}
+	// 🎯 fireres / hp
+	if fireRes.Value >= 30 && maxLife.Value >= 45 {
+		return true
+	}
+	// 🎯 lightres / hp
+	if lightRes.Value >= 30 && maxLife.Value >= 45 {
+		return true
+	}
+	// 🎯 coldres / hp
+	if coldRes.Value >= 30 && maxLife.Value >= 45 {
 		return true
 	}
 
@@ -1337,6 +1367,63 @@ func isKeeperGrandCharm(itm data.Item) bool {
 	if maxLife.Value >= 41 && fireRes.Value+coldRes.Value+poisonRes.Value+lightRes.Value == 60 {
 		return true
 	}
+	// 🎯 SPECIFIC SKILLTAB (defined below) + fhr
+	if hasAllowedSkillTab(itm) && fhr.Value >= 12 {
+		return true
+	}
 
+	return false
+}
+
+var allowedSkillTabs = map[int]bool{
+	// Amazon
+	0: true, // Bow & Crossbow
+	1: true, // Javelin & Spear
+	2: true, // Passive & Magic
+
+	// Sorceress
+	3: true, // Fire Skills
+	4: true, // Lightning Skills
+	5: true, // Cold Skills
+
+	// Necromancer
+	6: true, // Summoning
+	7: true, // Poison & Bone
+	//8: true, // Curses
+
+	// Paladin
+	9:  true, // Combat
+	10: true, // Offensive Auras
+	11: true, // Defensive Auras
+
+	// Barbarian
+	//12: true, // Combat Skills
+	//13: true, // Masteries
+	14: true, // Warcries
+
+	// Druid
+	15: true, // Summoning
+	16: true, // Shape Shifting
+	17: true, // Elemental
+
+	// Assassin
+	18: true, // Martial Arts
+	//19: true, // Shadow Disciplines
+	20: true, // Traps
+
+	// Misc / Amazon extra
+	//21: true, // Misc / unused?
+}
+
+func hasAllowedSkillTab(itm data.Item) bool {
+	for _, s := range itm.Stats {
+		if s.ID != stat.AddSkillTab || s.Value != 1 {
+			continue
+		}
+
+		if allowedSkillTabs[s.Layer] {
+			return true
+		}
+	}
 	return false
 }

@@ -252,6 +252,13 @@ outer:
 			if err == nil {
 				pickedUp = true
 				lastError = nil
+				/* 				// ✅ RIGHT HERE
+				if itemToPickup.Name == "GrandCharm" &&
+					itemToPickup.Quality == item.QualityMagic &&
+					ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+
+					markPickedGrandCharmIfNeeded(ctx)
+				} */
 				if debugPickit {
 					ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 				}
@@ -534,3 +541,23 @@ func IsBlacklisted(itm data.Item) bool {
 	}
 	return false
 }
+
+/* func markPickedGrandCharmIfNeeded(ctx *context.Status) {
+	ctx.RefreshGameData()
+
+	// Already marked → do nothing
+	if ctx.MarkedGrandCharmUnitID != 0 {
+		return
+	}
+
+	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
+			ctx.MarkedGrandCharmUnitID = it.UnitID
+			ctx.Logger.Warn(
+				"MARKED GRAND CHARM AFTER PICKUP",
+				"unitID", it.UnitID,
+			)
+			return
+		}
+	}
+} */

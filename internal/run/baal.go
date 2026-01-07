@@ -499,10 +499,12 @@ func identifyMarkedItem(idTome data.Item, i data.Item) {
 
 	if !itemSeen {
 		ctx.Logger.Warn("Item may never have been left-clicked; left-click might have failed", "unitID", i.UnitID)
+		ctx.MarkedGrandCharmUnitID = 0 // reset
 	}
 
 	if !found {
 		ctx.Logger.Error("FAILED TO IDENTIFY ITEM AFTER TIMEOUT", "unitID", i.UnitID)
+		ctx.MarkedGrandCharmUnitID = 0 // reset
 		return
 	}
 
