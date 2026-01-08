@@ -1356,14 +1356,14 @@ func isKeeperGrandCharm(itm data.Item) bool {
 		return true
 	}
 	// 🎯 Melee GC example
-	if maxDmg.Value >= 10 && ar.Value >= 70 && maxLife.Value >= 40 {
+	if maxDmg.Value >= 9 && ar.Value >= 49 && maxLife.Value >= 30 {
 		return true
 	}
 	// 🎯 Melee GC example
 	if ar.Value >= 130 && maxLife.Value >= 41 {
 		return true
 	}
-	// 🎯 Melee GC example
+	// 🎯 allres / life
 	if maxLife.Value >= 41 && fireRes.Value+coldRes.Value+poisonRes.Value+lightRes.Value == 60 {
 		return true
 	}

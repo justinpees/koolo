@@ -3,11 +3,13 @@ package run
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
@@ -229,8 +231,12 @@ func (s *Baal) Run(parameters *RunParameters) error {
 		if err := s.ctx.Char.KillBaal(); err != nil {
 			return err
 		}
+
+		// Area where Baal drops loot
+		areaID := s.ctx.Data.PlayerUnit.Area
+
 		// 🔒 Special case: ONLY when rerolling marked GCs
-		if s.ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+		if s.ctx.CharacterCfg.CubeRecipes.RerollGrandCharms && s.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell && !slices.Contains(s.ctx.Data.TerrorZones, areaID) {
 			// 🚫 Already have a marked GC — do NOT mark another
 			if s.ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint != "" {
 				s.ctx.Logger.Warn("GRAND CHARM ALREADY MARKED, PROCEED WITH NORMAL PICKUP")

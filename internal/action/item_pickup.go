@@ -9,11 +9,16 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
+	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
+	"github.com/hectorgimenez/koolo/internal/game"
+	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
@@ -118,6 +123,7 @@ outer:
 			// Prefer items that we can actually place.
 			if !itemNeedsInventorySpace(i) || itemFitsInventory(i) {
 				itemToPickup = i
+				markGroundGrandCharmIfEligible(itemToPickup)
 				break
 			}
 		}
@@ -252,16 +258,47 @@ outer:
 			if err == nil {
 				pickedUp = true
 				lastError = nil
-				/* 				// ✅ RIGHT HERE
-				if itemToPickup.Name == "GrandCharm" &&
-					itemToPickup.Quality == item.QualityMagic &&
-					ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
 
-					markPickedGrandCharmIfNeeded(ctx)
-				} */
 				if debugPickit {
 					ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 				}
+
+				// ✅ If we marked this item before pickup, identify it now
+				if ctx.MarkedGrandCharmUnitID != 0 && ctx.MarkedGrandCharmUnitID == itemToPickup.UnitID {
+					ctx.RefreshInventory() // make sure item is in inventory
+
+					// Find the item in inventory
+					var charmInInv data.Item
+					found := false
+					for _, invItem := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+						if invItem.UnitID == ctx.MarkedGrandCharmUnitID {
+							charmInInv = invItem
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						ctx.Logger.Error("Picked up Grand Charm but cannot find it in inventory", "unitID", ctx.MarkedGrandCharmUnitID)
+					} else {
+						// Find Tome of Identify
+						idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
+						if !found {
+							ctx.Logger.Warn("Tome of Identify not found, skipping identification")
+						} else {
+							step.CloseAllMenus() // make sure nothing is in the way
+							for !ctx.Data.OpenMenus.Inventory {
+								ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+								utils.PingSleep(utils.Critical, 1000)
+							}
+							identifyMarkedItem(idTome, charmInInv)
+							step.CloseAllMenus()
+							ctx.RefreshInventory()
+							ctx.Logger.Warn("Grand Charm successfully identified, closed all menus")
+						}
+					}
+				}
+
 				break
 			}
 
@@ -542,22 +579,136 @@ func IsBlacklisted(itm data.Item) bool {
 	return false
 }
 
-/* func markPickedGrandCharmIfNeeded(ctx *context.Status) {
-	ctx.RefreshGameData()
+func markGroundGrandCharmIfEligible(i data.Item) {
+	ctx := context.Get()
+	if ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
+		// Already tracking one GC — do not overwrite
+		if ctx.MarkedGrandCharmUnitID != 0 {
+			return
+		}
 
-	// Already marked → do nothing
-	if ctx.MarkedGrandCharmUnitID != 0 {
-		return
-	}
+		// Already tracking one GC — do not overwrite
+		if ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint != "" {
+			return
+		}
 
-	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-		if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
-			ctx.MarkedGrandCharmUnitID = it.UnitID
+		// Only magic Grand Charms
+		if i.Name != "GrandCharm" || i.Quality != item.QualityMagic {
+			return
+		}
+
+		areaID := ctx.Data.PlayerUnit.Area
+		area := areaID.Area()
+
+		// 🧟 Must be a Terror Zone
+		if !slices.Contains(ctx.Data.TerrorZones, areaID) {
 			ctx.Logger.Warn(
-				"MARKED GRAND CHARM AFTER PICKUP",
-				"unitID", it.UnitID,
+				"AREA IS NOT TERRORIZED — SKIPPING GRAND CHARM MARK",
+				"areaID", int(areaID),
+				"areaName", areaID.Area().Name,
+				"terrorZones", ctx.Data.TerrorZones,
 			)
 			return
 		}
+
+		// 🧙 Character level ≥ 89 (mlvl is clvl + 2 in terrorzones)
+		charLevel, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+		if !ok || charLevel.Value < 89 {
+			return
+		}
+
+		ctx.MarkedGrandCharmUnitID = i.UnitID
+		ctx.Logger.Warn(
+			"MARKED TERROR ZONE GRAND CHARM ON GROUND",
+			"unitID", i.UnitID,
+			"area", area.Name,
+			"charLevel", charLevel.Value,
+		)
 	}
-} */
+}
+
+func identifyMarkedItem(idTome data.Item, i data.Item) {
+	ctx := context.Get()
+
+	// Right-click Tome of Identify
+	screenPos := ui.GetScreenCoordsForItem(idTome)
+	utils.PingSleep(utils.Medium, 500)
+	ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
+	utils.PingSleep(utils.Critical, 1000)
+	ctx.Logger.Warn("Right-clicked Tome of Identify", "unitID", idTome.UnitID)
+
+	// Left-click the item
+	screenPos = ui.GetScreenCoordsForItem(i)
+	ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
+	ctx.Logger.Warn("Left-clicked item to identify", "unitID", i.UnitID)
+
+	// 🔎 Poll until the item is identified or timeout occurs
+	var identified data.Item
+	found := false
+	pollCount := 0
+	itemSeen := false
+
+	timeout := time.Now().Add(5 * time.Second) // Max 5 seconds to identify
+	for time.Now().Before(timeout) {
+		ctx.RefreshGameData()
+		for _, it := range ctx.Data.Inventory.ByLocation(
+			item.LocationInventory,
+			item.LocationStash,
+			item.LocationSharedStash,
+		) {
+			if it.UnitID == i.UnitID {
+				itemSeen = true
+				if it.Identified {
+					identified = it
+					found = true
+					break
+				}
+			}
+		}
+
+		if found {
+			ctx.Logger.Warn("Item successfully identified", "unitID", i.UnitID, "polls", pollCount)
+			break
+		}
+
+		pollCount++
+		if pollCount%5 == 0 { // Log every 5 polls (~0.5s)
+			ctx.Logger.Warn("Waiting for item to be identified...", "unitID", i.UnitID, "polls", pollCount)
+		}
+
+		utils.PingSleep(utils.Light, 100) // Poll every 100ms
+	}
+
+	if !itemSeen {
+		ctx.Logger.Warn("Item may never have been left-clicked; left-click might have failed", "unitID", i.UnitID)
+		ctx.MarkedGrandCharmUnitID = 0 // reset
+	}
+
+	if !found {
+		ctx.Logger.Error("FAILED TO IDENTIFY ITEM AFTER TIMEOUT", "unitID", i.UnitID)
+		ctx.MarkedGrandCharmUnitID = 0 // reset
+		return
+	}
+
+	// ✅ Fingerprint logic for marked Grand Charm (NOW SAFE)
+	if identified.Name == "GrandCharm" &&
+		identified.Quality == item.QualityMagic &&
+		ctx.MarkedGrandCharmUnitID == identified.UnitID {
+
+		if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(identified); res != nip.RuleResultFullMatch {
+			fp := utils.GrandCharmFingerprint(identified)
+
+			ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = fp
+			ctx.Logger.Warn("SAVED MARKED GRAND CHARM FINGERPRINT", "fp", fp)
+
+			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
+			}
+		} else {
+			ctx.Logger.Warn("GRAND CHARM THAT I WAS GOING TO MARK TURNED OUT TO BE A KEEPER, NOT MARKING IT")
+		}
+
+		// Clear temporary UnitID tracking (runtime-only)
+		ctx.MarkedGrandCharmUnitID = 0
+	}
+}

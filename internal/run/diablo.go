@@ -243,7 +243,9 @@ func (d *Diablo) Run(parameters *RunParameters) error {
 		if err := d.ctx.Char.KillDiablo(); err != nil {
 			return err
 		}
-		if d.ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+		areaID := d.ctx.Data.PlayerUnit.Area
+
+		if d.ctx.CharacterCfg.CubeRecipes.RerollGrandCharms && d.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell && !slices.Contains(d.ctx.Data.TerrorZones, areaID) {
 			// 🔒 Only attempt to mark a new GC if none is currently marked
 			if d.ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint != "" {
 				d.ctx.Logger.Warn("GRAND CHARM ALREADY MARKED, PROCEED WITH NORMAL PICKUP")
