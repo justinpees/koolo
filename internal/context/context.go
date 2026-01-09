@@ -69,7 +69,8 @@ type Context struct {
 	IsBossEquipmentActive bool          // flag for barb leveling
 	Drop                  *drop.Manager // Drop: Per-supervisor Drop manager
 	//MarkedGrandCharm      *data.Item    // NEW FIELD: Tracks the Grand Charm marked for reroll after Diablo kill
-	MarkedGrandCharmUnitID data.UnitID
+	MarkedGrandCharmUnitID   data.UnitID
+	MarkedSpecificItemUnitID data.UnitID
 }
 
 type Debug struct {

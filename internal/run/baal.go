@@ -524,7 +524,7 @@ func identifyMarkedItem(idTome data.Item, i data.Item) {
 
 			ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = fp
 			ctx.Logger.Warn("SAVED MARKED GRAND CHARM FINGERPRINT", "fp", fp)
-
+			//action.Stash(true) // JUST ADDED
 			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
 				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
 			}

@@ -492,7 +492,7 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		return true, false, "FirstRun", ""
 	}
 
-	// DONT KNOW IF I NEED THIS, LOG DOESNT SHOW UP
+	// THIS BLOCK MAD MY BOT KEEP ANOTHER GRANDCHARM IN STASH THAT HAD THE SAME STATS AS THE FINGERPRINTED GC. DONT NEED THIS BLOCK ANYWAY
 	// 🔒 Grand Charm handling when rerolling marked GCs
 	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
 		i.Name == "GrandCharm" &&
@@ -500,9 +500,26 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint != "" {
 
 		fp := utils.GrandCharmFingerprint(i)
+
 		if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
+
+			// 🔍 Check shared stash for an existing GC with same fingerprint
+			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+				if it.Name == "GrandCharm" &&
+					it.Quality == item.QualityMagic &&
+					utils.GrandCharmFingerprint(it) == fp {
+
+					ctx.Logger.Warn(
+						"Marked Grand Charm already exists in shared stash, skipping force stash",
+						"fp", fp,
+					)
+					return false, false, "", ""
+				}
+			}
+
+			// ✅ No duplicate found → safe to stash
 			ctx.Logger.Warn("FORCING STASH OF MARKED GRAND CHARM", "fp", fp)
-			return true, false, "MarkedGrandCharm", "" // Always stash
+			return true, false, "MarkedGrandCharm", ""
 		}
 	}
 
@@ -592,6 +609,24 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 					// ✅ RESET STATE
 					ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
 					ctx.MarkedGrandCharmUnitID = 0
+
+					// Persist config so restart is safe
+					config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg)
+				}
+			}
+		}
+
+		if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
+			// 🔑 CHECK IF THIS IS THE MARKED GRAND CHARM
+			if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && i.Quality == item.QualityMagic {
+				fp := SpecificFingerprint(i)
+
+				if fp == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+					ctx.Logger.Error("REROLLED SPECIFIC ITEM MATCHES NIP — CLEARING MARK")
+
+					// ✅ RESET STATE
+					ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = ""
+					ctx.MarkedSpecificItemUnitID = 0
 
 					// Persist config so restart is safe
 					config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg)
@@ -773,7 +808,10 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 				filepath.Base(ruleFile),
 			)
 		}
-
+		// Append NIP rule to the same message (after screenshot text)
+		if strings.TrimSpace(rule) != "" {
+			message += fmt.Sprintf("\n```%s```", rule)
+		}
 		event.Send(event.ItemStashed(
 			event.WithScreenshot(ctx.Name, message, screenshot),
 			data.Drop{
@@ -783,6 +821,7 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 				DropLocation: dropLocation,
 			},
 		))
+
 	}
 
 	return true // Item successfully stashed

@@ -1303,9 +1303,35 @@
                 Don't use Perfect Rubies when rolling charms
             </label><br>
             <label>
-                <input type="checkbox" name="rerollGrandCharms" {{ if .Config.CubeRecipes.RerollGrandCharms }}checked{{ end }} title="If turned on, you must make sure you don't have a junk grand charm in stash already" />
+                <input type="checkbox" name="rerollGrandCharms" {{ if .Config.CubeRecipes.RerollGrandCharms }}checked{{ end }} title="You must make sure you don't have a junk grand charm in stash already and Reroll Grancharms is checked" />
                 Reroll only ilvl >= 91 gcs for 41-45 life skillers
             </label><br>
+
+
+
+
+            <label>
+                <input type="checkbox" name="rerollSpecific" {{ if .Config.CubeRecipes.RerollSpecific }}checked{{ end }} title="You must make sure Reroll Grandcharms is not checked" />
+                Reroll specific magic item instead of grand charm
+            </label><br>
+            <fieldset class="grid">
+            <label>
+                    Specific magic item to reroll
+                    <select id="specificItemToReroll" name="specificItemToReroll" title="">
+						<option value="Monarch" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Monarch"}}selected{{end}}>Monarch</option>
+                    </select>
+                </label>
+                 <label>
+                Min mlvl:
+                <input type="number" name="minMonsterLevel" min="1" value="{{ .Config.CubeRecipes.MinMonsterLevel }}" />
+            </label>
+                             <label>
+                Max mlvl:
+                <input type="number" name="maxMonsterLevel" min="1" value="{{ .Config.CubeRecipes.MaxMonsterLevel }}" />
+            </label>
+            </fieldset>
+
+
             <div class="recipe-grid">
                 {{ range $index, $recipe := .RecipeList }}
                 <label>

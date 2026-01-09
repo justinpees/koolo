@@ -11,6 +11,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
+	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/action/step"
@@ -18,6 +19,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
+	"github.com/hectorgimenez/koolo/internal/pather"
 	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
@@ -265,6 +267,20 @@ outer:
 
 				// ✅ If we marked this item before pickup, identify it now
 				if ctx.MarkedGrandCharmUnitID != 0 && ctx.MarkedGrandCharmUnitID == itemToPickup.UnitID {
+
+					skip := false
+					for _, obj := range ctx.Data.Objects {
+						if IsChestOrContainer(obj.Name) && pather.DistanceFromPoint(obj.Position, itemToPickup.Position) < 5 {
+							ctx.Logger.Warn("GRAND CHARM DROPPED NEAR A CONTAINER/CHEST; SKIPPING FINGERPRINT IDENTIFICATION")
+							skip = true
+							break
+						}
+					}
+					if skip {
+						ctx.MarkedGrandCharmUnitID = 0
+						ctx.Logger.Warn("RESETTING MarkedGrandCharmUnitID to 0 BECAUSE GRAND CHARM DETECTED NEAR CHEST")
+						break // skip identifying this charm
+					}
 					ctx.RefreshInventory() // make sure item is in inventory
 
 					// Find the item in inventory
@@ -295,6 +311,7 @@ outer:
 							step.CloseAllMenus()
 							ctx.RefreshInventory()
 							ctx.Logger.Warn("Grand Charm successfully identified, closed all menus")
+
 						}
 					}
 				}
@@ -700,7 +717,7 @@ func identifyMarkedItem(idTome data.Item, i data.Item) {
 
 			ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = fp
 			ctx.Logger.Warn("SAVED MARKED GRAND CHARM FINGERPRINT", "fp", fp)
-
+			//shouldStashIt(identified, true) // JUST ADDED
 			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
 				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
 			}
@@ -710,5 +727,63 @@ func identifyMarkedItem(idTome data.Item, i data.Item) {
 
 		// Clear temporary UnitID tracking (runtime-only)
 		ctx.MarkedGrandCharmUnitID = 0
+	}
+}
+
+func IsChestOrContainer(name object.Name) bool {
+	switch name {
+	// Basic chests
+	case object.JungleChest,
+		object.MediumChestLeft,
+		object.LargeChestLeft2,
+		object.LargeChestRight,
+		object.LargeChestLeft,
+		object.TallChestLeft,
+
+		// Act‑specific chests
+		object.Act1LargeChestRight,
+		object.Act1TallChestRight,
+		object.Act1MediumChestRight,
+		object.Act2MediumChestRight,
+		object.Act2LargeChestRight,
+		object.Act2LargeChestLeft,
+		object.MafistoLargeChestLeft,
+		object.MafistoLargeChestRight,
+		object.MafistoMediumChestLeft,
+		object.MafistoMediumChestRight,
+		object.SpiderLairLargeChestLeft,
+		object.SpiderLairTallChestLeft,
+		object.SpiderLairMediumChestRight,
+		object.SpiderLairTallChestRight,
+
+		// Special & quest chests
+		object.HoradricCubeChest,
+		object.HoradricScrollChest,
+		object.StaffOfKingsChest,
+		object.SparklyChest,
+		object.KhalimChest1,
+		object.KhalimChest2,
+		object.KhalimChest3,
+		object.GLchest3L,
+		object.Gchest1L,
+		object.Gchest2R,
+		object.Gchest3R,
+
+		// “Stash” typed objects
+		object.JungleStashObject1,
+		object.JungleStashObject2,
+		object.JungleStashObject3,
+		object.JungleStashObject4,
+		object.StashBox,
+		object.StashAltar,
+
+		// Loose containers and small loot spawners
+		object.Crate,
+		object.Barrel,
+		object.BarrelExploding:
+
+		return true
+	default:
+		return false
 	}
 }

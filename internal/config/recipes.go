@@ -2,6 +2,8 @@ package config
 
 var AvailableRecipes = []string{
 	// List out all the recipe names from cube_recipes.go
+	"Reroll GrandCharms",
+	"Reroll Specific",
 	"Token of Absolution",
 	"Upgrade El",
 	"Upgrade Eld",
@@ -67,8 +69,6 @@ var AvailableRecipes = []string{
 	"Add Sockets to Armor",
 	"Add Sockets to Helm",
 	"Add Sockets to Shield",
-	"Reroll GrandCharms",
-	"Reroll Monarch",
 	"Blood Amulet",
 	"Blood Ring",
 	"Blood Gloves (VampireboneGloves)",

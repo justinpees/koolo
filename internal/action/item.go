@@ -147,8 +147,13 @@ func DropInventoryItem(i data.Item) error {
 		// If this is the marked Grand Charm, don't drop it
 		if i.Name == "GrandCharm" && i.Quality == item.QualityMagic {
 			fp := utils.GrandCharmFingerprint(i)
+			unitid := ctx.MarkedGrandCharmUnitID
 			if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
-				ctx.Logger.Debug("NOT DROPPING MARKED GRAND CHARM", "fp", fp)
+				ctx.Logger.Debug("NOT DROPPING MARKED GRAND CHARM BECAUSE FINGERPRINT MATCHES", "fp", fp)
+				return nil
+			}
+			if unitid == i.UnitID {
+				ctx.Logger.Debug("NOT DROPPING MARKED GRAND CHARM BECAUSE unitID MATCHES", "unitID", unitid)
 				return nil
 			}
 		}

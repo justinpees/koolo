@@ -523,10 +523,10 @@ var (
 			Items: []string{"GrandCharm", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
 		},
 
-		// Reroll Monarch
+		// Reroll Specific
 		{
-			Name:  "Reroll Monarch",
-			Items: []string{"Monarch", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
+			Name:  "Reroll Specific",
+			Items: []string{"Specificitem", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
 		},
 	}
 )
@@ -597,7 +597,7 @@ func CubeRecipes() error {
 
 				stashingRequired := false
 				stashingGrandCharm := false
-				stashingMonarch := false
+				stashingSpecificItem := false
 
 				// Check if the items that are not in the protected invetory slots should be stashed
 				for _, it := range itemsInInv {
@@ -660,33 +660,47 @@ func CubeRecipes() error {
 								}
 							}
 
-						} else if it.Name == "Monarch" {
-							ctx.Logger.Debug("Checking if we need to stash a Monarch that doesn't match any NIP rules.", "recipe", recipe.Name)
+						} else if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) {
 
-							hasUnmatchedMonarch := false
-							for _, stashItem := range itemsInStash {
-								if stashItem.Name == "Monarch" && stashItem.Quality == item.QualityMagic {
-									if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
-										hasUnmatchedMonarch = true
-										break
+							// 🔒 Special case: ONLY when rerolling marked GCs
+							if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
+								// 🛡️ ALWAYS KEEP THE MARKED GRAND CHARM (POST-REROLL)
+
+								ctx.Logger.Warn("KEEPING MARKED SPECIFIC ITEM AFTER REROLL — FORCING STASH")
+								stashingRequired = true
+								stashingSpecificItem = true
+								continue
+
+							} else {
+								ctx.Logger.Debug("Checking if we need to stash a SpecificItem that doesn't match any NIP rules.", "recipe", recipe.Name)
+
+								hasUnmatchedSpecificItem := false
+								for _, stashItem := range itemsInStash {
+									// Skip non-magic grand charms (e.g., Gheeds Fortune)
+									if stashItem.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && stashItem.Quality == item.QualityMagic {
+										if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
+											hasUnmatchedSpecificItem = true
+											break
+										}
 									}
+
+								}
+
+								if !hasUnmatchedSpecificItem {
+									ctx.Logger.Error(
+										"SpecificItem doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
+										"recipe", recipe.Name,
+									)
+									stashingRequired = true
+									stashingSpecificItem = true
+								} else {
+									DropInventoryItem(it)
+									ctx.Logger.Debug("DROPPING ITEMS NOT PART OF GRANDCHARM RECIPE")
+									utils.Sleep(500)
 								}
 							}
 
-							if !hasUnmatchedMonarch {
-								ctx.Logger.Debug(
-									"Monarch doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
-									"recipe", recipe.Name,
-								)
-								stashingRequired = true
-								stashingMonarch = true
-							} else {
-								DropInventoryItem(it)
-								ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
-								utils.Sleep(500)
-							}
-
-						} else {
+						} else { // DO I DELETE THIS????
 							DropInventoryItem(it)
 							ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
 
@@ -703,10 +717,10 @@ func CubeRecipes() error {
 					_ = Stash(true)
 				}
 
-				// Add monarch to the stash if needed
-				if stashingRequired && !stashingMonarch {
+				// Add specific item to the stash if needed
+				if stashingRequired && !stashingSpecificItem {
 					_ = Stash(false)
-				} else if stashingMonarch {
+				} else if stashingSpecificItem {
 					// Force stashing of the invetory
 					_ = Stash(true)
 				}
@@ -741,6 +755,33 @@ func CubeRecipes() error {
 						}
 					}
 				}
+				if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
+					// Reset fingerprint of marked Grand Charm after successfully stashing it
+					if recipe.Name == "Reroll Specific" {
+						for _, it := range itemsInInv {
+							if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && it.Quality == item.QualityMagic {
+								// Generate new fingerprint for rerolled charm
+								specificFP := SpecificFingerprint(it)
+
+								ctx.Logger.Warn("MARKED SPECIFIC ITEM REROLLED — UPDATING FINGERPRINT", "newFP", specificFP)
+								ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = specificFP
+
+								// Reset UnitID so the bot can mark it again if needed
+								if ctx.MarkedSpecificItemUnitID != 0 {
+									ctx.Logger.Warn("RESETTING MARKED SPECIFIC ITEM UNITID AFTER SUCCESSFUL REROLL")
+									ctx.MarkedSpecificItemUnitID = 0
+								}
+
+								// Save updated config
+								if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+									ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER UPDATING FINGERPRINT", "err", err)
+								}
+
+								break // Only handle one marked specific item
+							}
+						}
+					}
+				}
 			} else {
 				continueProcessing = false
 			}
@@ -748,6 +789,8 @@ func CubeRecipes() error {
 	}
 	ctx.Logger.Warn("Marked GrandCharm UnitID", "unitID", ctx.MarkedGrandCharmUnitID)
 	ctx.Logger.Warn("Current marked GrandCharm fingerprint", "fp", ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint)
+	ctx.Logger.Warn("Marked SpecificItem UnitID", "unitID", ctx.MarkedSpecificItemUnitID)
+	ctx.Logger.Warn("Current marked SpecificItem fingerprint", "fp", ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint)
 	return nil
 }
 
@@ -765,8 +808,8 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 		return hasItemsForGrandCharmReroll(ctx, items)
 	}
 	// Special handling for "Reroll Monarch" recipe
-	if recipe.Name == "Reroll Monarch" {
-		return hasItemsForMonarchReroll(ctx, items)
+	if recipe.Name == "Reroll Specific" {
+		return hasItemsForSpecificReroll(ctx, items)
 	}
 
 	if recipe.Name == "MagicWirtsLegStep1" {
@@ -892,7 +935,7 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	for _, it := range items {
 		if count, ok := recipeItems[string(it.Name)]; ok {
 
-			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == "Monarch" || it.Name == "GrandCharm" || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
+			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || it.Name == "GrandCharm" || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); result == nip.RuleResultFullMatch {
 					ctx.Logger.Debug("Skipping item that matches NIP rules for cubing recipe", "item", it.Name, "recipe", recipe.Name)
 					if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
@@ -910,7 +953,7 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 								}
 							}
 						}
-					}
+					} // I DONT KNOW IF I NEED THIS???
 					// Skip this item for cubing
 					continue
 				}
@@ -1100,6 +1143,7 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 			)
 
 			ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
+			ctx.MarkedGrandCharmUnitID = 0 // added after, not sure if ok
 			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
 				ctx.Logger.Error("FAILED TO SAVE CONFIG AFTER KEEPER GC", "err", err)
 			}
@@ -1148,8 +1192,8 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 	return nil, false
 }
 
-func hasItemsForMonarchReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
-	var monarch data.Item
+func hasItemsForSpecificReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
+	var specificitem data.Item
 	perfectGems := make([]data.Item, 0, 3)
 	// Count Perfect Amethyst and Perfect Ruby in inventory
 	countAmethyst := 0
@@ -1166,10 +1210,23 @@ func hasItemsForMonarchReroll(ctx *context.Status, items []data.Item) ([]data.It
 		case "PerfectSapphire":
 			countSapphire++
 		}
+		specificfp := SpecificFingerprint(itm)
 
-		if itm.Name == "Monarch" {
-			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch && itm.Quality == item.QualityMagic {
-				monarch = itm
+		if itm.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && itm.Quality == item.QualityMagic && specificfp == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch {
+				specificitem = itm
+			} else {
+				ctx.Logger.Warn(
+					"GODLY!!!! SPECIFIC ITEM MATCHES NIP — SKIPPING REROLL",
+					"item", itm.Name,
+					"fp", specificfp,
+					"quality", itm.Quality,
+				)
+				ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = ""
+				ctx.MarkedSpecificItemUnitID = 0
+				if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+					ctx.Logger.Error("FAILED TO SAVE CONFIG AFTER NIP MATCH", "err", err)
+				}
 			}
 		} else if isPerfectGem(itm) && len(perfectGems) < 3 {
 			// Skip perfect amethysts and rubies when i have less than 4 (if configured) AND skip perfect sapphires when I only have 2
@@ -1180,8 +1237,8 @@ func hasItemsForMonarchReroll(ctx *context.Status, items []data.Item) ([]data.It
 			perfectGems = append(perfectGems, itm)
 		}
 
-		if monarch.Name != "" && len(perfectGems) == 3 {
-			return append([]data.Item{monarch}, perfectGems...), true
+		if specificitem.Name != "" && len(perfectGems) == 3 {
+			return append([]data.Item{specificitem}, perfectGems...), true
 		}
 	}
 
