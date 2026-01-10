@@ -125,7 +125,12 @@ outer:
 			// Prefer items that we can actually place.
 			if !itemNeedsInventorySpace(i) || itemFitsInventory(i) {
 				itemToPickup = i
-				markGroundGrandCharmIfEligible(itemToPickup)
+				if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+					markGroundGrandCharmIfEligible(itemToPickup)
+				}
+				if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
+					MarkGroundSpecificItemIfEligible(itemToPickup)
+				}
 				break
 			}
 		}
@@ -265,7 +270,7 @@ outer:
 					ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 				}
 
-				// ✅ If we marked this item before pickup, identify it now
+				// ✅ If we marked grand charm before pickup, identify it now
 				if ctx.MarkedGrandCharmUnitID != 0 && ctx.MarkedGrandCharmUnitID == itemToPickup.UnitID {
 
 					skip := false
@@ -311,6 +316,44 @@ outer:
 							step.CloseAllMenus()
 							ctx.RefreshInventory()
 							ctx.Logger.Warn("Grand Charm successfully identified, closed all menus")
+
+						}
+					}
+				}
+
+				// ✅ If we marked the specific item before pickup, identify it now
+				if ctx.MarkedSpecificItemUnitID != 0 && ctx.MarkedSpecificItemUnitID == itemToPickup.UnitID {
+
+					ctx.RefreshInventory() // make sure item is in inventory
+
+					// Find the item in inventory
+					var specificItemInInv data.Item
+					found := false
+					for _, invItem := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+						if invItem.UnitID == ctx.MarkedSpecificItemUnitID {
+							specificItemInInv = invItem
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						ctx.Logger.Error("Picked up Specific Item but cannot find it in inventory", "unitID", ctx.MarkedSpecificItemUnitID)
+					} else {
+						// Find Tome of Identify
+						idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
+						if !found {
+							ctx.Logger.Warn("Tome of Identify not found, skipping identification")
+						} else {
+							step.CloseAllMenus() // make sure nothing is in the way
+							for !ctx.Data.OpenMenus.Inventory {
+								ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+								utils.PingSleep(utils.Critical, 1000)
+							}
+							identifySpecificMarkedItem(idTome, specificItemInInv)
+							step.CloseAllMenus()
+							ctx.RefreshInventory()
+							ctx.Logger.Warn("Specific Item successfully identified, closed all menus")
 
 						}
 					}
@@ -788,9 +831,39 @@ func IsChestOrContainer(name object.Name) bool {
 	}
 }
 
-func markSpecificItemIfEligible(i data.Item) {
-	ctx := context.Get()
+// ResolveMonsterLevel returns the monster level (mlvl) for the current area,
+// including Terror Zones. Returns false if the area is unknown.
+func ResolveMonsterLevel(ctx *context.Context) (int, bool) {
+	areaID := ctx.Data.PlayerUnit.Area
 
+	// 1) Terror Zone override: dynamic mlvl = charLevel + 2
+	if slices.Contains(ctx.Data.TerrorZones, areaID) {
+		if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
+			return clvl.Value + 2, true
+		}
+		return 0, false
+	}
+
+	// 2) Static mlvl lookup from AreaLevelTable
+	if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+		switch ctx.CharacterCfg.Game.Difficulty {
+		case difficulty.Normal:
+			return mlvls[0], true
+		case difficulty.Nightmare:
+			return mlvls[1], true
+		case difficulty.Hell:
+			return mlvls[2], true
+		}
+	}
+
+	// Unknown area
+	return 0, false
+}
+
+// markSpecificItemIfEligible checks if an item should be marked for rerolling
+// according to the configured SpecificItemToReroll and the area monster level range.
+func MarkGroundSpecificItemIfEligible(i data.Item) {
+	ctx := context.Get()
 	// Already tracking one specific item — do not overwrite
 	if ctx.MarkedSpecificItemUnitID != 0 || ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
 		return
@@ -801,11 +874,32 @@ func markSpecificItemIfEligible(i data.Item) {
 		return
 	}
 
-	// Get monster level for the current area (handles Terror Zones too)
-	areaMLvl, ok := game.ResolveMonsterLevel(ctx)
-	if !ok {
-		ctx.Logger.Debug("AREA LEVEL UNKNOWN — SKIPPING SPECIFIC ITEM MARK", "areaID", ctx.Data.PlayerUnit.Area)
-		return
+	areaID := ctx.Data.PlayerUnit.Area
+	isTerror := slices.Contains(ctx.Data.TerrorZones, areaID)
+
+	var areaMLvl int
+
+	if isTerror {
+		if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
+			areaMLvl = clvl.Value + 2
+		} else {
+			ctx.Logger.Debug("CANNOT FIND CHAR LEVEL — SKIPPING SPECIFIC ITEM MARK", "unitID", i.UnitID)
+			return
+		}
+	} else {
+		if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				areaMLvl = mlvls[0]
+			case difficulty.Nightmare:
+				areaMLvl = mlvls[1]
+			case difficulty.Hell:
+				areaMLvl = mlvls[2]
+			}
+		} else {
+			ctx.Logger.Debug("UNKNOWN AREA — SKIPPING SPECIFIC ITEM MARK", "areaID", areaID)
+			return
+		}
 	}
 
 	// Check if area monster level is within user-configured Min/Max
@@ -814,47 +908,106 @@ func markSpecificItemIfEligible(i data.Item) {
 	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
 		ctx.Logger.Debug(
 			"AREA LEVEL OUT OF RANGE — SKIPPING SPECIFIC ITEM MARK",
-			"areaID", ctx.Data.PlayerUnit.Area,
-			"areaMLvl", areaMLvl,
+			"areaID", areaID,
+			"monsterLevel", areaMLvl,
 			"minMLvl", minMLvl,
 			"maxMLvl", maxMLvl,
 		)
 		return
 	}
 
-	// Mark the item
+	// Mark the item for rerolling
 	ctx.MarkedSpecificItemUnitID = i.UnitID
 	ctx.Logger.Warn(
 		"MARKED SPECIFIC ITEM ON GROUND",
 		"unitID", i.UnitID,
-		"areaID", ctx.Data.PlayerUnit.Area,
+		"areaID", areaID,
 		"monsterLevel", areaMLvl,
 	)
 }
 
-func ResolveMonsterLevel(ctx *context.Context) (int, bool) {
-	areaID := ctx.Data.PlayerUnit.Area
+func identifySpecificMarkedItem(idTome data.Item, i data.Item) {
+	ctx := context.Get()
 
-	// 1) Terror Zone override: dynamic
-	if slices.Contains(ctx.Data.TerrorZones, areaID) {
-		if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
-			return clvl.Value + 2, true
+	// Right-click Tome of Identify
+	screenPos := ui.GetScreenCoordsForItem(idTome)
+	utils.PingSleep(utils.Medium, 500)
+	ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
+	utils.PingSleep(utils.Critical, 1000)
+	ctx.Logger.Warn("Right-clicked Tome of Identify", "unitID", idTome.UnitID)
+
+	// Left-click the item
+	screenPos = ui.GetScreenCoordsForItem(i)
+	ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
+	ctx.Logger.Warn("Left-clicked item to identify", "unitID", i.UnitID)
+
+	// 🔎 Poll until the item is identified or timeout occurs
+	var identified data.Item
+	found := false
+	pollCount := 0
+	itemSeen := false
+
+	timeout := time.Now().Add(5 * time.Second) // Max 5 seconds to identify
+	for time.Now().Before(timeout) {
+		ctx.RefreshGameData()
+		for _, it := range ctx.Data.Inventory.ByLocation(
+			item.LocationInventory,
+			item.LocationStash,
+			item.LocationSharedStash,
+		) {
+			if it.UnitID == i.UnitID {
+				itemSeen = true
+				if it.Identified {
+					identified = it
+					found = true
+					break
+				}
+			}
 		}
-		return 0, false
+
+		if found {
+			ctx.Logger.Warn("Item successfully identified", "unitID", i.UnitID, "polls", pollCount)
+			break
+		}
+
+		pollCount++
+		if pollCount%5 == 0 { // Log every 5 polls (~0.5s)
+			ctx.Logger.Warn("Waiting for item to be identified...", "unitID", i.UnitID, "polls", pollCount)
+		}
+
+		utils.PingSleep(utils.Light, 100) // Poll every 100ms
 	}
 
-	// 2) Static mlvl
-	if mlvls, exists := AreaLevelTable[areaID]; exists {
-		diff := ctx.Data.GameDifficulty
-		switch diff {
-		case difficulty.Normal:
-			return mlvls[0], true
-		case difficulty.Nightmare:
-			return mlvls[1], true
-		case difficulty.Hell:
-			return mlvls[2], true
-		}
+	if !itemSeen {
+		ctx.Logger.Warn("Item may never have been left-clicked; left-click might have failed", "unitID", i.UnitID)
+		ctx.MarkedGrandCharmUnitID = 0 // reset
 	}
 
-	return 0, false
+	if !found {
+		ctx.Logger.Error("FAILED TO IDENTIFY ITEM AFTER TIMEOUT", "unitID", i.UnitID)
+		ctx.MarkedGrandCharmUnitID = 0 // reset
+		return
+	}
+
+	// ✅ Fingerprint logic for marked Grand Charm (NOW SAFE)
+	if identified.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
+		identified.Quality == item.QualityMagic &&
+		ctx.MarkedSpecificItemUnitID == identified.UnitID {
+
+		if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(identified); res != nip.RuleResultFullMatch {
+			fp := SpecificFingerprint(identified)
+
+			ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = fp
+			ctx.Logger.Warn("SAVED MARKED SPECIFIC ITEM FINGERPRINT", "fp", fp)
+			//shouldStashIt(identified, true) // JUST ADDED
+			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
+			}
+		} else {
+			ctx.Logger.Warn("SPECIFIC ITEM THAT I WAS GOING TO MARK TURNED OUT TO BE A KEEPER, NOT MARKING IT")
+		}
+
+		// Clear temporary UnitID tracking (runtime-only)
+		ctx.MarkedSpecificItemUnitID = 0
+	}
 }
