@@ -340,6 +340,44 @@ document.addEventListener('DOMContentLoaded', function () {
     const schedulerSettings = document.getElementById('scheduler-settings');
     const cloneSelect = document.getElementById('cloneSupervisorSelect');
 
+
+
+    const rerollSpecific = document.querySelector('input[name="rerollSpecific"]');
+
+    // Find the specific recipe checkbox by value
+    const rerollGrandCharmsRecipe = document.querySelector(
+        'input[name="enabledRecipes"][value="Reroll GrandCharms"]'
+    );
+
+    if (!rerollSpecific || !rerollGrandCharmsRecipe) return;
+
+    function updateRerollState() {
+        if (rerollSpecific.checked) {
+            // Disable GC recipe
+            rerollGrandCharmsRecipe.checked = false;
+            rerollGrandCharmsRecipe.disabled = true;
+        } else {
+            rerollGrandCharmsRecipe.disabled = false;
+        }
+
+        if (rerollGrandCharmsRecipe.checked) {
+            // Disable specific reroll
+            rerollSpecific.checked = false;
+            rerollSpecific.disabled = true;
+        } else {
+            rerollSpecific.disabled = false;
+        }
+    }
+
+    // Initial sync on page load
+    updateRerollState();
+
+    // React to changes
+    rerollSpecific.addEventListener("change", updateRerollState);
+    rerollGrandCharmsRecipe.addEventListener("change", updateRerollState);
+
+
+
     if (cloneSelect) {
         cloneSelect.addEventListener('change', function () {
             const url = new URL(window.location.href);

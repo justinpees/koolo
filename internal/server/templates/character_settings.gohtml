@@ -1311,7 +1311,7 @@
 
 
             <label>
-                <input type="checkbox" name="rerollSpecific" {{ if .Config.CubeRecipes.RerollSpecific }}checked{{ end }} title="You must make sure Reroll Grandcharms is not checked" />
+                <input type="checkbox" name="rerollSpecific" {{ if .Config.CubeRecipes.RerollSpecific }}checked{{ end }} title="Does not evaluate your nip file. Instead, it has its own hard-coded strict rules (skillers with hp, melee gcs, etc...). If ever you manually removed the grand charm used for rerolling from your stash, you must reset the markedGrandCharmFingerprint from your config.yaml before you reuse this." />
                 Reroll specific magic item instead of grand charm
             </label><br>
             <fieldset class="grid">

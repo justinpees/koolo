@@ -492,7 +492,9 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		return true, false, "FirstRun", ""
 	}
 
-	// THIS BLOCK MAD MY BOT KEEP ANOTHER GRANDCHARM IN STASH THAT HAD THE SAME STATS AS THE FINGERPRINTED GC. DONT NEED THIS BLOCK ANYWAY
+	// NEED TO IMPLEMENT SAME LOGIC FOR SPECIFIC ITEM
+
+	// DO NOT SELL GRAND CHARM THAT WAS JUST FOUND WITH FINGERPRINT AND PREVENT DUPLICATE GRAND CHARM WITH SAME FINGERPRINT BY ITERATING THROUGH STASH TO SEE IF WE HAVE ONE ALREADY
 	// 🔒 Grand Charm handling when rerolling marked GCs
 	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
 		i.Name == "GrandCharm" &&
