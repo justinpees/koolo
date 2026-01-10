@@ -702,7 +702,7 @@ func CubeRecipes() error {
 
 						} else { // DO I DELETE THIS????
 							DropInventoryItem(it)
-							ctx.Logger.Debug("DROPPING ITEMS NOT PART OF MONARCH RECIPE")
+							ctx.Logger.Debug("DROPPING ITEMS NOT PART OF SPECIFIC ITEM RECIPE")
 
 							utils.Sleep(500)
 						}
@@ -807,7 +807,7 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	if recipe.Name == "Reroll GrandCharms" {
 		return hasItemsForGrandCharmReroll(ctx, items)
 	}
-	// Special handling for "Reroll Monarch" recipe
+	// Special handling for "Reroll Specific" recipe
 	if recipe.Name == "Reroll Specific" {
 		return hasItemsForSpecificReroll(ctx, items)
 	}

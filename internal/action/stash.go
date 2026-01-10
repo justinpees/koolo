@@ -493,6 +493,34 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	}
 
 	// NEED TO IMPLEMENT SAME LOGIC FOR SPECIFIC ITEM
+	if ctx.CharacterCfg.CubeRecipes.RerollSpecific &&
+		i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
+		i.Quality == item.QualityMagic &&
+		ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
+
+		fp := SpecificFingerprint(i)
+
+		if fp == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+
+			// 🔍 Check shared stash for an existing GC with same fingerprint
+			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+				if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
+					it.Quality == item.QualityMagic &&
+					SpecificFingerprint(it) == fp {
+
+					ctx.Logger.Warn(
+						"Marked Specific Item already exists in shared stash, skipping force stash",
+						"fp", fp,
+					)
+					return false, false, "", ""
+				}
+			}
+
+			// ✅ No duplicate found → safe to stash
+			ctx.Logger.Warn("FORCING STASH OF MARKED SPECIFIC ITEM", "fp", fp)
+			return true, false, "", ""
+		}
+	}
 
 	// DO NOT SELL GRAND CHARM THAT WAS JUST FOUND WITH FINGERPRINT AND PREVENT DUPLICATE GRAND CHARM WITH SAME FINGERPRINT BY ITERATING THROUGH STASH TO SEE IF WE HAVE ONE ALREADY
 	// 🔒 Grand Charm handling when rerolling marked GCs

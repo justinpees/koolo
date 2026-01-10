@@ -342,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 
-    const rerollSpecific = document.querySelector('input[name="rerollSpecific"]');
+    /* const rerollSpecific = document.querySelector('input[name="rerollSpecific"]');
 
     // Find the specific recipe checkbox by value
     const rerollGrandCharmsRecipe = document.querySelector(
@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // React to changes
     rerollSpecific.addEventListener("change", updateRerollState);
-    rerollGrandCharmsRecipe.addEventListener("change", updateRerollState);
+    rerollGrandCharmsRecipe.addEventListener("change", updateRerollState); */
 
 
 

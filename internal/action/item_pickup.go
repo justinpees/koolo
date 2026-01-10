@@ -883,7 +883,7 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 		if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
 			areaMLvl = clvl.Value + 2
 		} else {
-			ctx.Logger.Debug("CANNOT FIND CHAR LEVEL — SKIPPING SPECIFIC ITEM MARK", "unitID", i.UnitID)
+			ctx.Logger.Warn("CANNOT FIND CHAR LEVEL — SKIPPING SPECIFIC ITEM MARK", "unitID", i.UnitID)
 			return
 		}
 	} else {
@@ -897,7 +897,7 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 				areaMLvl = mlvls[2]
 			}
 		} else {
-			ctx.Logger.Debug("UNKNOWN AREA — SKIPPING SPECIFIC ITEM MARK", "areaID", areaID)
+			ctx.Logger.Warn("UNKNOWN AREA — SKIPPING SPECIFIC ITEM MARK", "areaID", areaID)
 			return
 		}
 	}
@@ -906,7 +906,7 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 	minMLvl := ctx.CharacterCfg.CubeRecipes.MinMonsterLevel
 	maxMLvl := ctx.CharacterCfg.CubeRecipes.MaxMonsterLevel
 	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
-		ctx.Logger.Debug(
+		ctx.Logger.Warn(
 			"AREA LEVEL OUT OF RANGE — SKIPPING SPECIFIC ITEM MARK",
 			"areaID", areaID,
 			"monsterLevel", areaMLvl,
