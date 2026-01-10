@@ -787,3 +787,74 @@ func IsChestOrContainer(name object.Name) bool {
 		return false
 	}
 }
+
+func markSpecificItemIfEligible(i data.Item) {
+	ctx := context.Get()
+
+	// Already tracking one specific item — do not overwrite
+	if ctx.MarkedSpecificItemUnitID != 0 || ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
+		return
+	}
+
+	// Only magic items matching the configured specific item
+	if i.Name != item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || i.Quality != item.QualityMagic {
+		return
+	}
+
+	// Get monster level for the current area (handles Terror Zones too)
+	areaMLvl, ok := game.ResolveMonsterLevel(ctx)
+	if !ok {
+		ctx.Logger.Debug("AREA LEVEL UNKNOWN — SKIPPING SPECIFIC ITEM MARK", "areaID", ctx.Data.PlayerUnit.Area)
+		return
+	}
+
+	// Check if area monster level is within user-configured Min/Max
+	minMLvl := ctx.CharacterCfg.CubeRecipes.MinMonsterLevel
+	maxMLvl := ctx.CharacterCfg.CubeRecipes.MaxMonsterLevel
+	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
+		ctx.Logger.Debug(
+			"AREA LEVEL OUT OF RANGE — SKIPPING SPECIFIC ITEM MARK",
+			"areaID", ctx.Data.PlayerUnit.Area,
+			"areaMLvl", areaMLvl,
+			"minMLvl", minMLvl,
+			"maxMLvl", maxMLvl,
+		)
+		return
+	}
+
+	// Mark the item
+	ctx.MarkedSpecificItemUnitID = i.UnitID
+	ctx.Logger.Warn(
+		"MARKED SPECIFIC ITEM ON GROUND",
+		"unitID", i.UnitID,
+		"areaID", ctx.Data.PlayerUnit.Area,
+		"monsterLevel", areaMLvl,
+	)
+}
+
+func ResolveMonsterLevel(ctx *context.Context) (int, bool) {
+	areaID := ctx.Data.PlayerUnit.Area
+
+	// 1) Terror Zone override: dynamic
+	if slices.Contains(ctx.Data.TerrorZones, areaID) {
+		if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
+			return clvl.Value + 2, true
+		}
+		return 0, false
+	}
+
+	// 2) Static mlvl
+	if mlvls, exists := AreaLevelTable[areaID]; exists {
+		diff := ctx.Data.GameDifficulty
+		switch diff {
+		case difficulty.Normal:
+			return mlvls[0], true
+		case difficulty.Nightmare:
+			return mlvls[1], true
+		case difficulty.Hell:
+			return mlvls[2], true
+		}
+	}
+
+	return 0, false
+}
