@@ -2082,7 +2082,7 @@ func getAllRunIDs() []string {
 	// A helper to get all possible run keys if we want to apply everything
 	// This list should ideally match all case statements in applyRunDetails
 	return []string{
-		"andariel", "countess", "duriel", "pit", "cows", "pindleskin",
+		"blood_moor", "andariel", "countess", "duriel", "pit", "cows", "pindleskin",
 		"stony_tomb", "mausoleum", "ancient_tunnels", "drifter_cavern",
 		"spider_cavern", "arachnid_lair", "mephisto", "tristram",
 		"nihlathak", "summoner", "baal", "eldritch", "lower_kurast_chest",

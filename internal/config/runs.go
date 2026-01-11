@@ -3,6 +3,11 @@ package config
 type Run string
 
 const (
+	BloodMoorRun        Run = "blood_moor"
+	DenOfEvilRun        Run = "den_of_evil"
+	BurialGroundsRun    Run = "burial_grounds"
+	CaveLevel1Run       Run = "cave_level_1"
+	ColdPlainsRun       Run = "cold_plains"
 	CountessRun         Run = "countess"
 	AndarielRun         Run = "andariel"
 	AncientTunnelsRun   Run = "ancient_tunnels"
@@ -76,6 +81,11 @@ type LevelingRunInfo struct {
 }
 
 var AvailableRuns = map[Run]interface{}{
+	BloodMoorRun:        nil,
+	DenOfEvilRun:        nil,
+	BurialGroundsRun:    nil,
+	CaveLevel1Run:       nil,
+	ColdPlainsRun:       nil,
 	CountessRun:         nil,
 	AndarielRun:         nil,
 	AncientTunnelsRun:   nil,

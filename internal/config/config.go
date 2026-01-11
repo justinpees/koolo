@@ -352,6 +352,12 @@ type CharacterCfg struct {
 		Pindleskin                  struct {
 			SkipOnImmunities []stat.Resist `yaml:"skipOnImmunities"`
 		} `yaml:"pindleskin"`
+		BloodMoor struct {
+			// No extra fields needed for now
+		} `yaml:"bloodMoor"`
+		BurialGrounds struct {
+			// No extra fields needed for now
+		} `yaml:"burialGrounds"`
 		Cows struct {
 			OpenChests    bool `yaml:"openChests"`
 			CraftWirtsLeg bool `yaml:"craftWirtsLeg"`
