@@ -3,6 +3,7 @@ package config
 type Run string
 
 const (
+	Level78ZonesRun     Run = "level_78_zones"
 	BloodMoorRun        Run = "blood_moor"
 	DenOfEvilRun        Run = "den_of_evil"
 	BurialGroundsRun    Run = "burial_grounds"
@@ -81,6 +82,7 @@ type LevelingRunInfo struct {
 }
 
 var AvailableRuns = map[Run]interface{}{
+	Level78ZonesRun:     nil,
 	BloodMoorRun:        nil,
 	DenOfEvilRun:        nil,
 	BurialGroundsRun:    nil,

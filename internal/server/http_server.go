@@ -2082,7 +2082,7 @@ func getAllRunIDs() []string {
 	// A helper to get all possible run keys if we want to apply everything
 	// This list should ideally match all case statements in applyRunDetails
 	return []string{
-		"blood_moor", "andariel", "countess", "duriel", "pit", "cows", "pindleskin",
+		"blood_moor", "burial_ground", "cave_level_1", "cold_plains", "den_of_evil", "andariel", "countess", "duriel", "pit", "cows", "pindleskin",
 		"stony_tomb", "mausoleum", "ancient_tunnels", "drifter_cavern",
 		"spider_cavern", "arachnid_lair", "mephisto", "tristram",
 		"nihlathak", "summoner", "baal", "eldritch", "lower_kurast_chest",
@@ -2615,6 +2615,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Quests.RescueAnya = r.Form.Has("gameQuestsRescueAnya")
 		cfg.Game.Quests.KillAncients = r.Form.Has("gameQuestsKillAncients")
 
+		cfg.Game.TerrorZone.DieOnPurpose = r.Form.Has("gameDieOnPurpose")
 		cfg.Game.TerrorZone.FocusOnElitePacks = r.Form.Has("gameTerrorZoneFocusOnElitePacks")
 		cfg.Game.TerrorZone.SkipOtherRuns = r.Form.Has("gameTerrorZoneSkipOtherRuns")
 		cfg.Game.TerrorZone.OpenChests = r.Form.Has("gameTerrorZoneOpenChests")
@@ -3140,6 +3141,7 @@ func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg
 			cfg.Game.Quests.RescueAnya = values.Has("gameQuestsRescueAnya")
 			cfg.Game.Quests.KillAncients = values.Has("gameQuestsKillAncients")
 		case "terror_zone":
+			cfg.Game.TerrorZone.DieOnPurpose = values.Has("gameDieOnPurpose")
 			cfg.Game.TerrorZone.FocusOnElitePacks = values.Has("gameTerrorZoneFocusOnElitePacks")
 			cfg.Game.TerrorZone.SkipOtherRuns = values.Has("gameTerrorZoneSkipOtherRuns")
 			cfg.Game.TerrorZone.OpenChests = values.Has("gameTerrorZoneOpenChests")

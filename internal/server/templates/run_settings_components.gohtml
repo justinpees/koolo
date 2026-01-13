@@ -14,6 +14,12 @@
     </fieldset>
 {{ end }}
 
+{{ define "level_78_zones" }}
+    <fieldset>
+        <p><strong>Note:</strong> NEW</p>
+    </fieldset>
+{{ end }}
+
 {{ define "blood_moor" }}
     <fieldset>
         <p><strong>Note:</strong> NEW</p>
@@ -282,6 +288,7 @@
 {{ define "terror_zone" }}
     {{$topLevelContext := .}}
     <fieldset>
+        <label><input type="checkbox" title="Keep character level at 76 to farm level 78 terrorized zones" name="gameDieOnPurpose" {{ if .Config.Game.TerrorZone.DieOnPurpose }}checked{{ end }}> Die on purpose after run</label>
         <label><input type="checkbox" name="gameTerrorZoneFocusOnElitePacks" {{ if .Config.Game.TerrorZone.FocusOnElitePacks }}checked{{ end }}> Focus on elite packs</label>
         <label><input type="checkbox" name="gameTerrorZoneSkipOtherRuns" {{ if .Config.Game.TerrorZone.SkipOtherRuns }}checked{{ end }}> Skip all runs and only do TZ when available</label>
         <label><input type="checkbox" name="gameTerrorZoneOpenChests" {{ if .Config.Game.TerrorZone.OpenChests }}checked{{ end }}> Open chests</label>

@@ -60,6 +60,8 @@ func BuildRuns(cfg *config.CharacterCfg, runs []string) (builtRuns []Run) {
 
 func BuildRun(run string) Run {
 	switch run {
+	case string(config.Level78ZonesRun):
+		return NewLevel78Zones()
 	case string(config.BloodMoorRun):
 		return NewBloodMoor()
 	case string(config.DenOfEvilRun):

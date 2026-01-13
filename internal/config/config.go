@@ -439,6 +439,7 @@ type CharacterCfg struct {
 			OpenRacks bool `yaml:"openRacks"`
 		} `yaml:"lowerkurastchests"`
 		TerrorZone struct {
+			DieOnPurpose      bool          `yaml:"dieonpurpose"`
 			FocusOnElitePacks bool          `yaml:"focusOnElitePacks"`
 			SkipOnImmunities  []stat.Resist `yaml:"skipOnImmunities"`
 			SkipOtherRuns     bool          `yaml:"skipOtherRuns"`

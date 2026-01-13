@@ -11,6 +11,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/nip"
@@ -684,6 +685,7 @@ func markGroundGrandCharmIfEligible(i data.Item) {
 			"area", area.Name,
 			"charLevel", charLevel.Value,
 		)
+
 	}
 }
 
@@ -760,7 +762,7 @@ func identifyMarkedItem(idTome data.Item, i data.Item) {
 
 			ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = fp
 			ctx.Logger.Warn("SAVED MARKED GRAND CHARM FINGERPRINT", "fp", fp)
-			//shouldStashIt(identified, true) // JUST ADDED
+			shouldStashIt(identified, true) // JUST ADDED
 			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
 				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
 			}
@@ -770,6 +772,7 @@ func identifyMarkedItem(idTome data.Item, i data.Item) {
 
 		// Clear temporary UnitID tracking (runtime-only)
 		ctx.MarkedGrandCharmUnitID = 0
+
 	}
 }
 
@@ -831,39 +834,11 @@ func IsChestOrContainer(name object.Name) bool {
 	}
 }
 
-// ResolveMonsterLevel returns the monster level (mlvl) for the current area,
-// including Terror Zones. Returns false if the area is unknown.
-func ResolveMonsterLevel(ctx *context.Context) (int, bool) {
-	areaID := ctx.Data.PlayerUnit.Area
-
-	// 1) Terror Zone override: dynamic mlvl = charLevel + 2
-	if slices.Contains(ctx.Data.TerrorZones, areaID) {
-		if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
-			return clvl.Value + 2, true
-		}
-		return 0, false
-	}
-
-	// 2) Static mlvl lookup from AreaLevelTable
-	if mlvls, exists := game.AreaLevelTable[areaID]; exists {
-		switch ctx.CharacterCfg.Game.Difficulty {
-		case difficulty.Normal:
-			return mlvls[0], true
-		case difficulty.Nightmare:
-			return mlvls[1], true
-		case difficulty.Hell:
-			return mlvls[2], true
-		}
-	}
-
-	// Unknown area
-	return 0, false
-}
-
 // markSpecificItemIfEligible checks if an item should be marked for rerolling
 // according to the configured SpecificItemToReroll and the area monster level range.
 func MarkGroundSpecificItemIfEligible(i data.Item) {
 	ctx := context.Get()
+
 	// Already tracking one specific item — do not overwrite
 	if ctx.MarkedSpecificItemUnitID != 0 || ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
 		return
@@ -879,30 +854,71 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 
 	var areaMLvl int
 
-	if isTerror {
-		if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
-			areaMLvl = clvl.Value + 2
-		} else {
-			ctx.Logger.Warn("CANNOT FIND CHAR LEVEL — SKIPPING SPECIFIC ITEM MARK", "unitID", i.UnitID)
-			return
+	// --- Diablo/Baal corpse override ---
+	if corpse, found := ctx.Data.Corpses.FindOne(npc.Diablo, data.MonsterTypeNone); found {
+		if pather.DistanceFromPoint(corpse.Position, i.Position) <= 10 {
+			areaMLvl = 99
+			ctx.Logger.Warn("SPECIFIC ITEM NEAR DIABLO CORPSE — MLVL OVERRIDE", "unitID", i.UnitID)
 		}
-	} else {
-		if mlvls, exists := game.AreaLevelTable[areaID]; exists {
-			switch ctx.CharacterCfg.Game.Difficulty {
-			case difficulty.Normal:
-				areaMLvl = mlvls[0]
-			case difficulty.Nightmare:
-				areaMLvl = mlvls[1]
-			case difficulty.Hell:
-				areaMLvl = mlvls[2]
+	}
+	if ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber && ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
+		areaMLvl = 99
+		ctx.Logger.Warn("SPECIFIC ITEM NEAR BAAL CORPSE — MLVL OVERRIDE", "unitID", i.UnitID)
+	}
+
+	if ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber && ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare {
+		areaMLvl = 75
+		ctx.Logger.Warn("SPECIFIC ITEM NEAR BAAL CORPSE — MLVL OVERRIDE", "unitID", i.UnitID)
+	}
+
+	if ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber && ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
+		areaMLvl = 60
+		ctx.Logger.Warn("SPECIFIC ITEM NEAR BAAL CORPSE — MLVL OVERRIDE", "unitID", i.UnitID)
+	}
+
+	// --- Only calculate areaMLvl normally if it hasn't been overridden ---
+	if areaMLvl == 0 {
+		if isTerror {
+			// Terror zone: char level + 2, capped by difficulty
+			if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
+				areaMLvl = clvl.Value + 2
+				switch ctx.CharacterCfg.Game.Difficulty {
+				case difficulty.Normal:
+					if areaMLvl > 45 {
+						areaMLvl = 45
+					}
+				case difficulty.Nightmare:
+					if areaMLvl > 71 {
+						areaMLvl = 71
+					}
+				case difficulty.Hell:
+					if areaMLvl > 96 {
+						areaMLvl = 96
+					}
+				}
+			} else {
+				ctx.Logger.Warn("CANNOT FIND CHAR LEVEL — SKIPPING SPECIFIC ITEM MARK", "unitID", i.UnitID)
+				return
 			}
 		} else {
-			ctx.Logger.Warn("UNKNOWN AREA — SKIPPING SPECIFIC ITEM MARK", "areaID", areaID)
-			return
+			// Normal area: use static AreaLevelTable
+			if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+				switch ctx.CharacterCfg.Game.Difficulty {
+				case difficulty.Normal:
+					areaMLvl = mlvls[0]
+				case difficulty.Nightmare:
+					areaMLvl = mlvls[1]
+				case difficulty.Hell:
+					areaMLvl = mlvls[2]
+				}
+			} else {
+				ctx.Logger.Warn("UNKNOWN AREA — SKIPPING SPECIFIC ITEM MARK", "areaID", areaID)
+				return
+			}
 		}
 	}
 
-	// Check if area monster level is within user-configured Min/Max
+	// Check if monster level is within user-configured min/max
 	minMLvl := ctx.CharacterCfg.CubeRecipes.MinMonsterLevel
 	maxMLvl := ctx.CharacterCfg.CubeRecipes.MaxMonsterLevel
 	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
@@ -916,8 +932,8 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 		return
 	}
 
-	// Mark the item for rerolling
-	ctx.MarkedSpecificItemUnitID = i.UnitID
+	// --- All checks passed — mark the item ---
+	ctx.MarkedSpecificItemUnitID = i.UnitID // MARK THE SPECIFIC ITEM
 	ctx.Logger.Warn(
 		"MARKED SPECIFIC ITEM ON GROUND",
 		"unitID", i.UnitID,
@@ -999,7 +1015,7 @@ func identifySpecificMarkedItem(idTome data.Item, i data.Item) {
 
 			ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = fp
 			ctx.Logger.Warn("SAVED MARKED SPECIFIC ITEM FINGERPRINT", "fp", fp)
-			//shouldStashIt(identified, true) // JUST ADDED
+			shouldStashIt(identified, true) // JUST ADDED
 			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
 				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
 			}
