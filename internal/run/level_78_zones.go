@@ -91,6 +91,10 @@ func (a Level78Zones) Run(parameters *RunParameters) error {
 		return err
 	}
 
+	/* if err := action.ClearCurrentLevel(true, monsterFilter); err != nil {
+		return err
+	} */
+	// if you only want to kill countess
 	err := action.MoveTo(func() (data.Position, bool) {
 		areaData := a.ctx.Data.Areas[area.TowerCellarLevel5]
 		countessNPC, found := areaData.NPCs.FindOne(740)

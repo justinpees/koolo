@@ -277,7 +277,7 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		if utils.CalculateDistance(currentPosition, roundTripReferencePosition) <= roundTripMaxRadius {
 			timeInRoundtrip := time.Since(roundTripCheckStartTime)
 			if timeInRoundtrip > roundTripThreshold {
-				ctx.Logger.Warn("Player is doing round trips. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", currentDest.X, currentDest.Y) + "]")
+				ctx.Logger.Debug("Player is doing round trips. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", currentDest.X, currentDest.Y) + "]")
 				return ErrPlayerRoundTrip
 			} else if timeInRoundtrip > roundTripThreshold/2.0 {
 				blocked = true

@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -143,7 +144,7 @@ func DropInventoryItem(i data.Item) error {
 	ctx.SetLastAction("DropInventoryItem")
 
 	// ---------- PROTECT REROLLED MARKED SPECIFIC ITEM ----------
-	if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
+	if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
 		// If this is the marked Grand Charm, don't drop it
 		if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && i.Quality == item.QualityMagic {
 			fp := SpecificFingerprint(i)

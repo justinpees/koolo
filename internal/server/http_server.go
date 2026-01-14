@@ -1775,8 +1775,6 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		}
 		cfg.CubeRecipes.SkipPerfectAmethysts = values.Has("skipPerfectAmethysts")
 		cfg.CubeRecipes.SkipPerfectRubies = values.Has("skipPerfectRubies")
-		cfg.CubeRecipes.RerollGrandCharms = values.Has("rerollGrandCharms")
-		cfg.CubeRecipes.RerollSpecific = values.Has("rerollSpecific")             // checkbox to enable reroll specific
 		cfg.CubeRecipes.SpecificItemToReroll = values.Get("specificItemToReroll") // dropdown box to select item to reroll
 		// textbox for min mvl
 		if v := values.Get("minMonsterLevel"); v != "" {
@@ -1793,15 +1791,6 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 			} else {
 				cfg.CubeRecipes.MaxMonsterLevel = 1
 			}
-		}
-		// 🔒 Cleanup: deleting grand charm fingerprint if disabled
-		if !cfg.CubeRecipes.RerollGrandCharms {
-			cfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
-		}
-
-		// 🔒 Cleanup: deleting specific item fingerprint if disabled
-		if !cfg.CubeRecipes.RerollSpecific {
-			cfg.CubeRecipes.MarkedSpecificItemFingerprint = ""
 		}
 
 		if v := values.Get("jewelsToKeep"); v != "" {
@@ -2648,8 +2637,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.CubeRecipes.EnabledRecipes = enabledRecipes
 		cfg.CubeRecipes.SkipPerfectAmethysts = r.Form.Has("skipPerfectAmethysts")
 		cfg.CubeRecipes.SkipPerfectRubies = r.Form.Has("skipPerfectRubies")
-		cfg.CubeRecipes.RerollGrandCharms = r.Form.Has("rerollGrandCharms")
-		cfg.CubeRecipes.RerollSpecific = r.Form.Has("rerollSpecific")             // checkbox for reroll specific item
+
 		cfg.CubeRecipes.SpecificItemToReroll = r.Form.Get("specificItemToReroll") // dropdown box for reroll specific item
 		// textbox for min mlvl
 		if v := r.Form.Get("minMonsterLevel"); v != "" {

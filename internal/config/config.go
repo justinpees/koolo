@@ -511,19 +511,18 @@ type CharacterCfg struct {
 		CurrentMuleIndex int `yaml:"currentMuleIndex"`
 	} `yaml:"mulingState"`
 	CubeRecipes struct {
-		Enabled                       bool     `yaml:"enabled"`
-		EnabledRecipes                []string `yaml:"enabledRecipes"`
-		RerollGrandCharms             bool     `yaml:"rerollGrandCharms"`    // <-- new field
-		RerollSpecific                bool     `yaml:"rerollSpecific"`       //reroll specific checkbox
-		SpecificItemToReroll          string   `yaml:"specificItemToReroll"` //specific item dropdownbox
-		MinMonsterLevel               int      `yaml:"minMonsterLevel"`      // min mlvl textbox
-		MaxMonsterLevel               int      `yaml:"maxMonsterLevel"`      // max mlvl textbox
-		SkipPerfectAmethysts          bool     `yaml:"skipPerfectAmethysts"`
-		SkipPerfectRubies             bool     `yaml:"skipPerfectRubies"`
-		JewelsToKeep                  int      `yaml:"jewelsToKeep"` // new field: number of magic jewels to keep
-		PrioritizeRunewords           bool     `yaml:"prioritizeRunewords"`
-		MarkedGrandCharmFingerprint   string   `yaml:"markedGrandCharmFingerprint"`   //new field to track reroll grand charm fingerprint across restarts
-		MarkedSpecificItemFingerprint string   `yaml:"markedSpecificItemFingerprint"` //new field to track reroll specific item fingerprint across restarts
+		Enabled              bool     `yaml:"enabled"`
+		EnabledRecipes       []string `yaml:"enabledRecipes"`
+		RerollGrandCharms    bool     `yaml:"rerollGrandCharms"`    // <-- new field
+		SpecificItemToReroll string   `yaml:"specificItemToReroll"` //specific item dropdownbox
+		MinMonsterLevel      int      `yaml:"minMonsterLevel"`      // min mlvl textbox
+		MaxMonsterLevel      int      `yaml:"maxMonsterLevel"`      // max mlvl textbox
+		SkipPerfectAmethysts bool     `yaml:"skipPerfectAmethysts"`
+		SkipPerfectRubies    bool     `yaml:"skipPerfectRubies"`
+		JewelsToKeep         int      `yaml:"jewelsToKeep"` // new field: number of magic jewels to keep
+		PrioritizeRunewords  bool     `yaml:"prioritizeRunewords"`
+
+		MarkedSpecificItemFingerprint string `yaml:"markedSpecificItemFingerprint"` //new field to track reroll specific item fingerprint across restarts
 	} `yaml:"cubing"`
 	BackToTown struct {
 		NoHpPotions     bool `yaml:"noHpPotions"`

@@ -127,7 +127,7 @@ outer:
 			if !itemNeedsInventorySpace(i) || itemFitsInventory(i) {
 				itemToPickup = i
 
-				if ctx.CharacterCfg.CubeRecipes.RerollSpecific { // REPLACE WITH SLICES.CONATAINS(ctx.charactercfg.cuberecipes.enabled "Reroll Specific")
+				if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") { // REPLACE WITH SLICES.CONATAINS(ctx.charactercfg.cuberecipes.enabled "Reroll Specific")
 					MarkGroundSpecificItemIfEligible(itemToPickup)
 				}
 				break
@@ -535,11 +535,6 @@ func shouldBePickedUp(i data.Item) bool {
 		}
 	}
 
-	if i.Name == "GrandCharm" && i.Quality == item.QualityMagic && i.UnitID == ctx.Context.MarkedGrandCharmUnitID {
-		ctx.Logger.Warn("FORCE PICKUP: Marked Grand Charm detected for testing", "unitID", i.UnitID)
-		return true
-	}
-
 	// Specific ID checks (e.g. Book of Skill and Scroll of Inifuss).
 	if i.ID == 552 || i.ID == 524 {
 		return true
@@ -730,7 +725,7 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 			continue
 		}
 		dist := pather.DistanceFromPoint(obj.Position, i.Position)
-		if dist <= 10 && dist < minChestDistance {
+		if dist <= 50 && dist < minChestDistance {
 			minChestDistance = dist
 			nearestChest = obj
 		}
@@ -738,12 +733,12 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 
 	if nearestChest != nil {
 		ctx.Logger.Warn(
-			"Nearest chest found within 10 units",
+			"Nearest chest found within 50 units",
 			"chestName", nearestChest.Name,
 			"distance", minChestDistance,
 		)
 	} else {
-		ctx.Logger.Warn("No chest found within 10 units of item", "unitID", i.UnitID)
+		ctx.Logger.Warn("No chest found within 50 units of item", "unitID", i.UnitID)
 	}
 
 	// --- Decide whether to use chest or corpse for MLVL ---
@@ -792,36 +787,33 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 	}
 
 	// --- Override MLVL using corpse if chest MLVL not used ---
+	// --- Override MLVL using corpse if chest MLVL not used ---
 	if !useChestMLvl && nearestCorpse != nil && pather.DistanceFromPoint(nearestCorpse.Position, i.Position) <= 10 {
-		switch ctx.CharacterCfg.Game.Difficulty {
-		case difficulty.Normal:
-			areaMLvl = 45
-		case difficulty.Nightmare:
-			areaMLvl = 71
-		case difficulty.Hell:
-			areaMLvl = 96
+		// Start with base MLVL from the table
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				areaMLvl = table[0]
+			case difficulty.Nightmare:
+				areaMLvl = table[1]
+			case difficulty.Hell:
+				areaMLvl = table[2]
+			}
+		} else {
+			ctx.Logger.Warn("Unknown monster in MonsterLevelTable — skipping MLVL override", "corpseName", nearestCorpse.Name)
+			return
 		}
 
+		// Apply modifier for champion/unique if not a superunique
 		switch nearestCorpse.Type {
 		case data.MonsterTypeChampion:
 			areaMLvl += 2
 		case data.MonsterTypeUnique:
 			areaMLvl += 3
-		case data.MonsterTypeSuperUnique:
-			if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
-				switch ctx.CharacterCfg.Game.Difficulty {
-				case difficulty.Normal:
-					areaMLvl = table[0]
-				case difficulty.Nightmare:
-					areaMLvl = table[1]
-				case difficulty.Hell:
-					areaMLvl = table[2]
-				}
-			}
 		}
 
 		ctx.Logger.Warn(
-			"MLVL overridden due to nearby corpse",
+			"MLVL overridden using corpse's actual level",
 			"unitID", i.UnitID,
 			"corpseID", nearestCorpse.Name,
 			"corpseType", monsterTypeName(nearestCorpse.Type),
@@ -951,16 +943,16 @@ func identifySpecificMarkedItem(idTome data.Item, i data.Item) {
 
 	if !itemSeen {
 		ctx.Logger.Warn("Item may never have been left-clicked; left-click might have failed", "unitID", i.UnitID)
-		ctx.MarkedGrandCharmUnitID = 0 // reset
+		ctx.MarkedSpecificItemUnitID = 0 // reset
 	}
 
 	if !found {
 		ctx.Logger.Error("FAILED TO IDENTIFY ITEM AFTER TIMEOUT", "unitID", i.UnitID)
-		ctx.MarkedGrandCharmUnitID = 0 // reset
+		ctx.MarkedSpecificItemUnitID = 0 // reset
 		return
 	}
 
-	// ✅ Fingerprint logic for marked Grand Charm (NOW SAFE)
+	// ✅ Fingerprint logic for marked Specific Item (NOW SAFE)
 	if identified.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
 		identified.Quality == item.QualityMagic &&
 		ctx.MarkedSpecificItemUnitID == identified.UnitID {

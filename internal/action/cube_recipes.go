@@ -525,7 +525,7 @@ var (
 
 		// Reroll Specific
 		{
-			Name:  "Reroll Specific",
+			Name:  "Reroll Specific Magic Item",
 			Items: []string{"Specificitem", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
 		},
 	}
@@ -623,7 +623,7 @@ func CubeRecipes() error {
 						} else if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) {
 
 							// 🔒 Special case: ONLY when rerolling marked GCs
-							if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
+							if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
 								// 🛡️ ALWAYS KEEP THE MARKED GRAND CHARM (POST-REROLL)
 
 								ctx.Logger.Warn("KEEPING MARKED SPECIFIC ITEM AFTER REROLL — FORCING STASH")
@@ -683,36 +683,9 @@ func CubeRecipes() error {
 				// Remove or decrement the used items from itemsInStash
 				itemsInStash = removeUsedItems(itemsInStash, items)
 
-				if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+				if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
 					// Reset fingerprint of marked Grand Charm after successfully stashing it
-					if recipe.Name == "Reroll GrandCharms" {
-						for _, it := range itemsInInv {
-							if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
-								// Generate new fingerprint for rerolled charm
-								newFP := utils.GrandCharmFingerprint(it)
-
-								ctx.Logger.Warn("MARKED GRAND CHARM REROLLED — UPDATING FINGERPRINT", "newFP", newFP)
-								ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = newFP
-
-								// Reset UnitID so the bot can mark it again if needed
-								if ctx.MarkedGrandCharmUnitID != 0 {
-									ctx.Logger.Warn("RESETTING MARKED GRAND CHARM UNITID AFTER SUCCESSFUL REROLL")
-									ctx.MarkedGrandCharmUnitID = 0
-								}
-
-								// Save updated config
-								if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
-									ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER UPDATING FINGERPRINT", "err", err)
-								}
-
-								break // Only handle one marked charm
-							}
-						}
-					}
-				}
-				if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
-					// Reset fingerprint of marked Grand Charm after successfully stashing it
-					if recipe.Name == "Reroll Specific" {
+					if recipe.Name == "Reroll Specific Magic Item" {
 						for _, it := range itemsInInv {
 							if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && it.Quality == item.QualityMagic {
 								// Generate new fingerprint for rerolled charm
@@ -742,8 +715,8 @@ func CubeRecipes() error {
 			}
 		}
 	}
-	ctx.Logger.Warn("Marked GrandCharm UnitID", "unitID", ctx.MarkedGrandCharmUnitID)
-	ctx.Logger.Warn("Current marked GrandCharm fingerprint", "fp", ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint)
+
+	ctx.Logger.Warn("Reroll Specific Magic Item enabled?", "enabled", slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item"))
 	ctx.Logger.Warn("Marked SpecificItem UnitID", "unitID", ctx.MarkedSpecificItemUnitID)
 	ctx.Logger.Warn("Current marked SpecificItem fingerprint", "fp", ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint)
 	return nil
@@ -758,12 +731,12 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 		return hasItemsForSocketRecipe(ctx, recipe, items)
 	}
 
-	// Special handling for "Reroll GrandCharms" recipe
+	/* // Special handling for "Reroll GrandCharms" recipe
 	if recipe.Name == "Reroll GrandCharms" {
 		return hasItemsForGrandCharmReroll(ctx, items)
-	}
+	} */
 	// Special handling for "Reroll Specific" recipe
-	if recipe.Name == "Reroll Specific" {
+	if recipe.Name == "Reroll Specific Magic Item" {
 		return hasItemsForSpecificReroll(ctx, items)
 	}
 
@@ -890,10 +863,10 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	for _, it := range items {
 		if count, ok := recipeItems[string(it.Name)]; ok {
 
-			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || it.Name == "GrandCharm" || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
+			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); result == nip.RuleResultFullMatch {
 					ctx.Logger.Debug("Skipping item that matches NIP rules for cubing recipe", "item", it.Name, "recipe", recipe.Name)
-					if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+					/* if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
 						if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
 							fp := utils.GrandCharmFingerprint(it)
 
@@ -908,7 +881,7 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 								}
 							}
 						}
-					} // I DONT KNOW IF I NEED THIS???
+					} // I DONT KNOW IF I NEED THIS??? */
 					// Skip this item for cubing
 					continue
 				}
@@ -1055,7 +1028,7 @@ func isSocketableItemMultiType(itm data.Item, targetTypes []string) bool {
 	return false
 }
 
-func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
+/* func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
 	var grandCharm *data.Item
 	perfectGems := make([]data.Item, 0, 3)
 	countAmethyst := 0
@@ -1145,7 +1118,7 @@ func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data
 	}
 
 	return nil, false
-}
+} */
 
 func hasItemsForSpecificReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
 	var specificitem data.Item

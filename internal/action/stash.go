@@ -493,7 +493,7 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	}
 
 	// NEED TO IMPLEMENT SAME LOGIC FOR SPECIFIC ITEM
-	if ctx.CharacterCfg.CubeRecipes.RerollSpecific &&
+	if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") &&
 		i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
 		i.Quality == item.QualityMagic &&
 		ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
@@ -519,37 +519,6 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 			// ✅ No duplicate found → safe to stash
 			ctx.Logger.Warn("FORCING STASH OF MARKED SPECIFIC ITEM", "fp", fp)
 			return true, false, "", ""
-		}
-	}
-
-	// DO NOT SELL GRAND CHARM THAT WAS JUST FOUND WITH FINGERPRINT AND PREVENT DUPLICATE GRAND CHARM WITH SAME FINGERPRINT BY ITERATING THROUGH STASH TO SEE IF WE HAVE ONE ALREADY
-	// 🔒 Grand Charm handling when rerolling marked GCs
-	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
-		i.Name == "GrandCharm" &&
-		i.Quality == item.QualityMagic &&
-		ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint != "" {
-
-		fp := utils.GrandCharmFingerprint(i)
-
-		if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
-
-			// 🔍 Check shared stash for an existing GC with same fingerprint
-			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
-				if it.Name == "GrandCharm" &&
-					it.Quality == item.QualityMagic &&
-					utils.GrandCharmFingerprint(it) == fp {
-
-					ctx.Logger.Warn(
-						"Marked Grand Charm already exists in shared stash, skipping force stash",
-						"fp", fp,
-					)
-					return false, false, "", ""
-				}
-			}
-
-			// ✅ No duplicate found → safe to stash
-			ctx.Logger.Warn("FORCING STASH OF MARKED GRAND CHARM", "fp", fp)
-			return true, false, "MarkedGrandCharm", ""
 		}
 	}
 
@@ -627,26 +596,7 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 
 	if res == nip.RuleResultFullMatch {
 
-		// 🔒 Special case: ONLY when rerolling marked GCs
-		if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
-			// 🔑 CHECK IF THIS IS THE MARKED GRAND CHARM
-			if i.Name == "GrandCharm" && i.Quality == item.QualityMagic {
-				fp := utils.GrandCharmFingerprint(i)
-
-				if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
-					ctx.Logger.Error("REROLLED GRAND CHARM MATCHES NIP — CLEARING MARK")
-
-					// ✅ RESET STATE
-					ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
-					ctx.MarkedGrandCharmUnitID = 0
-
-					// Persist config so restart is safe
-					config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg)
-				}
-			}
-		}
-
-		if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
+		if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
 			// 🔑 CHECK IF THIS IS THE MARKED GRAND CHARM
 			if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && i.Quality == item.QualityMagic {
 				fp := SpecificFingerprint(i)

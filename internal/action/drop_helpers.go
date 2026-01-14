@@ -105,7 +105,7 @@ func IsDropProtected(i data.Item) bool {
 
 	// diablo/baal Grand Charm with fingerprint if enabled
 	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
-		if i.Name == "GrandCharm" && i.Quality == item.QualityMagic && ctx != nil && utils.GrandCharmFingerprint(i) == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
+		if i.Name == "GrandCharm" && i.Quality == item.QualityMagic && ctx != nil && utils.GrandCharmFingerprint(i) == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
 			return true
 		}
 	}
@@ -148,7 +148,7 @@ func RunDropCleanup() error {
 func HasGrandCharmRerollCandidate(ctx *context.Status) bool {
 	ctx.RefreshGameData()
 	items := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
-	_, ok := hasItemsForGrandCharmReroll(ctx, items)
+	_, ok := hasItemsForSpecificReroll(ctx, items)
 	return ok
 }
 
