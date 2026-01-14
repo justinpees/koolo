@@ -833,19 +833,57 @@ func IsChestOrContainer(name object.Name) bool {
 		return false
 	}
 }
+func ClosestCorpseID(itemPos data.Position, corpses []data.Monster) npc.ID {
+	var nearestCorpse *data.Monster
+	minDistance := 9999 // int
+
+	for i := range corpses {
+		corpse := &corpses[i]
+		dist := pather.DistanceFromPoint(corpse.Position, itemPos)
+		if dist < minDistance {
+			minDistance = dist
+			nearestCorpse = corpse
+		}
+	}
+
+	if nearestCorpse != nil {
+		return nearestCorpse.Name // this is npc.ID
+	}
+	return 0 // or npc.None if you have that constant
+}
 
 // markSpecificItemIfEligible checks if an item should be marked for rerolling
 // according to the configured SpecificItemToReroll and the area monster level range.
 func MarkGroundSpecificItemIfEligible(i data.Item) {
 	ctx := context.Get()
 
+	// Map monster type to human-readable string
+	monsterTypeName := func(t data.MonsterType) string {
+		switch t {
+		case data.MonsterTypeMinion:
+			return "Minion"
+		case data.MonsterTypeNone:
+			return "Normal"
+		case data.MonsterTypeChampion:
+			return "Champion"
+		case data.MonsterTypeUnique:
+			return "Unique"
+		case data.MonsterTypeSuperUnique:
+			return "SuperUnique"
+		default:
+			return fmt.Sprintf("Unknown(%d)", t)
+		}
+	}
+
 	// Already tracking one specific item — do not overwrite
 	if ctx.MarkedSpecificItemUnitID != 0 || ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
+		ctx.Logger.Info("Skipping: already tracking a specific item", "unitID", i.UnitID)
 		return
 	}
 
 	// Only magic items matching the configured specific item
 	if i.Name != item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || i.Quality != item.QualityMagic {
+		//ctx.Logger.Info("Skipping: item does not match specific item criteria", "unitID", i.UnitID, "itemName", i.Name)
 		return
 	}
 
@@ -854,34 +892,70 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 
 	var areaMLvl int
 
-	// --- Diablo/Baal corpse override ---
-	if corpse, found := ctx.Data.Corpses.FindOne(npc.Diablo, data.MonsterTypeNone); found {
-		if pather.DistanceFromPoint(corpse.Position, i.Position) <= 10 {
-			areaMLvl = 99
-			ctx.Logger.Warn("SPECIFIC ITEM NEAR DIABLO CORPSE — MLVL OVERRIDE", "unitID", i.UnitID)
+	// --- Find nearest corpse ---
+	nearestCorpseID := ClosestCorpseID(i.Position, ctx.Data.Corpses)
+	var nearestCorpse *data.Monster
+	for j := range ctx.Data.Corpses {
+		if ctx.Data.Corpses[j].Name == nearestCorpseID {
+			nearestCorpse = &ctx.Data.Corpses[j]
+			break
 		}
 	}
-	if ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber && ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
-		areaMLvl = 99
-		ctx.Logger.Warn("SPECIFIC ITEM NEAR BAAL CORPSE — MLVL OVERRIDE", "unitID", i.UnitID)
+
+	if nearestCorpse != nil {
+		ctx.Logger.Info(
+			"Nearest corpse found",
+			"corpseID", nearestCorpse.Name,
+			"corpseType", monsterTypeName(nearestCorpse.Type),
+			"distance", pather.DistanceFromPoint(nearestCorpse.Position, i.Position),
+		)
 	}
 
-	if ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber && ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare {
-		areaMLvl = 75
-		ctx.Logger.Warn("SPECIFIC ITEM NEAR BAAL CORPSE — MLVL OVERRIDE", "unitID", i.UnitID)
-	}
+	// --- Override mlvl if near a corpse within 10 units ---
+	if nearestCorpse != nil && pather.DistanceFromPoint(nearestCorpse.Position, i.Position) <= 10 {
+		switch ctx.CharacterCfg.Game.Difficulty {
+		case difficulty.Normal:
+			areaMLvl = 45
+		case difficulty.Nightmare:
+			areaMLvl = 71
+		case difficulty.Hell:
+			areaMLvl = 96
+		}
 
-	if ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber && ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
-		areaMLvl = 60
-		ctx.Logger.Warn("SPECIFIC ITEM NEAR BAAL CORPSE — MLVL OVERRIDE", "unitID", i.UnitID)
+		switch nearestCorpse.Type {
+		case data.MonsterTypeChampion:
+			areaMLvl += 2
+		case data.MonsterTypeUnique:
+			areaMLvl += 3
+		case data.MonsterTypeSuperUnique:
+			if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
+				switch ctx.CharacterCfg.Game.Difficulty {
+				case difficulty.Normal:
+					areaMLvl = table[0]
+				case difficulty.Nightmare:
+					areaMLvl = table[1]
+				case difficulty.Hell:
+					areaMLvl = table[2]
+				}
+			}
+		}
+
+		ctx.Logger.Warn(
+			"MLVL overridden due to nearby corpse",
+			"unitID", i.UnitID,
+			"corpseID", nearestCorpse.Name,
+			"corpseType", monsterTypeName(nearestCorpse.Type),
+			"distance", pather.DistanceFromPoint(nearestCorpse.Position, i.Position),
+			"monsterLevel", areaMLvl,
+		)
 	}
 
 	// --- Only calculate areaMLvl normally if it hasn't been overridden ---
 	if areaMLvl == 0 {
 		if isTerror {
-			// Terror zone: char level + 2, capped by difficulty
 			if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
 				areaMLvl = clvl.Value + 2
+				ctx.Logger.Info("Terror zone base MLVL calculated", "charLevel", clvl.Value, "baseMLvl", areaMLvl)
 				switch ctx.CharacterCfg.Game.Difficulty {
 				case difficulty.Normal:
 					if areaMLvl > 45 {
@@ -896,12 +970,12 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 						areaMLvl = 96
 					}
 				}
+				ctx.Logger.Info("Terror zone MLVL capped by difficulty", "monsterLevel", areaMLvl)
 			} else {
-				ctx.Logger.Warn("CANNOT FIND CHAR LEVEL — SKIPPING SPECIFIC ITEM MARK", "unitID", i.UnitID)
+				ctx.Logger.Warn("Cannot find character level — skipping item mark", "unitID", i.UnitID)
 				return
 			}
 		} else {
-			// Normal area: use static AreaLevelTable
 			if mlvls, exists := game.AreaLevelTable[areaID]; exists {
 				switch ctx.CharacterCfg.Game.Difficulty {
 				case difficulty.Normal:
@@ -911,19 +985,20 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 				case difficulty.Hell:
 					areaMLvl = mlvls[2]
 				}
+				ctx.Logger.Info("Area level table applied", "areaID", areaID, "monsterLevel", areaMLvl)
 			} else {
-				ctx.Logger.Warn("UNKNOWN AREA — SKIPPING SPECIFIC ITEM MARK", "areaID", areaID)
+				ctx.Logger.Warn("Unknown area — skipping item mark", "areaID", areaID)
 				return
 			}
 		}
 	}
 
-	// Check if monster level is within user-configured min/max
+	// Check min/max MLVL
 	minMLvl := ctx.CharacterCfg.CubeRecipes.MinMonsterLevel
 	maxMLvl := ctx.CharacterCfg.CubeRecipes.MaxMonsterLevel
 	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
 		ctx.Logger.Warn(
-			"AREA LEVEL OUT OF RANGE — SKIPPING SPECIFIC ITEM MARK",
+			"Area level out of range — skipping item mark",
 			"areaID", areaID,
 			"monsterLevel", areaMLvl,
 			"minMLvl", minMLvl,
@@ -932,10 +1007,10 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 		return
 	}
 
-	// --- All checks passed — mark the item ---
-	ctx.MarkedSpecificItemUnitID = i.UnitID // MARK THE SPECIFIC ITEM
+	// Mark the item
+	ctx.MarkedSpecificItemUnitID = i.UnitID
 	ctx.Logger.Warn(
-		"MARKED SPECIFIC ITEM ON GROUND",
+		"Marked specific item on ground",
 		"unitID", i.UnitID,
 		"areaID", areaID,
 		"monsterLevel", areaMLvl,

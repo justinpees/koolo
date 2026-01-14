@@ -142,18 +142,18 @@ func DropInventoryItem(i data.Item) error {
 	ctx := context.Get()
 	ctx.SetLastAction("DropInventoryItem")
 
-	// ---------- PROTECT REROLLED MARKED GRAND CHARM ----------
-	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
+	// ---------- PROTECT REROLLED MARKED SPECIFIC ITEM ----------
+	if ctx.CharacterCfg.CubeRecipes.RerollSpecific {
 		// If this is the marked Grand Charm, don't drop it
-		if i.Name == "GrandCharm" && i.Quality == item.QualityMagic {
-			fp := utils.GrandCharmFingerprint(i)
-			unitid := ctx.MarkedGrandCharmUnitID
-			if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
-				ctx.Logger.Debug("NOT DROPPING MARKED GRAND CHARM BECAUSE FINGERPRINT MATCHES", "fp", fp)
+		if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && i.Quality == item.QualityMagic {
+			fp := SpecificFingerprint(i)
+			unitid := ctx.MarkedSpecificItemUnitID
+			if fp == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+				ctx.Logger.Debug("NOT DROPPING MARKED SPECIFIC ITEM BECAUSE FINGERPRINT MATCHES", "fp", fp)
 				return nil
 			}
 			if unitid == i.UnitID {
-				ctx.Logger.Debug("NOT DROPPING MARKED GRAND CHARM BECAUSE unitID MATCHES", "unitID", unitid)
+				ctx.Logger.Debug("NOT DROPPING MARKED SPECIFIC ITEM BECAUSE unitID MATCHES", "unitID", unitid)
 				return nil
 			}
 		}

@@ -620,46 +620,6 @@ func CubeRecipes() error {
 							ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
 							stashingRequired = true
 
-						} else if it.Name == "GrandCharm" {
-
-							// 🔒 Special case: ONLY when rerolling marked GCs
-							if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
-								// 🛡️ ALWAYS KEEP THE MARKED GRAND CHARM (POST-REROLL)
-
-								ctx.Logger.Warn("KEEPING MARKED GRAND CHARM AFTER REROLL — FORCING STASH")
-								stashingRequired = true
-								stashingGrandCharm = true
-								continue
-
-							} else {
-								ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
-
-								hasUnmatchedGrandCharm := false
-								for _, stashItem := range itemsInStash {
-									// Skip non-magic grand charms (e.g., Gheeds Fortune)
-									if stashItem.Name == "GrandCharm" && stashItem.Quality == item.QualityMagic {
-										if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
-											hasUnmatchedGrandCharm = true
-											break
-										}
-									}
-
-								}
-
-								if !hasUnmatchedGrandCharm {
-									ctx.Logger.Error(
-										"GrandCharm doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
-										"recipe", recipe.Name,
-									)
-									stashingRequired = true
-									stashingGrandCharm = true
-								} else {
-									DropInventoryItem(it)
-									ctx.Logger.Debug("DROPPING ITEMS NOT PART OF GRANDCHARM RECIPE")
-									utils.Sleep(500)
-								}
-							}
-
 						} else if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) {
 
 							// 🔒 Special case: ONLY when rerolling marked GCs
@@ -695,16 +655,11 @@ func CubeRecipes() error {
 									stashingSpecificItem = true
 								} else {
 									DropInventoryItem(it)
-									ctx.Logger.Debug("DROPPING ITEMS NOT PART OF GRANDCHARM RECIPE")
+									ctx.Logger.Debug("DROPPING ITEMS NOT PART OF SPECIFIC ITEM RECIPE")
 									utils.Sleep(500)
 								}
 							}
 
-						} else { // DO I DELETE THIS????
-							DropInventoryItem(it)
-							ctx.Logger.Debug("DROPPING ITEMS NOT PART OF SPECIFIC ITEM RECIPE")
-
-							utils.Sleep(500)
 						}
 					}
 				}
