@@ -32,8 +32,8 @@ func walkToHratli(ctx *context.Status) {
 	ctx.Logger.Debug("Walking to Hratli")
 
 	// Define positions to check for Hratli
-	finalPos := data.Position{X: 5224, Y: 5045}  // main position
-	startPos := data.Position{X: 5116, Y: 5167}  // fallback position
+	finalPos := data.Position{X: 5224, Y: 5045} // main position
+	startPos := data.Position{X: 5116, Y: 5167} // fallback position
 
 	// First, try moving to the final position
 	ctx.SetLastStep("walkToHratli - finalPos")
@@ -59,7 +59,6 @@ func walkToHratli(ctx *context.Status) {
 	// Close any menus if opened during interaction
 	step.CloseAllMenus()
 }
-
 
 func walkToLarzuk(ctx *context.Status) {
 	ctx.Logger.Debug("Walking to Larzuk")
@@ -143,9 +142,6 @@ func walkToAnya(ctx *context.Status) {
 	ctx.Logger.Warn("Timeout walking to Anya", slog.Any("pos", ctx.Data.PlayerUnit.Position))
 }
 
-
-
-
 // Global variable to track vendor inventory fingerprint
 var lastVendorInventoryItems []string = nil
 
@@ -189,7 +185,27 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	} else {
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 	}
+	// 🔒 Protect marked specific item from being sold
+	if ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
+		for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+			if it.Quality == item.QualityMagic &&
+				it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
+				SpecificFingerprint(it) == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
 
+				ctx.Logger.Warn(
+					"LOCKING MARKED SPECIFIC ITEM TO PREVENT SELLING",
+					"unitID", it.UnitID,
+					"fp", ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint,
+				)
+
+				// Lock its inventory position
+				tempLock = append(tempLock, [][]int{
+					{it.Position.X, it.Position.Y},
+				})
+				break
+			}
+		}
+	}
 	// Sell junk
 	if sellJunk {
 		if len(tempLock) > 0 {
@@ -290,20 +306,19 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	return nil
 }
 
-
 // getVendorInventoryItems returns a list of item identifiers from the vendor
 func getVendorInventoryItems(ctx *context.Status) []string {
 	vendorItems := ctx.Data.Inventory.ByLocation(item.LocationVendor)
-	
+
 	items := make([]string, 0, len(vendorItems))
 	for _, itm := range vendorItems {
 		// Create a unique identifier for each item
 		// Using name + quality + position to ensure uniqueness
-		identifier := string(itm.Name) + "|" + string(itm.Quality) + "|" + 
+		identifier := string(itm.Name) + "|" + string(itm.Quality) + "|" +
 			string(rune(itm.Position.X)) + "," + string(rune(itm.Position.Y))
 		items = append(items, identifier)
 	}
-	
+
 	return items
 }
 
@@ -313,13 +328,13 @@ func allItemsStillExist(originalItems []string, currentItems []string) bool {
 	if originalItems == nil || len(originalItems) == 0 {
 		return false
 	}
-	
+
 	// Create a map of current items for faster lookup
 	currentItemsMap := make(map[string]bool)
 	for _, item := range currentItems {
 		currentItemsMap[item] = true
 	}
-	
+
 	// Check if all original items still exist
 	for _, originalItem := range originalItems {
 		if !currentItemsMap[originalItem] {
@@ -327,7 +342,7 @@ func allItemsStillExist(originalItems []string, currentItems []string) bool {
 			return false
 		}
 	}
-	
+
 	// All original items still exist
 	return true
 }
@@ -371,7 +386,6 @@ func shouldVisitVendor() bool {
 		return false
 	}
 
-
 	if ctx.BeltManager.ShouldBuyPotions() || town.ShouldBuyTPs() || town.ShouldBuyIDs() {
 		return true
 	}
@@ -405,4 +419,3 @@ func SwitchVendorTab(tab int) {
 		utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for tab switch
 	}
 }
-

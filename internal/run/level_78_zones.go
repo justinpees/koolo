@@ -87,6 +87,30 @@ func (a Level78Zones) Run(parameters *RunParameters) error {
 		return err
 	}
 
+	if err := action.MoveToArea(area.TowerCellarLevel5); err != nil {
+		return err
+	}
+
+	err := action.MoveTo(func() (data.Position, bool) {
+		areaData := a.ctx.Data.Areas[area.TowerCellarLevel5]
+		countessNPC, found := areaData.NPCs.FindOne(740)
+		if !found {
+			return data.Position{}, false
+		}
+
+		return countessNPC.Positions[0], true
+	})
+	if err != nil {
+		return err
+	}
+
+	// Kill Countess
+	if err := a.ctx.Char.KillCountess(); err != nil {
+		return err
+	}
+
+	action.ItemPickup(30)
+
 	if err := action.ReturnTown(); err != nil {
 		return err
 	}
