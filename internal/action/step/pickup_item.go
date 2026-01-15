@@ -186,7 +186,11 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 
 	for _, i := range ctx.Data.Inventory.ByLocation(item.LocationGround) {
 		name := strings.ToLower(strings.TrimSpace(i.Desc().Name))
-		if strings.Contains(name, "antlers") || strings.Contains(name, "overseerskull") || strings.Contains(name, "hawkhelm") || strings.Contains(name, "ragemask") || strings.Contains(name, "sunspirit") {
+		if strings.Contains(name, "antlers") ||
+			strings.Contains(name, "overseer skull") ||
+			strings.Contains(name, "hawk helm") ||
+			strings.Contains(name, "rage mask") ||
+			strings.Contains(name, "sun spirit") {
 			// 🔍 DEBUG: log ALL ground items
 			ctx.Logger.Warn(
 				"GROUND ITEM",

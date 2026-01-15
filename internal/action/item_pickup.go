@@ -697,12 +697,23 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 	var areaMLvl int
 
 	// --- Find nearest corpse ---
+	const maxCorpseDistance = 50
+
 	nearestCorpseID := ClosestCorpseID(i.Position, ctx.Data.Corpses)
 	var nearestCorpse *data.Monster
+	minCorpseDistance := 9999
+
 	for j := range ctx.Data.Corpses {
-		if ctx.Data.Corpses[j].Name == nearestCorpseID {
-			nearestCorpse = &ctx.Data.Corpses[j]
-			break
+		corpse := &ctx.Data.Corpses[j]
+
+		dist := pather.DistanceFromPoint(corpse.Position, i.Position)
+		if dist > maxCorpseDistance {
+			continue
+		}
+
+		if corpse.Name == nearestCorpseID && dist < minCorpseDistance {
+			minCorpseDistance = dist
+			nearestCorpse = corpse
 		}
 	}
 

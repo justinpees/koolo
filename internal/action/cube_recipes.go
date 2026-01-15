@@ -523,10 +523,16 @@ var (
 			Items: []string{"GrandCharm", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
 		},
 
-		// Reroll Specific
+		// Reroll Specific Magic Item
 		{
 			Name:  "Reroll Specific Magic Item",
 			Items: []string{"Specificitem", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
+		},
+
+		// Reroll Specific Rare Item
+		{
+			Name:  "Reroll Specific Rare Item",
+			Items: []string{"Specificitem", "PerfectSkull", "PerfectSkull", "PerfectSkull", "PerfectSkull", "PerfectSkull", "PerfectSkull"}, // Special handling in hasItemsForRecipe
 		},
 	}
 )
