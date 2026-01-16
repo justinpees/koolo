@@ -1296,11 +1296,11 @@
             </label><br>
             <label>
                 <input type="checkbox" name="skipPerfectAmethysts" {{ if .Config.CubeRecipes.SkipPerfectAmethysts }}checked{{ end }}/>
-                Don't use Perfect Amethysts when rolling charms
+                Don't use Perfect Amethysts when rolling magic items
             </label><br>
             <label>
                 <input type="checkbox" name="skipPerfectRubies" {{ if .Config.CubeRecipes.SkipPerfectRubies }}checked{{ end }}/>
-                Don't use Perfect Rubies when rolling charms
+                Don't use Perfect Rubies when rolling magic items
             </label><br>
             
 
@@ -1311,11 +1311,18 @@
             <fieldset class="grid">
             <label>
                     Specific magic item to reroll
-                    <select id="specificItemToReroll" name="specificItemToReroll" title="Select an item you would like to reroll">
+                    <select id="specificItemToReroll" name="specificItemToReroll" title="You can use this formula to get another chance at a Magic Item of the same type. Formula: ilvl = ilvl. This means that the ilvl of the output is exactly the same as the ilvl of the input. You can also use this on Charms and Jewels.">
                         <option value="None" {{if eq .Config.CubeRecipes.SpecificItemToReroll "None"}}selected{{end}}>None</option>
                         <option value="GrandCharm" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GrandCharm"}}selected{{end}}>GrandCharm</option>
                         <option value="LargeCharm" {{if eq .Config.CubeRecipes.SpecificItemToReroll "LargeCharm"}}selected{{end}}>LargeCharm</option>
                         <option value="SmallCharm" {{if eq .Config.CubeRecipes.SpecificItemToReroll "SmallCharm"}}selected{{end}}>SmallCharm</option>
+                        <option value="Diadem" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Diadem"}}selected{{end}}>Diadem</option>
+                        <option value="Coronet" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Coronet"}}selected{{end}}>Coronet</option>
+                        <option value="Tiara" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Tiara"}}selected{{end}}>Tiara</option>
+                        <option value="Circlet" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Circlet"}}selected{{end}}>Circlet</option>
+                        <option value="Amulet" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Amulet"}}selected{{end}}>Amulet</option>
+                        <option value="Ring" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Ring"}}selected{{end}}>Ring</option>
+                        <option value="Jewel" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Jewel"}}selected{{end}}>Jewel</option>
                         <option value="Aegis" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Aegis"}}selected{{end}}>Aegis</option>
                         <option value="AkaranTarge" {{if eq .Config.CubeRecipes.SpecificItemToReroll "AkaranTarge"}}selected{{end}}>AkaranTarge</option>
                         <option value="AkaranRondache" {{if eq .Config.CubeRecipes.SpecificItemToReroll "AkaranRondache"}}selected{{end}}>AkaranRondache</option>
@@ -1337,6 +1344,7 @@
                         <option value="BalrogBlade" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BalrogBlade"}}selected{{end}}>BalrogBlade</option>
                         <option value="BalrogSkin" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BalrogSkin"}}selected{{end}}>BalrogSkin</option>
                         <option value="BalrogSpear" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BalrogSpear"}}selected{{end}}>BalrogSpear</option>
+                        <option value="Bandistock" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Bandistock"}}selected{{end}}>Bandistock</option>
                         <option value="BarbedClub" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BarbedClub"}}selected{{end}}>BarbedClub</option>
                         <option value="BarbedShield" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BarbedShield"}}selected{{end}}>BarbedShield</option>
                         <option value="Bardiche" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Bardiche"}}selected{{end}}>Bardiche</option>
@@ -1346,10 +1354,10 @@
                         <option value="BattleBoots" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BattleBoots"}}selected{{end}}>BattleBoots</option>
                         <option value="BattleCestus" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BattleCestus"}}selected{{end}}>BattleCestus</option>
                         <option value="BattleHammer" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BattleHammer"}}selected{{end}}>BattleHammer</option>
-                        <option value="BattleMaul" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BattleMaul"}}selected{{end}}>BattleMaul</option>
                         <option value="BattleGauntlets" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BattleGauntlets"}}selected{{end}}>BattleGauntlets</option>
                         <option value="BattleScythe" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BattleScythe"}}selected{{end}}>BattleScythe</option>
                         <option value="BattleSword" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BattleSword"}}selected{{end}}>BattleSword</option>
+                        <option value="Bec-de-corbin" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Bec-de-corbin"}}selected{{end}}>Bec-de-corbin</option>
                         <option value="Belt" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Belt"}}selected{{end}}>Belt</option>
                         <option value="BerserkerAxe" {{if eq .Config.CubeRecipes.SpecificItemToReroll "BerserkerAxe"}}selected{{end}}>BerserkerAxe</option>
                         <option value="Bill" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Bill"}}selected{{end}}>Bill</option>
@@ -1389,7 +1397,6 @@
                         <option value="ChampionAxe" {{if eq .Config.CubeRecipes.SpecificItemToReroll "ChampionAxe"}}selected{{end}}>ChampionAxe</option>
                         <option value="ChampionSword" {{if eq .Config.CubeRecipes.SpecificItemToReroll "ChampionSword"}}selected{{end}}>ChampionSword</option>
                         <option value="Chukonu" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Chukonu"}}selected{{end}}>Chukonu</option>
-                        <option value="Circlet" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Circlet"}}selected{{end}}>Circlet</option>
                         <option value="ClaspedOrb" {{if eq .Config.CubeRecipes.SpecificItemToReroll "ClaspedOrb"}}selected{{end}}>ClaspedOrb</option>
                         <option value="Claws" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Claws"}}selected{{end}}>Claws</option>
                         <option value="Claymore" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Claymore"}}selected{{end}}>Claymore</option>
@@ -1405,7 +1412,6 @@
                         <option value="ConquerorCrown" {{if eq .Config.CubeRecipes.SpecificItemToReroll "ConquerorCrown"}}selected{{end}}>ConquerorCrown</option>
                         <option value="ConquestSword" {{if eq .Config.CubeRecipes.SpecificItemToReroll "ConquestSword"}}selected{{end}}>ConquestSword</option>
                         <option value="Corona" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Corona"}}selected{{end}}>Corona</option>
-                        <option value="Coronet" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Coronet"}}selected{{end}}>Coronet</option>
                         <option value="Crown" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Crown"}}selected{{end}}>Crown</option>
                         <option value="CrusaderBow" {{if eq .Config.CubeRecipes.SpecificItemToReroll "CrusaderBow"}}selected{{end}}>CrusaderBow</option>
                         <option value="CrusaderGauntlets" {{if eq .Config.CubeRecipes.SpecificItemToReroll "CrusaderGauntlets"}}selected{{end}}>CrusaderGauntlets</option>
@@ -1425,7 +1431,6 @@
                         <option value="DemonhideSash" {{if eq .Config.CubeRecipes.SpecificItemToReroll "DemonhideSash"}}selected{{end}}>DemonhideSash</option>
                         <option value="DemonCrossbow" {{if eq .Config.CubeRecipes.SpecificItemToReroll "DemonCrossbow"}}selected{{end}}>DemonCrossbow</option>
                         <option value="DestroyerHelm" {{if eq .Config.CubeRecipes.SpecificItemToReroll "DestroyerHelm"}}selected{{end}}>DestroyerHelm</option>
-                        <option value="Diadem" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Diadem"}}selected{{end}}>Diadem</option>
                         <option value="DiamondBow" {{if eq .Config.CubeRecipes.SpecificItemToReroll "DiamondBow"}}selected{{end}}>DiamondBow</option>
                         <option value="DiamondMail" {{if eq .Config.CubeRecipes.SpecificItemToReroll "DiamondMail"}}selected{{end}}>DiamondMail</option>
                         <option value="DimensionalBlade" {{if eq .Config.CubeRecipes.SpecificItemToReroll "DimensionalBlade"}}selected{{end}}>DimensionalBlade</option>
@@ -1463,10 +1468,9 @@
                         <option value="Fuscina" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Fuscina"}}selected{{end}}>Fuscina</option>
                         <option value="GargoyleHead" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GargoyleHead"}}selected{{end}}>GargoyleHead</option>
                         <option value="Gauntlets" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Gauntlets"}}selected{{end}}>Gauntlets</option>
+                        <option value="GhostSpear" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GhostSpear"}}selected{{end}}>GhostSpear</option>
                         <option value="GiantAxe" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GiantAxe"}}selected{{end}}>GiantAxe</option>
                         <option value="GiantConch" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GiantConch"}}selected{{end}}>GiantConch</option>
-                        <option value="GiantMaul" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GiantMaul"}}selected{{end}}>GiantMaul</option>
-                        <option value="GiantPoleAxe" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GiantPoleAxe"}}selected{{end}}>GiantPoleAxe</option>
                         <option value="GiantThresher" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GiantThresher"}}selected{{end}}>GiantThresher</option>
                         <option value="GiantSword" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GiantSword"}}selected{{end}}>GiantSword</option>
                         <option value="GildedShield" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GildedShield"}}selected{{end}}>GildedShield</option>
@@ -1490,7 +1494,7 @@
                         <option value="GreatHelm" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GreatHelm"}}selected{{end}}>GreatHelm</option>
                         <option value="GreatMaul" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GreatMaul"}}selected{{end}}>GreatMaul</option>
                         <option value="GreatHauberk" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GreatHauberk"}}selected{{end}}>GreatHauberk</option>
-                        <option value="GreatPoleAxe" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GreatPoleAxe"}}selected{{end}}>GreatPoleAxe</option>
+                        <option value="GreatPoleaxe" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GreatPoleaxe"}}selected{{end}}>GreatPoleaxe</option>
                         <option value="GreatSword" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GreatSword"}}selected{{end}}>GreatSword</option>
                         <option value="Greaves" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Greaves"}}selected{{end}}>Greaves</option>
                         <option value="GriffonHeaddress" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GriffonHeaddress"}}selected{{end}}>GriffonHeaddress</option>
@@ -1675,6 +1679,7 @@
                         <option value="Stalagmite" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Stalagmite"}}selected{{end}}>Stalagmite</option>
                         <option value="Staff" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Staff"}}selected{{end}}>Staff</option>
                         <option value="StagBow" {{if eq .Config.CubeRecipes.SpecificItemToReroll "StagBow"}}selected{{end}}>StagBow</option>
+                        <option value="StigianPike" {{if eq .Config.CubeRecipes.SpecificItemToReroll "StigianPike"}}selected{{end}}>StigianPike</option>
                         <option value="Stiletto" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Stiletto"}}selected{{end}}>Stiletto</option>
                         <option value="StuddedLeather" {{if eq .Config.CubeRecipes.SpecificItemToReroll "StuddedLeather"}}selected{{end}}>StuddedLeather</option>
                         <option value="Suwayyah" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Suwayyah"}}selected{{end}}>Suwayyah</option>
@@ -1687,7 +1692,6 @@
                         <option value="ThrowingKnife" {{if eq .Config.CubeRecipes.SpecificItemToReroll "ThrowingKnife"}}selected{{end}}>ThrowingKnife</option>
                         <option value="ThrowingSpear" {{if eq .Config.CubeRecipes.SpecificItemToReroll "ThrowingSpear"}}selected{{end}}>ThrowingSpear</option>
                         <option value="TigulatedMail" {{if eq .Config.CubeRecipes.SpecificItemToReroll "TigulatedMail"}}selected{{end}}>TigulatedMail</option>
-                        <option value="Tiara" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Tiara"}}selected{{end}}>Tiara</option>
                         <option value="Tomahawk" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Tomahawk"}}selected{{end}}>Tomahawk</option>
                         <option value="TotemicMask" {{if eq .Config.CubeRecipes.SpecificItemToReroll "TotemicMask"}}selected{{end}}>TotemicMask</option>
                         <option value="TowerShield" {{if eq .Config.CubeRecipes.SpecificItemToReroll "TowerShield"}}selected{{end}}>TowerShield</option>
@@ -1718,6 +1722,7 @@
                         <option value="WarHammer" {{if eq .Config.CubeRecipes.SpecificItemToReroll "WarHammer"}}selected{{end}}>WarHammer</option>
                         <option value="WarHat" {{if eq .Config.CubeRecipes.SpecificItemToReroll "WarHat"}}selected{{end}}>WarHat</option>
                         <option value="WarJavelin" {{if eq .Config.CubeRecipes.SpecificItemToReroll "WarJavelin"}}selected{{end}}>WarJavelin</option>
+                        <option value="WarPike" {{if eq .Config.CubeRecipes.SpecificItemToReroll "WarPike"}}selected{{end}}>WarPike</option>
                         <option value="WarScepter" {{if eq .Config.CubeRecipes.SpecificItemToReroll "WarScepter"}}selected{{end}}>WarScepter</option>
                         <option value="WarScythe" {{if eq .Config.CubeRecipes.SpecificItemToReroll "WarScythe"}}selected{{end}}>WarScythe</option>
                         <option value="WarSpear" {{if eq .Config.CubeRecipes.SpecificItemToReroll "WarSpear"}}selected{{end}}>WarSpear</option>
@@ -1747,6 +1752,378 @@
                              <label>
                 Max mlvl:
                 <input type="number" name="maxMonsterLevel" min="1" value="{{ .Config.CubeRecipes.MaxMonsterLevel }}" />
+            </label>
+            </fieldset>
+
+            <fieldset class="grid">
+            <label>
+                    Specific rare item to reroll
+                    <select id="rareSpecificItemToReroll" name="rareSpecificItemToReroll" title="You can use this formula to get another chance at a Rare Item of the same type. Formula: ilvl = int(.4 * clvl) + int(.4 * ilvl) both integers are rounded down in this formula. This formula will not work on items larger than 3x2.">
+                        <option value="None" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "None"}}selected{{end}}>None</option>
+                        <option value="Diadem" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Diadem"}}selected{{end}}>Diadem</option>
+                        <option value="Coronet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Coronet"}}selected{{end}}>Coronet</option>
+                        <option value="Tiara" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Tiara"}}selected{{end}}>Tiara</option>
+                        <option value="Circlet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Circlet"}}selected{{end}}>Circlet</option>
+                        <option value="Amulet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Amulet"}}selected{{end}}>Amulet</option>
+                        <option value="Ring" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Ring"}}selected{{end}}>Ring</option>
+                        <option value="Jewel" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Jewel"}}selected{{end}}>Jewel</option>
+                        <option value="Aegis" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Aegis"}}selected{{end}}>Aegis</option>
+                        <option value="AkaranTarge" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "AkaranTarge"}}selected{{end}}>AkaranTarge</option>
+                        <option value="AkaranRondache" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "AkaranRondache"}}selected{{end}}>AkaranRondache</option>
+                        <option value="AlphaHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "AlphaHelm"}}selected{{end}}>AlphaHelm</option>
+                        <option value="AncientArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "AncientArmor"}}selected{{end}}>AncientArmor</option>
+                        <option value="AncientAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "AncientAxe"}}selected{{end}}>AncientAxe</option>
+                        <option value="AncientSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "AncientSword"}}selected{{end}}>AncientSword</option>
+                        <option value="Antlers" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Antlers"}}selected{{end}}>Antlers</option>
+                        <option value="ArchonPlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ArchonPlate"}}selected{{end}}>ArchonPlate</option>
+                        <option value="Armet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Armet"}}selected{{end}}>Armet</option>
+                        <option value="AssaultHelmet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "AssaultHelmet"}}selected{{end}}>AssaultHelmet</option>
+                        <option value="Ataghan" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Ataghan"}}selected{{end}}>Ataghan</option>
+                        <option value="AvengerGuard" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "AvengerGuard"}}selected{{end}}>AvengerGuard</option>
+                        <option value="BalancedAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BalancedAxe"}}selected{{end}}>BalancedAxe</option>
+                        <option value="BalancedKnife" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BalancedKnife"}}selected{{end}}>BalancedKnife</option>
+                        <option value="BalrogBlade" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BalrogBlade"}}selected{{end}}>BalrogBlade</option>
+                        <option value="BalrogSkin" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BalrogSkin"}}selected{{end}}>BalrogSkin</option>
+                        <option value="BalrogSpear" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BalrogSpear"}}selected{{end}}>BalrogSpear</option>
+                        <option value="BarbedClub" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BarbedClub"}}selected{{end}}>BarbedClub</option>
+                        <option value="BarbedShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BarbedShield"}}selected{{end}}>BarbedShield</option>
+                        <option value="Basinet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Basinet"}}selected{{end}}>Basinet</option>
+                        <option value="BattleAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BattleAxe"}}selected{{end}}>BattleAxe</option>
+                        <option value="BattleBelt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BattleBelt"}}selected{{end}}>BattleBelt</option>
+                        <option value="BattleBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BattleBoots"}}selected{{end}}>BattleBoots</option>
+                        <option value="BattleCestus" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BattleCestus"}}selected{{end}}>BattleCestus</option>
+                        <option value="BattleHammer" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BattleHammer"}}selected{{end}}>BattleHammer</option>
+                        <option value="BattleGauntlets" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BattleGauntlets"}}selected{{end}}>BattleGauntlets</option>
+                        <option value="BattleSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BattleSword"}}selected{{end}}>BattleSword</option>
+                        <option value="Belt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Belt"}}selected{{end}}>Belt</option>
+                        <option value="BerserkerAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BerserkerAxe"}}selected{{end}}>BerserkerAxe</option>
+                        <option value="Blade" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Blade"}}selected{{end}}>Blade</option>
+                        <option value="BladeBarrier" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BladeBarrier"}}selected{{end}}>BladeBarrier</option>
+                        <option value="BladeBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BladeBow"}}selected{{end}}>BladeBow</option>
+                        <option value="BladeTalons" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BladeTalons"}}selected{{end}}>BladeTalons</option>
+                        <option value="BoneHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BoneHelm"}}selected{{end}}>BoneHelm</option>
+                        <option value="BoneKnife" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BoneKnife"}}selected{{end}}>BoneKnife</option>
+                        <option value="BoneWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BoneWand"}}selected{{end}}>BoneWand</option>
+                        <option value="Boneweave" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Boneweave"}}selected{{end}}>Boneweave</option>
+                        <option value="BoneweaveBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BoneweaveBoots"}}selected{{end}}>BoneweaveBoots</option>
+                        <option value="BoneVisage" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BoneVisage"}}selected{{end}}>BoneVisage</option>
+                        <option value="BoneShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BoneShield"}}selected{{end}}>BoneShield</option>
+                        <option value="Boots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Boots"}}selected{{end}}>Boots</option>
+                        <option value="BrambleMitts" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BrambleMitts"}}selected{{end}}>BrambleMitts</option>
+                        <option value="BreastPlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BreastPlate"}}selected{{end}}>BreastPlate</option>
+                        <option value="BroadAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BroadAxe"}}selected{{end}}>BroadAxe</option>
+                        <option value="BroadSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BroadSword"}}selected{{end}}>BroadSword</option>
+                        <option value="Buckler" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Buckler"}}selected{{end}}>Buckler</option>
+                        <option value="BurntWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "BurntWand"}}selected{{end}}>BurntWand</option>
+                        <option value="Caduceus" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Caduceus"}}selected{{end}}>Caduceus</option>
+                        <option value="Cap" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Cap"}}selected{{end}}>Cap</option>
+                        <option value="CarnageHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "CarnageHelm"}}selected{{end}}>CarnageHelm</option>
+                        <option value="Casque" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Casque"}}selected{{end}}>Casque</option>
+                        <option value="CedarStaff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "CedarStaff"}}selected{{end}}>CedarStaff</option>
+                        <option value="CeremonialJavelin" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "CeremonialJavelin"}}selected{{end}}>CeremonialJavelin</option>
+                        <option value="ChainBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ChainBoots"}}selected{{end}}>ChainBoots</option>
+                        <option value="ChainMail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ChainMail"}}selected{{end}}>ChainMail</option>
+                        <option value="ChainGloves" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ChainGloves"}}selected{{end}}>ChainGloves</option>
+                        <option value="ChaosArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ChaosArmor"}}selected{{end}}>ChaosArmor</option>
+                        <option value="ChampionSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ChampionSword"}}selected{{end}}>ChampionSword</option>
+                        <option value="Chukonu" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Chukonu"}}selected{{end}}>Chukonu</option>
+                        <option value="ClaspedOrb" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ClaspedOrb"}}selected{{end}}>ClaspedOrb</option>
+                        <option value="Claws" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Claws"}}selected{{end}}>Claws</option>
+                        <option value="Claymore" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Claymore"}}selected{{end}}>Claymore</option>
+                        <option value="Cleaver" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Cleaver"}}selected{{end}}>Cleaver</option>
+                        <option value="CloudySphere" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "CloudySphere"}}selected{{end}}>CloudySphere</option>
+                        <option value="Club" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Club"}}selected{{end}}>Club</option>
+                        <option value="ColossusGirdle" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ColossusGirdle"}}selected{{end}}>ColossusGirdle</option>
+                        <option value="CompositeBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "CompositeBow"}}selected{{end}}>CompositeBow</option>
+                        <option value="ConquerorCrown" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ConquerorCrown"}}selected{{end}}>ConquerorCrown</option>
+                        <option value="ConquestSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ConquestSword"}}selected{{end}}>ConquestSword</option>
+                        <option value="Corona" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Corona"}}selected{{end}}>Corona</option>
+                        <option value="Crown" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Crown"}}selected{{end}}>Crown</option>
+                        <option value="CrusaderGauntlets" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "CrusaderGauntlets"}}selected{{end}}>CrusaderGauntlets</option>
+                        <option value="CrystalSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "CrystalSword"}}selected{{end}}>CrystalSword</option>
+                        <option value="Cuirass" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Cuirass"}}selected{{end}}>Cuirass</option>
+                        <option value="Cutlass" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Cutlass"}}selected{{end}}>Cutlass</option>
+                        <option value="DacianFalx" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DacianFalx"}}selected{{end}}>DacianFalx</option>
+                        <option value="Dagger" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Dagger"}}selected{{end}}>Dagger</option>
+                        <option value="DeathMask" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DeathMask"}}selected{{end}}>DeathMask</option>
+                        <option value="Decapitator" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Decapitator"}}selected{{end}}>Decapitator</option>
+                        <option value="Defender" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Defender"}}selected{{end}}>Defender</option>
+                        <option value="Demonhead" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Demonhead"}}selected{{end}}>Demonhead</option>
+                        <option value="DemonHeart" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DemonHeart"}}selected{{end}}>DemonHeart</option>
+                        <option value="DemonhideArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DemonhideArmor"}}selected{{end}}>DemonhideArmor</option>
+                        <option value="DemonhideBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DemonhideBoots"}}selected{{end}}>DemonhideBoots</option>
+                        <option value="DemonhideGloves" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DemonhideGloves"}}selected{{end}}>DemonhideGloves</option>
+                        <option value="DemonhideSash" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DemonhideSash"}}selected{{end}}>DemonhideSash</option>
+                        <option value="DemonCrossbow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DemonCrossbow"}}selected{{end}}>DemonCrossbow</option>
+                        <option value="DestroyerHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DestroyerHelm"}}selected{{end}}>DestroyerHelm</option>
+                        <option value="DiamondBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DiamondBow"}}selected{{end}}>DiamondBow</option>
+                        <option value="DiamondMail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DiamondMail"}}selected{{end}}>DiamondMail</option>
+                        <option value="DimensionalBlade" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DimensionalBlade"}}selected{{end}}>DimensionalBlade</option>
+                        <option value="DimensionalShard" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DimensionalShard"}}selected{{end}}>DimensionalShard</option>
+                        <option value="Dirk" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Dirk"}}selected{{end}}>Dirk</option>
+                        <option value="DivineScepter" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DivineScepter"}}selected{{end}}>DivineScepter</option>
+                        <option value="DoubleAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DoubleAxe"}}selected{{end}}>DoubleAxe</option>
+                        <option value="DoubleBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DoubleBow"}}selected{{end}}>DoubleBow</option>
+                        <option value="DreamSpirit" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DreamSpirit"}}selected{{end}}>DreamSpirit</option>
+                        <option value="DuskShroud" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "DuskShroud"}}selected{{end}}>DuskShroud</option>
+                        <option value="EarthSpirit" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "EarthSpirit"}}selected{{end}}>EarthSpirit</option>
+                        <option value="EdgeBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "EdgeBow"}}selected{{end}}>EdgeBow</option>
+                        <option value="ElderStaff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ElderStaff"}}selected{{end}}>ElderStaff</option>
+                        <option value="ElegantBlade" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ElegantBlade"}}selected{{end}}>ElegantBlade</option>
+                        <option value="EmbossedPlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "EmbossedPlate"}}selected{{end}}>EmbossedPlate</option>
+                        <option value="Espandon" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Espandon"}}selected{{end}}>Espandon</option>
+                        <option value="Falchion" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Falchion"}}selected{{end}}>Falchion</option>
+                        <option value="FalconMask" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FalconMask"}}selected{{end}}>FalconMask</option>
+                        <option value="Falcata" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Falcata"}}selected{{end}}>Falcata</option>
+                        <option value="Fascia" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Fascia"}}selected{{end}}>Fascia</option>
+                        <option value="FangedHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FangedHelm"}}selected{{end}}>FangedHelm</option>
+                        <option value="FangedKnife" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FangedKnife"}}selected{{end}}>FangedKnife</option>
+                        <option value="FeralAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FeralAxe"}}selected{{end}}>FeralAxe</option>
+                        <option value="FeralClaws" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FeralClaws"}}selected{{end}}>FeralClaws</option>
+                        <option value="FieldPlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FieldPlate"}}selected{{end}}>FieldPlate</option>
+                        <option value="Flail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Flail"}}selected{{end}}>Flail</option>
+                        <option value="FlangedMace" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FlangedMace"}}selected{{end}}>FlangedMace</option>
+                        <option value="FlyingAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FlyingAxe"}}selected{{end}}>FlyingAxe</option>
+                        <option value="FlyingKnife" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FlyingKnife"}}selected{{end}}>FlyingKnife</option>
+                        <option value="FullHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FullHelm"}}selected{{end}}>FullHelm</option>
+                        <option value="FullPlateMail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FullPlateMail"}}selected{{end}}>FullPlateMail</option>
+                        <option value="FuryVisor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "FuryVisor"}}selected{{end}}>FuryVisor</option>
+                        <option value="Fuscina" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Fuscina"}}selected{{end}}>Fuscina</option>
+                        <option value="GargoyleHead" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GargoyleHead"}}selected{{end}}>GargoyleHead</option>
+                        <option value="Gauntlets" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Gauntlets"}}selected{{end}}>Gauntlets</option>
+                        <option value="GiantAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GiantAxe"}}selected{{end}}>GiantAxe</option>
+                        <option value="GiantConch" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GiantConch"}}selected{{end}}>GiantConch</option>
+                        <option value="GiantSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GiantSword"}}selected{{end}}>GiantSword</option>
+                        <option value="Gladius" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Gladius"}}selected{{end}}>Gladius</option>
+                        <option value="Glaive" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Glaive"}}selected{{end}}>Glaive</option>
+                        <option value="GloriousAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GloriousAxe"}}selected{{end}}>GloriousAxe</option>
+                        <option value="GlowingOrb" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GlowingOrb"}}selected{{end}}>GlowingOrb</option>
+                        <option value="GnarledStaff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GnarledStaff"}}selected{{end}}>GnarledStaff</option>
+                        <option value="GothicPlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GothicPlate"}}selected{{end}}>GothicPlate</option>
+                        <option value="GothicSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GothicSword"}}selected{{end}}>GothicSword</option>
+                        <option value="GothicStaff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GothicStaff"}}selected{{end}}>GothicStaff</option>
+                        <option value="GrandCrown" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GrandCrown"}}selected{{end}}>GrandCrown</option>
+                        <option value="GrandScepter" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GrandScepter"}}selected{{end}}>GrandScepter</option>
+                        <option value="GraveWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GraveWand"}}selected{{end}}>GraveWand</option>
+                        <option value="GreatBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GreatBow"}}selected{{end}}>GreatBow</option>
+                        <option value="GreatHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GreatHelm"}}selected{{end}}>GreatHelm</option>
+                        <option value="GreatMaul" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GreatMaul"}}selected{{end}}>GreatMaul</option>
+                        <option value="GreatHauberk" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GreatHauberk"}}selected{{end}}>GreatHauberk</option>
+                        <option value="Greaves" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Greaves"}}selected{{end}}>Greaves</option>
+                        <option value="GriffonHeaddress" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GriffonHeaddress"}}selected{{end}}>GriffonHeaddress</option>
+                        <option value="GrimHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GrimHelm"}}selected{{end}}>GrimHelm</option>
+                        <option value="GrimShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GrimShield"}}selected{{end}}>GrimShield</option>
+                        <option value="GrimWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GrimWand"}}selected{{end}}>GrimWand</option>
+                        <option value="GuardianCrown" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "GuardianCrown"}}selected{{end}}>GuardianCrown</option>
+                        <option value="HandAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HandAxe"}}selected{{end}}>HandAxe</option>
+                        <option value="HandScythe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HandScythe"}}selected{{end}}>HandScythe</option>
+                        <option value="HardLeatherArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HardLeatherArmor"}}selected{{end}}>HardLeatherArmor</option>
+                        <option value="Harpoon" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Harpoon"}}selected{{end}}>Harpoon</option>
+                        <option value="Hatchet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Hatchet"}}selected{{end}}>Hatchet</option>
+                        <option value="HatchetHands" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HatchetHands"}}selected{{end}}>HatchetHands</option>
+                        <option value="HawkHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HawkHelm"}}selected{{end}}>HawkHelm</option>
+                        <option value="HeavyBelt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HeavyBelt"}}selected{{end}}>HeavyBelt</option>
+                        <option value="HeavyBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HeavyBoots"}}selected{{end}}>HeavyBoots</option>
+                        <option value="HeavyBracers" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HeavyBracers"}}selected{{end}}>HeavyBracers</option>
+                        <option value="HeavyGloves" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HeavyGloves"}}selected{{end}}>HeavyGloves</option>
+                        <option value="Heater" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Heater"}}selected{{end}}>Heater</option>
+                        <option value="HellforgePlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HellforgePlate"}}selected{{end}}>HellforgePlate</option>
+                        <option value="HellspawnSkull" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HellspawnSkull"}}selected{{end}}>HellspawnSkull</option>
+                        <option value="Helm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Helm"}}selected{{end}}>Helm</option>
+                        <option value="HierophantTrophy" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HierophantTrophy"}}selected{{end}}>HierophantTrophy</option>
+                        <option value="HolyWaterSprinkler" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HolyWaterSprinkler"}}selected{{end}}>HolyWaterSprinkler</option>
+                        <option value="HuntersBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HuntersBow"}}selected{{end}}>HuntersBow</option>
+                        <option value="HuntersGuise" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HuntersGuise"}}selected{{end}}>HuntersGuise</option>
+                        <option value="HydraEdge" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HydraEdge"}}selected{{end}}>HydraEdge</option>
+                        <option value="Hydraskull" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Hydraskull"}}selected{{end}}>Hydraskull</option>
+                        <option value="Hyperion" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Hyperion"}}selected{{end}}>Hyperion</option>
+                        <option value="HyperionJavelin" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "HyperionJavelin"}}selected{{end}}>HyperionJavelin</option>
+                        <option value="JaggedStar" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "JaggedStar"}}selected{{end}}>JaggedStar</option>
+                        <option value="JaredsStone" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "JaredsStone"}}selected{{end}}>JaredsStone</option>
+                        <option value="Javelin" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Javelin"}}selected{{end}}>Javelin</option>
+                        <option value="JawboneCap" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "JawboneCap"}}selected{{end}}>JawboneCap</option>
+                        <option value="JawboneVisor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "JawboneVisor"}}selected{{end}}>JawboneVisor</option>
+                        <option value="JoStaff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "JoStaff"}}selected{{end}}>JoStaff</option>
+                        <option value="Katar" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Katar"}}selected{{end}}>Katar</option>
+                        <option value="KiteShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "KiteShield"}}selected{{end}}>KiteShield</option>
+                        <option value="Knout" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Knout"}}selected{{end}}>Knout</option>
+                        <option value="KrakenShell" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "KrakenShell"}}selected{{end}}>KrakenShell</option>
+                        <option value="Kris" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Kris"}}selected{{end}}>Kris</option>
+                        <option value="LacqueredPlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LacqueredPlate"}}selected{{end}}>LacqueredPlate</option>
+                        <option value="LargeAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LargeAxe"}}selected{{end}}>LargeAxe</option>
+                        <option value="LargeShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LargeShield"}}selected{{end}}>LargeShield</option>
+                        <option value="LegendaryMallet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LegendaryMallet"}}selected{{end}}>LegendaryMallet</option>
+                        <option value="LegendSpike" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LegendSpike"}}selected{{end}}>LegendSpike</option>
+                        <option value="LegendSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LegendSword"}}selected{{end}}>LegendSword</option>
+                        <option value="LeatherArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LeatherArmor"}}selected{{end}}>LeatherArmor</option>
+                        <option value="LeatherGloves" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LeatherGloves"}}selected{{end}}>LeatherGloves</option>
+                        <option value="LightBelt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LightBelt"}}selected{{end}}>LightBelt</option>
+                        <option value="LightCrossbow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LightCrossbow"}}selected{{end}}>LightCrossbow</option>
+                        <option value="LightGauntlets" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LightGauntlets"}}selected{{end}}>LightGauntlets</option>
+                        <option value="LightPlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LightPlate"}}selected{{end}}>LightPlate</option>
+                        <option value="LightPlatedBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LightPlatedBoots"}}selected{{end}}>LightPlatedBoots</option>
+                        <option value="LinkedMail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LinkedMail"}}selected{{end}}>LinkedMail</option>
+                        <option value="LionHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LionHelm"}}selected{{end}}>LionHelm</option>
+                        <option value="LichWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LichWand"}}selected{{end}}>LichWand</option>
+                        <option value="LongBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LongBow"}}selected{{end}}>LongBow</option>
+                        <option value="LongStaff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LongStaff"}}selected{{end}}>LongStaff</option>
+                        <option value="LongSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LongSword"}}selected{{end}}>LongSword</option>
+                        <option value="LoricatedMail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "LoricatedMail"}}selected{{end}}>LoricatedMail</option>
+                        <option value="Luna" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Luna"}}selected{{end}}>Luna</option>
+                        <option value="MaidenJavelin" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MaidenJavelin"}}selected{{end}}>MaidenJavelin</option>
+                        <option value="MartelDeFer" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MartelDeFer"}}selected{{end}}>MartelDeFer</option>
+                        <option value="Mask" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Mask"}}selected{{end}}>Mask</option>
+                        <option value="MatriarchalJavelin" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MatriarchalJavelin"}}selected{{end}}>MatriarchalJavelin</option>
+                        <option value="MeshArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MeshArmor"}}selected{{end}}>MeshArmor</option>
+                        <option value="MeshBelt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MeshBelt"}}selected{{end}}>MeshBelt</option>
+                        <option value="MeshBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MeshBoots"}}selected{{end}}>MeshBoots</option>
+                        <option value="MilitaryAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MilitaryAxe"}}selected{{end}}>MilitaryAxe</option>
+                        <option value="MilitaryPick" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MilitaryPick"}}selected{{end}}>MilitaryPick</option>
+                        <option value="MinionSkull" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MinionSkull"}}selected{{end}}>MinionSkull</option>
+                        <option value="MirroredBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MirroredBoots"}}selected{{end}}>MirroredBoots</option>
+                        <option value="MithrilCoil" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MithrilCoil"}}selected{{end}}>MithrilCoil</option>
+                        <option value="MithrilPoint" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MithrilPoint"}}selected{{end}}>MithrilPoint</option>
+                        <option value="Monarch" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Monarch"}}selected{{end}}>Monarch</option>
+                        <option value="MorningStar" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MorningStar"}}selected{{end}}>MorningStar</option>
+                        <option value="MummifiedTrophy" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MummifiedTrophy"}}selected{{end}}>MummifiedTrophy</option>
+                        <option value="MyrmidonGreaves" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MyrmidonGreaves"}}selected{{end}}>MyrmidonGreaves</option>
+                        <option value="MythicalSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "MythicalSword"}}selected{{end}}>MythicalSword</option>
+                        <option value="Naga" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Naga"}}selected{{end}}>Naga</option>
+                        <option value="OgreGauntlets" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "OgreGauntlets"}}selected{{end}}>OgreGauntlets</option>
+                        <option value="OrnatePlate" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "OrnatePlate"}}selected{{end}}>OrnatePlate</option>
+                        <option value="Pavise" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Pavise"}}selected{{end}}>Pavise</option>
+                        <option value="PelletBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "PelletBow"}}selected{{end}}>PelletBow</option>
+                        <option value="PhaseBlade" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "PhaseBlade"}}selected{{end}}>PhaseBlade</option>
+                        <option value="Pilum" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Pilum"}}selected{{end}}>Pilum</option>
+                        <option value="PlatedBelt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "PlatedBelt"}}selected{{end}}>PlatedBelt</option>
+                        <option value="PlateMail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "PlateMail"}}selected{{end}}>PlateMail</option>
+                        <option value="Poignard" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Poignard"}}selected{{end}}>Poignard</option>
+                        <option value="PolishedWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "PolishedWand"}}selected{{end}}>PolishedWand</option>
+                        <option value="PreservedHead" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "PreservedHead"}}selected{{end}}>PreservedHead</option>
+                        <option value="Quarterstaff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Quarterstaff"}}selected{{end}}>Quarterstaff</option>
+                        <option value="Quhab" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Quhab"}}selected{{end}}>Quhab</option>
+                        <option value="QuiltedArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "QuiltedArmor"}}selected{{end}}>QuiltedArmor</option>
+                        <option value="RageMask" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RageMask"}}selected{{end}}>RageMask</option>
+                        <option value="RazorBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RazorBow"}}selected{{end}}>RazorBow</option>
+                        <option value="RepeatingCrossbow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RepeatingCrossbow"}}selected{{end}}>RepeatingCrossbow</option>
+                        <option value="ReinforcedMace" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ReinforcedMace"}}selected{{end}}>ReinforcedMace</option>
+                        <option value="Rondache" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Rondache"}}selected{{end}}>Rondache</option>
+                        <option value="Rondel" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Rondel"}}selected{{end}}>Rondel</option>
+                        <option value="RoundShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RoundShield"}}selected{{end}}>RoundShield</option>
+                        <option value="RoyalShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RoyalShield"}}selected{{end}}>RoyalShield</option>
+                        <option value="RuneScepter" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RuneScepter"}}selected{{end}}>RuneScepter</option>
+                        <option value="RuneBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RuneBow"}}selected{{end}}>RuneBow</option>
+                        <option value="RuneSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RuneSword"}}selected{{end}}>RuneSword</option>
+                        <option value="RussetArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "RussetArmor"}}selected{{end}}>RussetArmor</option>
+                        <option value="Sabre" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Sabre"}}selected{{end}}>Sabre</option>
+                        <option value="SacredArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SacredArmor"}}selected{{end}}>SacredArmor</option>
+                        <option value="SacredFeathers" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SacredFeathers"}}selected{{end}}>SacredFeathers</option>
+                        <option value="SacredGlobe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SacredGlobe"}}selected{{end}}>SacredGlobe</option>
+                        <option value="SacredRondache" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SacredRondache"}}selected{{end}}>SacredRondache</option>
+                        <option value="SacredTarge" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SacredTarge"}}selected{{end}}>SacredTarge</option>
+                        <option value="Sallet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Sallet"}}selected{{end}}>Sallet</option>
+                        <option value="Sash" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Sash"}}selected{{end}}>Sash</option>
+                        <option value="ScaleMail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ScaleMail"}}selected{{end}}>ScaleMail</option>
+                        <option value="ScarabHusk" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ScarabHusk"}}selected{{end}}>ScarabHusk</option>
+                        <option value="ScarabshellBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ScarabshellBoots"}}selected{{end}}>ScarabshellBoots</option>
+                        <option value="Scimitar" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Scimitar"}}selected{{end}}>Scimitar</option>
+                        <option value="ScissorsKatar" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ScissorsKatar"}}selected{{end}}>ScissorsKatar</option>
+                        <option value="ScissorsQuhab" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ScissorsQuhab"}}selected{{end}}>ScissorsQuhab</option>
+                        <option value="ScissorsSuwayyah" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ScissorsSuwayyah"}}selected{{end}}>ScissorsSuwayyah</option>
+                        <option value="Scourge" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Scourge"}}selected{{end}}>Scourge</option>
+                        <option value="Scutum" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Scutum"}}selected{{end}}>Scutum</option>
+                        <option value="SeraphRod" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SeraphRod"}}selected{{end}}>SeraphRod</option>
+                        <option value="SerpentskinArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SerpentskinArmor"}}selected{{end}}>SerpentskinArmor</option>
+                        <option value="Shako" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Shako"}}selected{{end}}>Shako</option>
+                        <option value="Shamshir" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Shamshir"}}selected{{end}}>Shamshir</option>
+                        <option value="SharkskinBelt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SharkskinBelt"}}selected{{end}}>SharkskinBelt</option>
+                        <option value="SharkskinBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SharkskinBoots"}}selected{{end}}>SharkskinBoots</option>
+                        <option value="SharkskinGloves" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SharkskinGloves"}}selected{{end}}>SharkskinGloves</option>
+                        <option value="SharktoothArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SharktoothArmor"}}selected{{end}}>SharktoothArmor</option>
+                        <option value="Shillelagh" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Shillelagh"}}selected{{end}}>Shillelagh</option>
+                        <option value="ShortBattleBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ShortBattleBow"}}selected{{end}}>ShortBattleBow</option>
+                        <option value="ShortBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ShortBow"}}selected{{end}}>ShortBow</option>
+                        <option value="ShortSpear" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ShortSpear"}}selected{{end}}>ShortSpear</option>
+                        <option value="ShortStaff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ShortStaff"}}selected{{end}}>ShortStaff</option>
+                        <option value="ShortSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ShortSword"}}selected{{end}}>ShortSword</option>
+                        <option value="SiegeCrossbow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SiegeCrossbow"}}selected{{end}}>SiegeCrossbow</option>
+                        <option value="Silver-edgedAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Silver-edgedAxe"}}selected{{end}}>Silver-edgedAxe</option>
+                        <option value="Simbilan" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Simbilan"}}selected{{end}}>Simbilan</option>
+                        <option value="SkullCap" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SkullCap"}}selected{{end}}>SkullCap</option>
+                        <option value="SlayerGuard" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SlayerGuard"}}selected{{end}}>SlayerGuard</option>
+                        <option value="SmallCrescent" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SmallCrescent"}}selected{{end}}>SmallCrescent</option>
+                        <option value="SmallShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SmallShield"}}selected{{end}}>SmallShield</option>
+                        <option value="SmokedSphere" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SmokedSphere"}}selected{{end}}>SmokedSphere</option>
+                        <option value="SparklingBall" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SparklingBall"}}selected{{end}}>SparklingBall</option>
+                        <option value="SpiderBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SpiderBow"}}selected{{end}}>SpiderBow</option>
+                        <option value="SpiderwebSash" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SpiderwebSash"}}selected{{end}}>SpiderwebSash</option>
+                        <option value="SpikedClub" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SpikedClub"}}selected{{end}}>SpikedClub</option>
+                        <option value="SpikedShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SpikedShield"}}selected{{end}}>SpikedShield</option>
+                        <option value="Spiculum" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Spiculum"}}selected{{end}}>Spiculum</option>
+                        <option value="SpiritMask" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SpiritMask"}}selected{{end}}>SpiritMask</option>
+                        <option value="SpiredHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SpiredHelm"}}selected{{end}}>SpiredHelm</option>
+                        <option value="Stalagmite" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Stalagmite"}}selected{{end}}>Stalagmite</option>
+                        <option value="Staff" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Staff"}}selected{{end}}>Staff</option>
+                        <option value="Stiletto" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Stiletto"}}selected{{end}}>Stiletto</option>
+                        <option value="StuddedLeather" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "StuddedLeather"}}selected{{end}}>StuddedLeather</option>
+                        <option value="Suwayyah" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Suwayyah"}}selected{{end}}>Suwayyah</option>
+                        <option value="SwirlingCrystal" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "SwirlingCrystal"}}selected{{end}}>SwirlingCrystal</option>
+                        <option value="Tabar" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Tabar"}}selected{{end}}>Tabar</option>
+                        <option value="TemplarCoat" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "TemplarCoat"}}selected{{end}}>TemplarCoat</option>
+                        <option value="ThunderMaul" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ThunderMaul"}}selected{{end}}>ThunderMaul</option>
+                        <option value="ThrowingAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ThrowingAxe"}}selected{{end}}>ThrowingAxe</option>
+                        <option value="ThrowingKnife" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ThrowingKnife"}}selected{{end}}>ThrowingKnife</option>
+                        <option value="ThrowingSpear" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "ThrowingSpear"}}selected{{end}}>ThrowingSpear</option>
+                        <option value="TigulatedMail" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "TigulatedMail"}}selected{{end}}>TigulatedMail</option>
+                        <option value="Tomahawk" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Tomahawk"}}selected{{end}}>Tomahawk</option>
+                        <option value="TotemicMask" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "TotemicMask"}}selected{{end}}>TotemicMask</option>
+                        <option value="TowerShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "TowerShield"}}selected{{end}}>TowerShield</option>
+                        <option value="TrellisedArmor" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "TrellisedArmor"}}selected{{end}}>TrellisedArmor</option>
+                        <option value="Truncheon" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Truncheon"}}selected{{end}}>Truncheon</option>
+                        <option value="Tulwar" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Tulwar"}}selected{{end}}>Tulwar</option>
+                        <option value="TuskSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "TuskSword"}}selected{{end}}>TuskSword</option>
+                        <option value="TyrantClub" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "TyrantClub"}}selected{{end}}>TyrantClub</option>
+                        <option value="UnearthedWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "UnearthedWand"}}selected{{end}}>UnearthedWand</option>
+                        <option value="UnravellerHead" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "UnravellerHead"}}selected{{end}}>UnravellerHead</option>
+                        <option value="VampireboneGloves" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "VampireboneGloves"}}selected{{end}}>VampireboneGloves</option>
+                        <option value="VampirefangBelt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "VampirefangBelt"}}selected{{end}}>VampirefangBelt</option>
+                        <option value="Vambraces" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Vambraces"}}selected{{end}}>Vambraces</option>
+                        <option value="VortexOrb" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "VortexOrb"}}selected{{end}}>VortexOrb</option>
+                        <option value="VortexShield" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "VortexShield"}}selected{{end}}>VortexShield</option>
+                        <option value="WalkingStick" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WalkingStick"}}selected{{end}}>WalkingStick</option>
+                        <option value="Wand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Wand"}}selected{{end}}>Wand</option>
+                        <option value="WarAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarAxe"}}selected{{end}}>WarAxe</option>
+                        <option value="WarBelt" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarBelt"}}selected{{end}}>WarBelt</option>
+                        <option value="WarBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarBoots"}}selected{{end}}>WarBoots</option>
+                        <option value="WarDart" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarDart"}}selected{{end}}>WarDart</option>
+                        <option value="WardBow" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WardBow"}}selected{{end}}>WardBow</option>
+                        <option value="WarHammer" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarHammer"}}selected{{end}}>WarHammer</option>
+                        <option value="WarHat" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarHat"}}selected{{end}}>WarHat</option>
+                        <option value="WarJavelin" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarJavelin"}}selected{{end}}>WarJavelin</option>
+                        <option value="WarScepter" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarScepter"}}selected{{end}}>WarScepter</option>
+                        <option value="WarSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarSword"}}selected{{end}}>WarSword</option>
+                        <option value="WarSpike" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WarSpike"}}selected{{end}}>WarSpike</option>
+                        <option value="WingedAxe" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WingedAxe"}}selected{{end}}>WingedAxe</option>
+                        <option value="WingedHarpoon" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WingedHarpoon"}}selected{{end}}>WingedHarpoon</option>
+                        <option value="WingedHelm" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WingedHelm"}}selected{{end}}>WingedHelm</option>
+                        <option value="WingedKnife" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WingedKnife"}}selected{{end}}>WingedKnife</option>
+                        <option value="WireFleece" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WireFleece"}}selected{{end}}>WireFleece</option>
+                        <option value="WirtsLeg" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WirtsLeg"}}selected{{end}}>WirtsLeg</option>
+                        <option value="WristBlade" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WristBlade"}}selected{{end}}>WristBlade</option>
+                        <option value="WristSpike" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WristSpike"}}selected{{end}}>WristSpike</option>
+                        <option value="WristSword" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WristSword"}}selected{{end}}>WristSword</option>
+                        <option value="Wyrmhide" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Wyrmhide"}}selected{{end}}>Wyrmhide</option>
+                        <option value="WyrmhideBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WyrmhideBoots"}}selected{{end}}>WyrmhideBoots</option>
+                        <option value="YewWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "YewWand"}}selected{{end}}>YewWand</option>
+                    </select>
+                </label>
+                 <label>
+                Min mlvl:
+                <input type="number" name="rareMinMonsterLevel" min="1" value="{{ .Config.CubeRecipes.RareMinMonsterLevel }}" />
+            </label>
+                             <label>
+                Max mlvl:
+                <input type="number" name="rareMaxMonsterLevel" min="1" value="{{ .Config.CubeRecipes.RareMaxMonsterLevel }}" />
             </label>
             </fieldset>
 

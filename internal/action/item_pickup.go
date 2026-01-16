@@ -127,7 +127,10 @@ outer:
 			if !itemNeedsInventorySpace(i) || itemFitsInventory(i) {
 				itemToPickup = i
 
-				if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") { // REPLACE WITH SLICES.CONATAINS(ctx.charactercfg.cuberecipes.enabled "Reroll Specific")
+				if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
+					MarkGroundSpecificItemIfEligible(itemToPickup)
+				}
+				if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") {
 					MarkGroundSpecificItemIfEligible(itemToPickup)
 				}
 				break
@@ -302,6 +305,43 @@ outer:
 							step.CloseAllMenus()
 							ctx.RefreshInventory()
 							ctx.Logger.Warn("Specific Item successfully identified, closed all menus")
+
+						}
+					}
+				}
+
+				if ctx.MarkedRareSpecificItemUnitID != 0 && ctx.MarkedRareSpecificItemUnitID == itemToPickup.UnitID {
+
+					ctx.RefreshInventory() // make sure item is in inventory
+
+					// Find the item in inventory
+					var specificItemInInv data.Item
+					found := false
+					for _, invItem := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+						if invItem.UnitID == ctx.MarkedRareSpecificItemUnitID {
+							specificItemInInv = invItem
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						ctx.Logger.Error("Picked up Rare Specific Item but cannot find it in inventory", "unitID", ctx.MarkedRareSpecificItemUnitID)
+					} else {
+						// Find Tome of Identify
+						idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
+						if !found {
+							ctx.Logger.Warn("Tome of Identify not found, skipping identification")
+						} else {
+							step.CloseAllMenus() // make sure nothing is in the way
+							for !ctx.Data.OpenMenus.Inventory {
+								ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+								utils.PingSleep(utils.Critical, 1000)
+							}
+							identifyRareSpecificMarkedItem(idTome, specificItemInInv)
+							step.CloseAllMenus()
+							ctx.RefreshInventory()
+							ctx.Logger.Warn("Specific RARE Item successfully identified, closed all menus")
 
 						}
 					}
@@ -900,6 +940,246 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 	)
 }
 
+func MarkGroundRareSpecificItemIfEligible(i data.Item) {
+	ctx := context.Get()
+
+	// Map monster type to human-readable string
+	monsterTypeName := func(t data.MonsterType) string {
+		switch t {
+		case data.MonsterTypeMinion:
+			return "Minion"
+		case data.MonsterTypeNone:
+			return "Normal"
+		case data.MonsterTypeChampion:
+			return "Champion"
+		case data.MonsterTypeUnique:
+			return "Unique"
+		case data.MonsterTypeSuperUnique:
+			return "SuperUnique"
+		default:
+			return fmt.Sprintf("Unknown(%d)", t)
+		}
+	}
+
+	// Already tracking one specific item — do not overwrite
+	if ctx.MarkedRareSpecificItemUnitID != 0 || ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" {
+		//ctx.Logger.Info("Skipping: already tracking a specific item", "unitID", i.UnitID)
+		return
+	}
+
+	// Only magic items matching the configured specific item
+	if i.Name != item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) || i.Quality != item.QualityRare {
+		return
+	}
+
+	areaID := ctx.Data.PlayerUnit.Area
+	isTerror := slices.Contains(ctx.Data.TerrorZones, areaID)
+	var areaMLvl int
+
+	// --- Find nearest corpse ---
+	const maxCorpseDistance = 50
+
+	nearestCorpseID := ClosestCorpseID(i.Position, ctx.Data.Corpses)
+	var nearestCorpse *data.Monster
+	minCorpseDistance := 9999
+
+	for j := range ctx.Data.Corpses {
+		corpse := &ctx.Data.Corpses[j]
+
+		dist := pather.DistanceFromPoint(corpse.Position, i.Position)
+		if dist > maxCorpseDistance {
+			continue
+		}
+
+		if corpse.Name == nearestCorpseID && dist < minCorpseDistance {
+			minCorpseDistance = dist
+			nearestCorpse = corpse
+		}
+	}
+
+	if nearestCorpse != nil {
+		corpseDistance := pather.DistanceFromPoint(nearestCorpse.Position, i.Position)
+		ctx.Logger.Warn(
+			"Nearest corpse found",
+			"corpseID", nearestCorpse.Name,
+			"corpseType", monsterTypeName(nearestCorpse.Type),
+			"distance", corpseDistance,
+		)
+	}
+
+	// --- Find nearest chest within 10 units ---
+	var nearestChest *data.Object
+	minChestDistance := 9999
+	for k := range ctx.Data.Objects {
+		obj := &ctx.Data.Objects[k]
+		if !IsChestOrContainer(obj.Name) {
+			continue
+		}
+		dist := pather.DistanceFromPoint(obj.Position, i.Position)
+		if dist <= 50 && dist < minChestDistance {
+			minChestDistance = dist
+			nearestChest = obj
+		}
+	}
+
+	if nearestChest != nil {
+		ctx.Logger.Warn(
+			"Nearest chest found within 50 units",
+			"chestName", nearestChest.Name,
+			"distance", minChestDistance,
+		)
+	} else {
+		ctx.Logger.Warn("No chest found within 50 units of item", "unitID", i.UnitID)
+	}
+
+	// --- Decide whether to use chest or corpse for MLVL ---
+	useChestMLvl := false
+	if nearestChest != nil {
+		if nearestCorpse == nil {
+			useChestMLvl = true
+			ctx.Logger.Warn("Chest is used for MLVL because no corpse found", "chestName", nearestChest.Name)
+		} else {
+			corpseDistance := pather.DistanceFromPoint(nearestCorpse.Position, i.Position)
+			if corpseDistance > minChestDistance {
+				useChestMLvl = true
+				ctx.Logger.Warn("Chest is closer than corpse — using chest MLVL",
+					"chestName", nearestChest.Name,
+					"chestDistance", minChestDistance,
+					"corpseID", nearestCorpse.Name,
+					"corpseDistance", corpseDistance,
+				)
+			} else {
+				ctx.Logger.Warn("Corpse is closer than chest — using corpse MLVL",
+					"corpseID", nearestCorpse.Name,
+					"corpseDistance", corpseDistance,
+					"chestName", nearestChest.Name,
+					"chestDistance", minChestDistance,
+				)
+			}
+		}
+	}
+
+	if useChestMLvl {
+		// Assign MLVL = ALVL from table (no terror adjustments)
+		if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				areaMLvl = mlvls[0]
+			case difficulty.Nightmare:
+				areaMLvl = mlvls[1]
+			case difficulty.Hell:
+				areaMLvl = mlvls[2]
+			}
+			ctx.Logger.Warn("Chest MLVL applied", "areaID", areaID, "monsterLevel", areaMLvl)
+		} else {
+			ctx.Logger.Warn("Unknown area for chest MLVL — skipping item", "areaID", areaID)
+			return
+		}
+	}
+
+	// --- Override MLVL using corpse if chest MLVL not used ---
+	// --- Override MLVL using corpse if chest MLVL not used ---
+	if !useChestMLvl && nearestCorpse != nil && pather.DistanceFromPoint(nearestCorpse.Position, i.Position) <= 10 {
+		// Start with base MLVL from the table
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				areaMLvl = table[0]
+			case difficulty.Nightmare:
+				areaMLvl = table[1]
+			case difficulty.Hell:
+				areaMLvl = table[2]
+			}
+		} else {
+			ctx.Logger.Warn("Unknown monster in MonsterLevelTable — skipping MLVL override", "corpseName", nearestCorpse.Name)
+			return
+		}
+
+		// Apply modifier for champion/unique if not a superunique
+		switch nearestCorpse.Type {
+		case data.MonsterTypeChampion:
+			areaMLvl += 2
+		case data.MonsterTypeUnique:
+			areaMLvl += 3
+		}
+
+		ctx.Logger.Warn(
+			"MLVL overridden using corpse's actual level",
+			"unitID", i.UnitID,
+			"corpseID", nearestCorpse.Name,
+			"corpseType", monsterTypeName(nearestCorpse.Type),
+			"distance", pather.DistanceFromPoint(nearestCorpse.Position, i.Position),
+			"monsterLevel", areaMLvl,
+		)
+	}
+
+	// --- Only calculate areaMLvl normally if it hasn't been overridden ---
+	if areaMLvl == 0 {
+		if isTerror {
+			if clvl, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
+				areaMLvl = clvl.Value + 2
+				ctx.Logger.Warn("Terror zone base MLVL calculated", "charLevel", clvl.Value, "baseMLvl", areaMLvl)
+				switch ctx.CharacterCfg.Game.Difficulty {
+				case difficulty.Normal:
+					if areaMLvl > 45 {
+						areaMLvl = 45
+					}
+				case difficulty.Nightmare:
+					if areaMLvl > 71 {
+						areaMLvl = 71
+					}
+				case difficulty.Hell:
+					if areaMLvl > 96 {
+						areaMLvl = 96
+					}
+				}
+				ctx.Logger.Warn("Terror zone MLVL capped by difficulty", "monsterLevel", areaMLvl)
+			} else {
+				ctx.Logger.Warn("Cannot find character level — skipping item mark", "unitID", i.UnitID)
+				return
+			}
+		} else {
+			if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+				switch ctx.CharacterCfg.Game.Difficulty {
+				case difficulty.Normal:
+					areaMLvl = mlvls[0]
+				case difficulty.Nightmare:
+					areaMLvl = mlvls[1]
+				case difficulty.Hell:
+					areaMLvl = mlvls[2]
+				}
+				ctx.Logger.Warn("Area level table applied", "areaID", areaID, "monsterLevel", areaMLvl)
+			} else {
+				ctx.Logger.Warn("Unknown area — skipping item mark", "areaID", areaID)
+				return
+			}
+		}
+	}
+
+	// Check min/max MLVL
+	minMLvl := ctx.CharacterCfg.CubeRecipes.RareMinMonsterLevel
+	maxMLvl := ctx.CharacterCfg.CubeRecipes.RareMaxMonsterLevel
+	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
+		ctx.Logger.Warn(
+			"Area level out of range — skipping item mark",
+			"areaID", areaID,
+			"monsterLevel", areaMLvl,
+			"minMLvl", minMLvl,
+			"maxMLvl", maxMLvl,
+		)
+		return
+	}
+
+	// Mark the item
+	ctx.MarkedRareSpecificItemUnitID = i.UnitID
+	ctx.Logger.Warn(
+		"Marked specific item on ground",
+		"unitID", i.UnitID,
+		"areaID", areaID,
+		"monsterLevel", areaMLvl,
+	)
+}
+
 func identifySpecificMarkedItem(idTome data.Item, i data.Item) {
 	ctx := context.Get()
 
@@ -983,5 +1263,91 @@ func identifySpecificMarkedItem(idTome data.Item, i data.Item) {
 
 		// Clear temporary UnitID tracking (runtime-only)
 		ctx.MarkedSpecificItemUnitID = 0
+	}
+}
+
+func identifyRareSpecificMarkedItem(idTome data.Item, i data.Item) {
+	ctx := context.Get()
+
+	// Right-click Tome of Identify
+	screenPos := ui.GetScreenCoordsForItem(idTome)
+	utils.PingSleep(utils.Medium, 500)
+	ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
+	utils.PingSleep(utils.Critical, 1000)
+	ctx.Logger.Warn("Right-clicked Tome of Identify", "unitID", idTome.UnitID)
+
+	// Left-click the item
+	screenPos = ui.GetScreenCoordsForItem(i)
+	ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
+	ctx.Logger.Warn("Left-clicked item to identify", "unitID", i.UnitID)
+
+	// 🔎 Poll until the item is identified or timeout occurs
+	var identified data.Item
+	found := false
+	pollCount := 0
+	itemSeen := false
+
+	timeout := time.Now().Add(5 * time.Second) // Max 5 seconds to identify
+	for time.Now().Before(timeout) {
+		ctx.RefreshGameData()
+		for _, it := range ctx.Data.Inventory.ByLocation(
+			item.LocationInventory,
+			item.LocationStash,
+			item.LocationSharedStash,
+		) {
+			if it.UnitID == i.UnitID {
+				itemSeen = true
+				if it.Identified {
+					identified = it
+					found = true
+					break
+				}
+			}
+		}
+
+		if found {
+			ctx.Logger.Warn("Item successfully identified", "unitID", i.UnitID, "polls", pollCount)
+			break
+		}
+
+		pollCount++
+		if pollCount%5 == 0 { // Log every 5 polls (~0.5s)
+			ctx.Logger.Warn("Waiting for item to be identified...", "unitID", i.UnitID, "polls", pollCount)
+		}
+
+		utils.PingSleep(utils.Light, 100) // Poll every 100ms
+	}
+
+	if !itemSeen {
+		ctx.Logger.Warn("Item may never have been left-clicked; left-click might have failed", "unitID", i.UnitID)
+		ctx.MarkedRareSpecificItemUnitID = 0 // reset
+	}
+
+	if !found {
+		ctx.Logger.Error("FAILED TO IDENTIFY ITEM AFTER TIMEOUT", "unitID", i.UnitID)
+		ctx.MarkedRareSpecificItemUnitID = 0 // reset
+		return
+	}
+
+	// ✅ Fingerprint logic for marked Specific Item (NOW SAFE)
+	if identified.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
+		identified.Quality == item.QualityRare &&
+		ctx.MarkedRareSpecificItemUnitID == identified.UnitID {
+
+		if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(identified); res != nip.RuleResultFullMatch {
+			fp := SpecificFingerprint(identified)
+
+			ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = fp
+			ctx.Logger.Warn("SAVED MARKED RARE SPECIFIC ITEM FINGERPRINT", "fp", fp)
+			shouldStashIt(identified, true) // JUST ADDED
+			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
+			}
+		} else {
+			ctx.Logger.Warn("SPECIFIC RARE ITEM THAT I WAS GOING TO MARK TURNED OUT TO BE A KEEPER, NOT MARKING IT")
+		}
+
+		// Clear temporary UnitID tracking (runtime-only)
+		ctx.MarkedRareSpecificItemUnitID = 0
 	}
 }

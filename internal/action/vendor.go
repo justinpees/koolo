@@ -206,6 +206,29 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 			}
 		}
 	}
+
+	// 🔒 Protect marked specific rare item from being sold
+	if ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" {
+		for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+			if it.Quality == item.QualityRare &&
+				it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
+				SpecificRareFingerprint(it) == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+
+				ctx.Logger.Warn(
+					"LOCKING MARKED SPECIFIC ITEM TO PREVENT SELLING",
+					"unitID", it.UnitID,
+					"fp", ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint,
+				)
+
+				// Lock its inventory position
+				tempLock = append(tempLock, [][]int{
+					{it.Position.X, it.Position.Y},
+				})
+				break
+			}
+		}
+	}
+
 	// Sell junk
 	if sellJunk {
 		if len(tempLock) > 0 {

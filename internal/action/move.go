@@ -39,6 +39,7 @@ var alwaysTakeShrines = []object.ShrineType{
 	object.RefillShrine,
 	object.HealthShrine,
 	object.ManaShrine,
+	object.MonsterShrine,
 }
 
 var prioritizedShrines = []struct {

@@ -70,7 +70,8 @@ type Context struct {
 	Drop                  *drop.Manager // Drop: Per-supervisor Drop manager
 	//MarkedGrandCharm      *data.Item    // NEW FIELD: Tracks the Grand Charm marked for reroll after Diablo kill
 
-	MarkedSpecificItemUnitID data.UnitID
+	MarkedSpecificItemUnitID     data.UnitID
+	MarkedRareSpecificItemUnitID data.UnitID
 }
 
 type Debug struct {

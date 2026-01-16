@@ -3,6 +3,7 @@ package config
 var AvailableRecipes = []string{
 	// List out all the recipe names from cube_recipes.go
 	"Reroll Specific Magic Item",
+	"Reroll Specific Rare Item",
 	"Token of Absolution",
 	"Upgrade El",
 	"Upgrade Eld",

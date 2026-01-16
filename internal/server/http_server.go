@@ -1775,7 +1775,25 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		}
 		cfg.CubeRecipes.SkipPerfectAmethysts = values.Has("skipPerfectAmethysts")
 		cfg.CubeRecipes.SkipPerfectRubies = values.Has("skipPerfectRubies")
-		cfg.CubeRecipes.SpecificItemToReroll = values.Get("specificItemToReroll") // dropdown box to select item to reroll
+		cfg.CubeRecipes.SpecificItemToReroll = values.Get("specificItemToReroll")         // dropdown box to select item to reroll
+		cfg.CubeRecipes.RareSpecificItemToReroll = values.Get("rareSpecificItemToReroll") // dropdown box to select item to reroll
+		// textbox for rare min mvl
+		if v := values.Get("rareMinMonsterLevel"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				cfg.CubeRecipes.RareMinMonsterLevel = n
+			} else {
+				cfg.CubeRecipes.RareMinMonsterLevel = 1
+			}
+		}
+		//textbox for rare max mlvl
+		if v := values.Get("rareMaxMonsterLevel"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				cfg.CubeRecipes.RareMaxMonsterLevel = n
+			} else {
+				cfg.CubeRecipes.RareMaxMonsterLevel = 1
+			}
+		}
+
 		// textbox for min mvl
 		if v := values.Get("minMonsterLevel"); v != "" {
 			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
@@ -2638,7 +2656,26 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.CubeRecipes.SkipPerfectAmethysts = r.Form.Has("skipPerfectAmethysts")
 		cfg.CubeRecipes.SkipPerfectRubies = r.Form.Has("skipPerfectRubies")
 
-		cfg.CubeRecipes.SpecificItemToReroll = r.Form.Get("specificItemToReroll") // dropdown box for reroll specific item
+		cfg.CubeRecipes.SpecificItemToReroll = r.Form.Get("specificItemToReroll")         // dropdown box for reroll specific item
+		cfg.CubeRecipes.RareSpecificItemToReroll = r.Form.Get("rareSpecificItemToReroll") // dropdown box for reroll specific item
+
+		// textbox for min mlvl
+		if v := r.Form.Get("rareMinMonsterLevel"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				cfg.CubeRecipes.RareMinMonsterLevel = n
+			} else {
+				cfg.CubeRecipes.RareMinMonsterLevel = 1 // sensible default
+			}
+		}
+		// textbox for max mlvl
+		if v := r.Form.Get("rareMaxMonsterLevel"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				cfg.CubeRecipes.RareMaxMonsterLevel = n
+			} else {
+				cfg.CubeRecipes.RareMaxMonsterLevel = 1 // sensible default
+			}
+		}
+
 		// textbox for min mlvl
 		if v := r.Form.Get("minMonsterLevel"); v != "" {
 			if n, err := strconv.Atoi(v); err == nil && n >= 0 {

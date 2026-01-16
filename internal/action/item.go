@@ -160,6 +160,23 @@ func DropInventoryItem(i data.Item) error {
 		}
 	}
 
+	// ---------- PROTECT REROLLED MARKED SPECIFIC ITEM ----------
+	if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") {
+		// If this is the marked Grand Charm, don't drop it
+		if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) && i.Quality == item.QualityRare {
+			fp := SpecificRareFingerprint(i)
+			unitid := ctx.MarkedRareSpecificItemUnitID
+			if fp == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+				ctx.Logger.Debug("NOT DROPPING MARKED SPECIFIC ITEM BECAUSE FINGERPRINT MATCHES", "fp", fp)
+				return nil
+			}
+			if unitid == i.UnitID {
+				ctx.Logger.Debug("NOT DROPPING MARKED SPECIFIC ITEM BECAUSE unitID MATCHES", "unitID", unitid)
+				return nil
+			}
+		}
+	}
+
 	// ---------- ABSOLUTE PROTECTION ----------
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
 		if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {

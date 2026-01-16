@@ -498,6 +498,15 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		i.Quality == item.QualityMagic &&
 		ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
 
+		// 🔐 Absolute UnitID match (strongest signal)
+		if ctx.MarkedRareSpecificItemUnitID != 0 && i.UnitID == ctx.MarkedRareSpecificItemUnitID {
+			ctx.Logger.Warn(
+				"FORCING STASH OF MARKED SPECIFIC RARE ITEM (UnitID match)",
+				"unitID", i.UnitID,
+			)
+			return true, false, "", ""
+		}
+
 		fp := SpecificFingerprint(i)
 
 		if fp == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
@@ -518,6 +527,36 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 
 			// ✅ No duplicate found → safe to stash
 			ctx.Logger.Warn("FORCING STASH OF MARKED SPECIFIC ITEM", "fp", fp)
+			return true, false, "", ""
+		}
+	}
+
+	// NEED TO IMPLEMENT SAME LOGIC FOR SPECIFIC ITEM
+	if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") &&
+		i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
+		i.Quality == item.QualityRare &&
+		ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" {
+
+		fp := SpecificRareFingerprint(i)
+
+		if fp == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+
+			// 🔍 Check shared stash for an existing GC with same fingerprint
+			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+				if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
+					it.Quality == item.QualityRare &&
+					SpecificRareFingerprint(it) == fp {
+
+					ctx.Logger.Warn(
+						"Marked Specific Rare Item already exists in shared stash, skipping force stash",
+						"fp", fp,
+					)
+					return false, false, "", ""
+				}
+			}
+
+			// ✅ No duplicate found → safe to stash
+			ctx.Logger.Warn("FORCING STASH OF MARKED SPECIFIC RARE ITEM", "fp", fp)
 			return true, false, "", ""
 		}
 	}
@@ -614,6 +653,24 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 			}
 		}
 
+		if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") {
+			// 🔑 CHECK IF THIS IS THE MARKED GRAND CHARM
+			if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) && i.Quality == item.QualityRare {
+				fp := SpecificRareFingerprint(i)
+
+				if fp == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+					ctx.Logger.Error("REROLLED SPECIFIC ITEM MATCHES NIP — CLEARING MARK")
+
+					// ✅ RESET STATE
+					ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = ""
+					ctx.MarkedRareSpecificItemUnitID = 0
+
+					// Persist config so restart is safe
+					config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg)
+				}
+			}
+		}
+
 		if doesExceedQuantity(rule) {
 			// If it matches a rule but exceeds quantity, we want to drop it, not stash.
 			fmt.Printf("DEBUG: Dropping '%s' because MaxQuantity is exceeded.\n", i.Name)
@@ -684,12 +741,12 @@ func shouldKeepRecipeItem(i data.Item) bool {
 	// Check if the item is part of an enabled recipe
 	for _, recipe := range Recipes {
 
-		// 🔒 Special case: ignore GrandCharm as a recipe ingredient when rerolling marked GCs
+		/* // 🔒 Special case: ignore GrandCharm as a recipe ingredient when rerolling marked GCs
 		if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
 			recipe.Name == "Reroll GrandCharms" &&
 			i.Name == "GrandCharm" {
 			continue
-		}
+		} */
 
 		if slices.Contains(recipe.Items, string(i.Name)) &&
 			slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, recipe.Name) {

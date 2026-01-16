@@ -3,6 +3,7 @@ package action
 import (
 	"errors"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -11,6 +12,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/town"
@@ -309,6 +311,9 @@ func gambleItems() error {
 func processBoughtItem(itemBought *data.Item) {
 	ctx := context.Get()
 
+	// Ensure gamble roll is reflected
+	ctx.RefreshGameData()
+
 	for _, itm := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 		if itm.UnitID == itemBought.UnitID {
 			*itemBought = itm
@@ -316,9 +321,78 @@ func processBoughtItem(itemBought *data.Item) {
 		}
 	}
 
+	// 🔎 DEBUG: confirm final gamble state
+	ctx.Logger.Warn(
+		"GAMBLED ITEM FINAL STATE",
+		"name", itemBought.Name,
+		"quality", itemBought.Quality,
+	)
+
+	// NIP match → keep normally
 	if _, result := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAll(*itemBought); result == nip.RuleResultFullMatch {
 		ctx.Logger.Info("Found item matching NIP rules, keeping", slog.Any("item", *itemBought))
-	} else {
+		return
+	}
+
+	keep := false
+
+	if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") &&
+		ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint == "" &&
+		itemBought.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
+		itemBought.Quality == item.QualityRare &&
+		ctx.CharacterCfg.CubeRecipes.RareMinMonsterLevel >= 90 {
+
+		// Helper closure to reduce duplication
+		markAndKeep := func() {
+			keep = true
+			fp := SpecificRareFingerprint(*itemBought)
+
+			ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = fp
+			ctx.MarkedRareSpecificItemUnitID = itemBought.UnitID
+
+			ctx.Logger.Warn(
+				"SAVED GAMBLED RARE ITEM — MARKED FOR STASH",
+				"fp", fp,
+				"unitID", itemBought.UnitID,
+			)
+
+			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+				ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER UPDATING FINGERPRINT", "err", err)
+			}
+		}
+
+		if levelStat, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
+
+			switch ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll {
+			case "Circlet":
+				if levelStat.Value >= 92 {
+					markAndKeep()
+				}
+
+			case "Coronet":
+				if levelStat.Value >= 87 {
+					markAndKeep()
+				}
+
+			case "Tiara":
+				if levelStat.Value >= 82 {
+					markAndKeep()
+				}
+
+			case "Diadem":
+				if levelStat.Value >= 77 {
+					markAndKeep()
+				}
+
+			case "Amulet":
+				if levelStat.Value >= 95 {
+					markAndKeep()
+				}
+			}
+		}
+	}
+
+	if !keep {
 		town.SellItem(*itemBought)
 	}
 

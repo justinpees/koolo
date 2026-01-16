@@ -11,7 +11,6 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
-	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 type CubeRecipe struct {
@@ -517,11 +516,11 @@ var (
 			PurchaseItems:    []string{"Amulet"},
 		},
 
-		// Reroll Grand Charms
+		/* // Reroll Grand Charms
 		{
 			Name:  "Reroll GrandCharms",
 			Items: []string{"GrandCharm", "Perfect", "Perfect", "Perfect"}, // Special handling in hasItemsForRecipe
-		},
+		}, */
 
 		// Reroll Specific Magic Item
 		{
@@ -557,21 +556,22 @@ func CubeRecipes() error {
 	}
 
 	itemsInStash := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
+
 	for _, recipe := range Recipes {
 		// Check if the current recipe is Enabled
 		if !slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, recipe.Name) {
-			// is this really needed ? making huge logs
-			//		ctx.Logger.Debug("Cube recipe is not enabled, skipping", "recipe", recipe.Name)
 			continue
 		}
 
 		ctx.Logger.Debug("Cube recipe is enabled, processing", "recipe", recipe.Name)
 
+		isMagicReroll := recipe.Name == "Reroll Specific Magic Item"
+		isRareReroll := recipe.Name == "Reroll Specific Rare Item"
+
 		continueProcessing := true
 		for continueProcessing {
 			if items, hasItems := hasItemsForRecipe(ctx, recipe); hasItems {
 
-				// TODO: Check if we have the items in our storage and if not, purchase them, else take the item from the storage
 				if recipe.PurchaseRequired {
 					err := GambleSingleItem(recipe.PurchaseItems, item.QualityMagic)
 					if err != nil {
@@ -585,146 +585,125 @@ func CubeRecipes() error {
 						break
 					}
 
-					// Add the purchased item the list of items to cube
 					items = append(items, purchasedItem)
 				}
 
-				// Add items to the cube and perform the transmutation
-				err := CubeAddItems(items...)
-				if err != nil {
+				if err := CubeAddItems(items...); err != nil {
 					return err
 				}
-				if err = CubeTransmute(); err != nil {
+				if err := CubeTransmute(); err != nil {
 					return err
 				}
 
-				// Get a list of items that are in our inventory
 				itemsInInv := ctx.Data.Inventory.ByLocation(item.LocationInventory)
 
 				stashingRequired := false
-				stashingGrandCharm := false
 				stashingSpecificItem := false
+				stashingRareSpecificItem := false
 
-				// Check if the items that are not in the protected invetory slots should be stashed
 				for _, it := range itemsInInv {
-					// If item is not in the protected slots, check if it should be stashed
-					if ctx.CharacterCfg.Inventory.InventoryLock[it.Position.Y][it.Position.X] == 1 {
-						if it.Name == "Key" || it.IsPotion() || it.Name == item.TomeOfTownPortal || it.Name == item.TomeOfIdentify {
-							continue
-						}
+					if ctx.CharacterCfg.Inventory.InventoryLock[it.Position.Y][it.Position.X] != 1 {
+						continue
+					}
 
-						// ✅ FORCE STASH MAGIC / CRAFTED WIRT'S LEG
-						if it.Name == "WirtsLeg" && it.Quality >= item.QualityMagic {
-							ctx.Logger.Debug("FORCING STASH OF WIRT'S LEG AFTER CUBING", "quality", it.Quality.ToString())
-							stashingRequired = true
-							continue
-						}
+					if it.Name == "Key" || it.IsPotion() || it.Name == item.TomeOfTownPortal || it.Name == item.TomeOfIdentify {
+						continue
+					}
 
-						shouldStash, _, reason, _ := shouldStashIt(it, false)
+					if it.Name == "WirtsLeg" && it.Quality >= item.QualityMagic {
+						ctx.Logger.Debug("FORCING STASH OF WIRT'S LEG AFTER CUBING", "quality", it.Quality.ToString())
+						stashingRequired = true
+						continue
+					}
 
-						if shouldStash {
-							ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
-							stashingRequired = true
+					shouldStash, _, reason, _ := shouldStashIt(it, false)
+					if shouldStash {
+						ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
+						stashingRequired = true
+						continue
+					}
 
-						} else if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) {
+					// ───────── Magic specific reroll ─────────
+					if isMagicReroll && it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) {
+						ctx.Logger.Warn("KEEPING MARKED SPECIFIC ITEM AFTER REROLL — FORCING STASH")
+						stashingRequired = true
+						stashingSpecificItem = true
+						continue
+					}
 
-							// 🔒 Special case: ONLY when rerolling marked GCs
-							if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
-								// 🛡️ ALWAYS KEEP THE MARKED GRAND CHARM (POST-REROLL)
-
-								ctx.Logger.Warn("KEEPING MARKED SPECIFIC ITEM AFTER REROLL — FORCING STASH")
-								stashingRequired = true
-								stashingSpecificItem = true
-								continue
-
-							} else {
-								ctx.Logger.Debug("Checking if we need to stash a SpecificItem that doesn't match any NIP rules.", "recipe", recipe.Name)
-
-								hasUnmatchedSpecificItem := false
-								for _, stashItem := range itemsInStash {
-									// Skip non-magic grand charms (e.g., Gheeds Fortune)
-									if stashItem.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && stashItem.Quality == item.QualityMagic {
-										if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashItem); result != nip.RuleResultFullMatch {
-											hasUnmatchedSpecificItem = true
-											break
-										}
-									}
-
-								}
-
-								if !hasUnmatchedSpecificItem {
-									ctx.Logger.Error(
-										"SpecificItem doesn't match any NIP rules and we don't have any in stash to be used for this recipe. Stashing it.",
-										"recipe", recipe.Name,
-									)
-									stashingRequired = true
-									stashingSpecificItem = true
-								} else {
-									DropInventoryItem(it)
-									ctx.Logger.Debug("DROPPING ITEMS NOT PART OF SPECIFIC ITEM RECIPE")
-									utils.Sleep(500)
-								}
-							}
-
-						}
+					// ───────── Rare specific reroll ─────────
+					if isRareReroll && it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) {
+						ctx.Logger.Warn("KEEPING MARKED RARE SPECIFIC ITEM AFTER REROLL — FORCING STASH")
+						stashingRequired = true
+						stashingRareSpecificItem = true
+						continue
 					}
 				}
 
-				// Add grand charm to the stash if needed
-				if stashingRequired && !stashingGrandCharm {
-					_ = Stash(false)
-				} else if stashingGrandCharm {
-					// Force stashing of the invetory
-					_ = Stash(true)
+				if stashingRequired {
+					force := stashingSpecificItem || stashingRareSpecificItem
+					_ = Stash(force)
+
+					// refresh stash state
+					itemsInStash = ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
 				}
 
-				// Add specific item to the stash if needed
-				if stashingRequired && !stashingSpecificItem {
-					_ = Stash(false)
-				} else if stashingSpecificItem {
-					// Force stashing of the invetory
-					_ = Stash(true)
-				}
-
-				// Remove or decrement the used items from itemsInStash
 				itemsInStash = removeUsedItems(itemsInStash, items)
 
-				if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
-					// Reset fingerprint of marked Grand Charm after successfully stashing it
-					if recipe.Name == "Reroll Specific Magic Item" {
-						for _, it := range itemsInInv {
-							if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && it.Quality == item.QualityMagic {
-								// Generate new fingerprint for rerolled charm
-								specificFP := SpecificFingerprint(it)
+				// ───────── Update magic fingerprint ─────────
+				if isMagicReroll {
+					for _, it := range itemsInInv {
+						if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && it.Quality == item.QualityMagic {
+							fp := SpecificFingerprint(it)
+							ctx.Logger.Warn("MARKED SPECIFIC ITEM REROLLED — UPDATING FINGERPRINT", "newFP", fp)
 
-								ctx.Logger.Warn("MARKED SPECIFIC ITEM REROLLED — UPDATING FINGERPRINT", "newFP", specificFP)
-								ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = specificFP
+							ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = fp
+							ctx.MarkedSpecificItemUnitID = 0
 
-								// Reset UnitID so the bot can mark it again if needed
-								if ctx.MarkedSpecificItemUnitID != 0 {
-									ctx.Logger.Warn("RESETTING MARKED SPECIFIC ITEM UNITID AFTER SUCCESSFUL REROLL")
-									ctx.MarkedSpecificItemUnitID = 0
-								}
-
-								// Save updated config
-								if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
-									ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER UPDATING FINGERPRINT", "err", err)
-								}
-
-								break // Only handle one marked specific item
+							if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+								ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER UPDATING FINGERPRINT", "err", err)
 							}
+							break
 						}
 					}
 				}
+
+				// ───────── Update rare fingerprint ─────────
+				if isRareReroll {
+					for _, it := range itemsInInv {
+						if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) && it.Quality == item.QualityRare {
+							fp := SpecificRareFingerprint(it)
+							ctx.Logger.Warn("MARKED SPECIFIC RARE ITEM REROLLED — UPDATING FINGERPRINT", "newFP", fp)
+
+							ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = fp
+							ctx.MarkedRareSpecificItemUnitID = 0
+
+							if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+								ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER UPDATING FINGERPRINT", "err", err)
+							}
+							break
+						}
+					}
+				}
+
 			} else {
 				continueProcessing = false
 			}
 		}
 	}
 
-	ctx.Logger.Warn("Reroll Specific Magic Item enabled?", "enabled", slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item"))
+	ctx.Logger.Warn("Reroll Specific Magic Item enabled?", "enabled",
+		slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item"))
 	ctx.Logger.Warn("Marked SpecificItem UnitID", "unitID", ctx.MarkedSpecificItemUnitID)
-	ctx.Logger.Warn("Current marked SpecificItem fingerprint", "fp", ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint)
+	ctx.Logger.Warn("Current marked SpecificItem fingerprint", "fp",
+		ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint)
+
+	ctx.Logger.Warn("Reroll Specific Rare Item enabled?", "enabled",
+		slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item"))
+	ctx.Logger.Warn("Marked RareSpecificItem UnitID", "unitID", ctx.MarkedRareSpecificItemUnitID)
+	ctx.Logger.Warn("Current marked RareSpecificItem fingerprint", "fp",
+		ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint)
+
 	return nil
 }
 
@@ -744,6 +723,10 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	// Special handling for "Reroll Specific" recipe
 	if recipe.Name == "Reroll Specific Magic Item" {
 		return hasItemsForSpecificReroll(ctx, items)
+	}
+
+	if recipe.Name == "Reroll Specific Rare Item" {
+		return hasItemsForRareSpecificReroll(ctx, items)
 	}
 
 	if recipe.Name == "MagicWirtsLegStep1" {
@@ -869,7 +852,7 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	for _, it := range items {
 		if count, ok := recipeItems[string(it.Name)]; ok {
 
-			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
+			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); result == nip.RuleResultFullMatch {
 					ctx.Logger.Debug("Skipping item that matches NIP rules for cubing recipe", "item", it.Name, "recipe", recipe.Name)
 					/* if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
@@ -1173,6 +1156,53 @@ func hasItemsForSpecificReroll(ctx *context.Status, items []data.Item) ([]data.I
 
 		if specificitem.Name != "" && len(perfectGems) == 3 {
 			return append([]data.Item{specificitem}, perfectGems...), true
+		}
+	}
+
+	return nil, false
+}
+
+func hasItemsForRareSpecificReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {
+	var specificitem data.Item
+	perfectSkulls := make([]data.Item, 0, 6)
+
+	for _, itm := range items {
+
+		specificfp := SpecificRareFingerprint(itm)
+
+		// ───────── Identify the marked rare item ─────────
+		if itm.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
+			itm.Quality == item.QualityRare &&
+			specificfp == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); result != nip.RuleResultFullMatch {
+				specificitem = itm
+			} else {
+				ctx.Logger.Warn(
+					"GODLY!!!! RARE SPECIFIC ITEM MATCHES NIP — SKIPPING REROLL",
+					"item", itm.Name,
+					"fp", specificfp,
+					"quality", itm.Quality,
+				)
+
+				ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = ""
+				ctx.MarkedRareSpecificItemUnitID = 0
+
+				if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
+					ctx.Logger.Error("FAILED TO SAVE CONFIG AFTER NIP MATCH", "err", err)
+				}
+			}
+			continue
+		}
+
+		// ───────── Collect Perfect Skulls only ─────────
+		if itm.Name == "PerfectSkull" && len(perfectSkulls) < 6 {
+			perfectSkulls = append(perfectSkulls, itm)
+		}
+
+		// ───────── Recipe satisfied ─────────
+		if specificitem.Name != "" && len(perfectSkulls) == 6 {
+			return append([]data.Item{specificitem}, perfectSkulls...), true
 		}
 	}
 
