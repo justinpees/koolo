@@ -176,46 +176,6 @@ func (tz TerrorZone) customTZEnemyFilter() data.MonsterFilter {
 func DieOnPurpose() error {
 	ctx := context.Get()
 	ctx.SetLastAction("DieOnPurpose")
-	// ------------------------
-	// STEP 0: Disable potions & chicken
-	// ------------------------
-	// Save original health thresholds
-	hp := ctx.CharacterCfg.Health
-	origChicken := hp.ChickenAt
-	origHealing := hp.HealingPotionAt
-	origRejuv := hp.RejuvPotionAtLife
-	origMana := hp.ManaPotionAt
-	origMercChicken := hp.MercChickenAt
-	origMercHealing := hp.MercHealingPotionAt
-	origMercRejuv := hp.MercRejuvPotionAt
-
-	// Disable all healing & chicken
-	ctx.CharacterCfg.Health.ChickenAt = 0
-	ctx.CharacterCfg.Health.HealingPotionAt = 0
-	ctx.CharacterCfg.Health.RejuvPotionAtLife = 0
-	ctx.CharacterCfg.Health.ManaPotionAt = 0
-	ctx.CharacterCfg.Health.MercChickenAt = 0
-	ctx.CharacterCfg.Health.MercHealingPotionAt = 0
-	ctx.CharacterCfg.Health.MercRejuvPotionAt = 0
-
-	defer func() {
-		// Restore original values
-		ctx.CharacterCfg.Health.ChickenAt = origChicken
-		ctx.CharacterCfg.Health.HealingPotionAt = origHealing
-		ctx.CharacterCfg.Health.RejuvPotionAtLife = origRejuv
-		ctx.CharacterCfg.Health.ManaPotionAt = origMana
-		ctx.CharacterCfg.Health.MercChickenAt = origMercChicken
-		ctx.CharacterCfg.Health.MercHealingPotionAt = origMercHealing
-		ctx.CharacterCfg.Health.MercRejuvPotionAt = origMercRejuv
-
-		ctx.Logger.Warn("INTENTIONAL DEATH: health thresholds restored")
-	}()
-
-	/* // OPTIONAL: Hardcore safety guard
-	if ctx.Data.CharacterCfg.Hardcore {
-		ctx.Logger.Warn("INTENTIONAL DEATH BLOCKED: hardcore character")
-		return nil
-	} */
 
 	// ------------------------
 	// STEP 1: Travel to pull location

@@ -1185,6 +1185,7 @@ func EnsureUpgradeGemCornerSafe() {
 	newPos := ui.GetScreenCoordsForInventoryPosition(*target, item.LocationInventory)
 	ctx.HID.Click(game.LeftButton, newPos.X, newPos.Y)
 	utils.PingSleep(utils.Light, 200)
+	step.CloseAllMenus() //JUST ADDED
 }
 
 func isCornerSafeInMask(x, y int, inv *InventoryMask) bool {

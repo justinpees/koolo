@@ -44,6 +44,7 @@ func NewHealthManager(bm *BeltManager, data *game.Data) *Manager {
 }
 
 func (hm *Manager) HandleHealthAndMana() error {
+
 	hpConfig := hm.data.CharacterCfg.Health
 	// Safe area, skipping
 	if hm.data.PlayerUnit.Area.IsTown() {

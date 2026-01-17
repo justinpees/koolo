@@ -311,9 +311,6 @@ func gambleItems() error {
 func processBoughtItem(itemBought *data.Item) {
 	ctx := context.Get()
 
-	// Ensure gamble roll is reflected
-	ctx.RefreshGameData()
-
 	for _, itm := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 		if itm.UnitID == itemBought.UnitID {
 			*itemBought = itm
@@ -331,6 +328,7 @@ func processBoughtItem(itemBought *data.Item) {
 	// NIP match → keep normally
 	if _, result := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAll(*itemBought); result == nip.RuleResultFullMatch {
 		ctx.Logger.Info("Found item matching NIP rules, keeping", slog.Any("item", *itemBought))
+		*itemBought = data.Item{} // 🔑 REQUIRED
 		return
 	}
 

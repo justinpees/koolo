@@ -10,6 +10,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/drop"
 	"github.com/hectorgimenez/koolo/internal/event"
@@ -19,6 +20,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
+var RecentMonsters []RecentlySeenMonster
 var mu sync.Mutex
 var botContexts = make(map[uint64]*Status)
 
@@ -72,6 +74,14 @@ type Context struct {
 
 	MarkedSpecificItemUnitID     data.UnitID
 	MarkedRareSpecificItemUnitID data.UnitID
+	IsDyingOnPurpose             bool
+}
+
+type RecentlySeenMonster struct {
+	Name      npc.ID
+	Type      data.MonsterType
+	Position  data.Position
+	Timestamp time.Time
 }
 
 type Debug struct {
@@ -260,4 +270,28 @@ func (ctx *Context) Cleanup() {
 	// Reset counters on cleanup for a new session
 	ctx.CurrentGame.FailedToCreateGameAttempts = 0
 	ctx.CurrentGame.FailedMenuAttempts = 0 // Also reset this on cleanup
+}
+
+func TrackRecentMonsters() {
+	ctx := Get()
+	now := time.Now()
+
+	for _, m := range ctx.Data.Monsters.Enemies(ctx.Data.MonsterFilterAnyReachable()) {
+		RecentMonsters = append(RecentMonsters, RecentlySeenMonster{
+			Name:      m.Name,
+			Type:      m.Type,
+			Position:  m.Position,
+			Timestamp: now,
+		})
+	}
+
+	// Keep last ~3 seconds only
+	cutoff := now.Add(-3 * time.Second)
+	filtered := RecentMonsters[:0]
+	for _, m := range RecentMonsters {
+		if m.Timestamp.After(cutoff) {
+			filtered = append(filtered, m)
+		}
+	}
+	RecentMonsters = filtered
 }

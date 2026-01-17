@@ -191,7 +191,14 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 			strings.Contains(name, "hawk helm") ||
 			strings.Contains(name, "rage mask") ||
 			strings.Contains(name, "sun spirit") {
-			// 🔍 DEBUG: log ALL ground items
+
+			// 🔍 Check number of sockets
+			numSockets := 0
+			if stat, ok := i.FindStat(stat.NumSockets, 0); ok {
+				numSockets = stat.Value
+			}
+
+			// 🔍 DEBUG: log ALL ground items of interest
 			ctx.Logger.Warn(
 				"GROUND ITEM",
 				"unitID", i.UnitID,
@@ -199,6 +206,7 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 				"type", i.Type().Name,
 				"base", i.Name,
 				"quality", i.Quality.ToString(),
+				"sockets", numSockets,
 			)
 		}
 		if i.UnitID == targetID {

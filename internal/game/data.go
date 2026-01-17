@@ -26,6 +26,7 @@ type Data struct {
 }
 
 func (d Data) CanTeleport() bool {
+
 	// Check if teleport is generally enabled in character config
 	if !d.CharacterCfg.Character.UseTeleport {
 		return false
