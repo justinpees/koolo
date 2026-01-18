@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -10,7 +11,6 @@ import (
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/town"
-	"github.com/hectorgimenez/koolo/internal/utils"
 	"github.com/lxn/win"
 )
 
@@ -104,8 +104,8 @@ func IsDropProtected(i data.Item) bool {
 	}
 
 	// diablo/baal Grand Charm with fingerprint if enabled
-	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
-		if i.Name == "GrandCharm" && i.Quality == item.QualityMagic && ctx != nil && utils.GrandCharmFingerprint(i) == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+	if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
+		if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && i.Quality == item.QualityMagic && ctx != nil && SpecificFingerprint(i) == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
 			return true
 		}
 	}

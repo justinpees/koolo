@@ -513,7 +513,6 @@ type CharacterCfg struct {
 	CubeRecipes struct {
 		Enabled                  bool     `yaml:"enabled"`
 		EnabledRecipes           []string `yaml:"enabledRecipes"`
-		RerollGrandCharms        bool     `yaml:"rerollGrandCharms"`        // <-- new field
 		SpecificItemToReroll     string   `yaml:"specificItemToReroll"`     //specific item dropdownbox
 		RareSpecificItemToReroll string   `yaml:"rareSpecificItemToReroll"` //specific item dropdownbox
 		MinMonsterLevel          int      `yaml:"minMonsterLevel"`          // min mlvl textbox

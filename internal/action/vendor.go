@@ -232,7 +232,11 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	// Sell junk
 	if sellJunk {
 		if len(tempLock) > 0 {
-			town.SellJunk(tempLock[0])
+			ctx.Logger.Warn(
+				"SELLING JUNK WITH LOCKED SLOTS",
+				"locks", tempLock,
+			)
+			town.SellJunk(tempLock...)
 		} else {
 			town.SellJunk()
 		}

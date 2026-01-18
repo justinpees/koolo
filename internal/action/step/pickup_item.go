@@ -194,8 +194,8 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 
 			// 🔍 Check number of sockets
 			numSockets := 0
-			if stat, ok := i.FindStat(stat.NumSockets, 0); ok {
-				numSockets = stat.Value
+			if s, ok := i.FindStat(stat.NumSockets, 0); ok {
+				numSockets = s.Value
 			}
 
 			// 🔍 DEBUG: log ALL ground items of interest
@@ -207,6 +207,7 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 				"base", i.Name,
 				"quality", i.Quality.ToString(),
 				"sockets", numSockets,
+				"ethereal", i.Ethereal,
 			)
 		}
 		if i.UnitID == targetID {

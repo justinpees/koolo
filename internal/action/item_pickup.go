@@ -815,52 +815,149 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 	if nearestCorpse != nil && nearestShattered != nil &&
 		minCorpseDistance == minShatterDistance {
 
-		getMLvl := func(name any, mType data.MonsterType) (int, bool) {
-			table, ok := game.MonsterLevelTable[fmt.Sprint(name)]
-			if !ok {
-				return 0, false
-			}
-			var mlvl int
+		var corpseMLvl, shatterMLvl int
+		var ok1, ok2 bool
+
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
 			switch ctx.CharacterCfg.Game.Difficulty {
 			case difficulty.Normal:
-				mlvl = table[0]
+				corpseMLvl = table[0]
 			case difficulty.Nightmare:
-				mlvl = table[1]
+				corpseMLvl = table[1]
 			case difficulty.Hell:
-				mlvl = table[2]
+				corpseMLvl = table[2]
 			}
-			switch mType {
+			switch nearestCorpse.Type {
 			case data.MonsterTypeChampion:
-				mlvl += 2
+				corpseMLvl += 2
 			case data.MonsterTypeUnique:
-				mlvl += 3
+				corpseMLvl += 3
 			}
-			return mlvl, true
+			ok1 = true
 		}
 
-		corpseMLvl, ok1 := getMLvl(nearestCorpse.Name, nearestCorpse.Type)
-		shatterMLvl, ok2 := getMLvl(nearestShattered.Name, nearestShattered.Type)
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestShattered.Name)]; ok {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				shatterMLvl = table[0]
+			case difficulty.Nightmare:
+				shatterMLvl = table[1]
+			case difficulty.Hell:
+				shatterMLvl = table[2]
+			}
+			switch nearestShattered.Type {
+			case data.MonsterTypeChampion:
+				shatterMLvl += 2
+			case data.MonsterTypeUnique:
+				shatterMLvl += 3
+			}
+			ok2 = true
+		}
 
-		if ok1 && ok2 &&
-			(nearestCorpse.Type != nearestShattered.Type ||
-				corpseMLvl != shatterMLvl) {
-
+		if ok1 && ok2 && corpseMLvl != shatterMLvl {
 			minMLvl := ctx.CharacterCfg.CubeRecipes.MinMonsterLevel
 			maxMLvl := ctx.CharacterCfg.CubeRecipes.MaxMonsterLevel
 
 			corpseValid := corpseMLvl >= minMLvl && corpseMLvl <= maxMLvl
 			shatterValid := shatterMLvl >= minMLvl && shatterMLvl <= maxMLvl
 
-			ctx.Logger.Warn(
-				"Corpse/shattered tie with differing origin — validating both",
-				"corpseMLvl", corpseMLvl,
-				"shatterMLvl", shatterMLvl,
-				"corpseValid", corpseValid,
-				"shatterValid", shatterValid,
-			)
-
 			if !corpseValid || !shatterValid {
-				ctx.Logger.Warn("AMBIGUOUS ORIGIN REJECTED — NOT ALL SOURCES SATISFY MLVL RANGE")
+				return
+			}
+		}
+	}
+
+	// --- Tie-break logic: corpse vs chest ---
+	if nearestCorpse != nil && nearestChest != nil &&
+		minCorpseDistance == minChestDistance {
+
+		var corpseMLvl, chestMLvl int
+		var okCorpse, okChest bool
+
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				corpseMLvl = table[0]
+			case difficulty.Nightmare:
+				corpseMLvl = table[1]
+			case difficulty.Hell:
+				corpseMLvl = table[2]
+			}
+			switch nearestCorpse.Type {
+			case data.MonsterTypeChampion:
+				corpseMLvl += 2
+			case data.MonsterTypeUnique:
+				corpseMLvl += 3
+			}
+			okCorpse = true
+		}
+
+		if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				chestMLvl = mlvls[0]
+			case difficulty.Nightmare:
+				chestMLvl = mlvls[1]
+			case difficulty.Hell:
+				chestMLvl = mlvls[2]
+			}
+			okChest = true
+		}
+
+		if okCorpse && okChest && corpseMLvl != chestMLvl {
+			minMLvl := ctx.CharacterCfg.CubeRecipes.MinMonsterLevel
+			maxMLvl := ctx.CharacterCfg.CubeRecipes.MaxMonsterLevel
+
+			if corpseMLvl < minMLvl || corpseMLvl > maxMLvl ||
+				chestMLvl < minMLvl || chestMLvl > maxMLvl {
+				return
+			}
+		}
+	}
+
+	// --- Tie-break logic: shattered vs chest ---
+	if nearestShattered != nil && nearestChest != nil &&
+		minShatterDistance == minChestDistance {
+
+		var shatterMLvl, chestMLvl int
+		var okShatter, okChest bool
+
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestShattered.Name)]; ok {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				shatterMLvl = table[0]
+			case difficulty.Nightmare:
+				shatterMLvl = table[1]
+			case difficulty.Hell:
+				shatterMLvl = table[2]
+			}
+			switch nearestShattered.Type {
+			case data.MonsterTypeChampion:
+				shatterMLvl += 2
+			case data.MonsterTypeUnique:
+				shatterMLvl += 3
+			}
+			okShatter = true
+		}
+
+		if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				chestMLvl = mlvls[0]
+			case difficulty.Nightmare:
+				chestMLvl = mlvls[1]
+			case difficulty.Hell:
+				chestMLvl = mlvls[2]
+			}
+			okChest = true
+		}
+
+		if okShatter && okChest && shatterMLvl != chestMLvl {
+			minMLvl := ctx.CharacterCfg.CubeRecipes.MinMonsterLevel
+			maxMLvl := ctx.CharacterCfg.CubeRecipes.MaxMonsterLevel
+
+			if shatterMLvl < minMLvl || shatterMLvl > maxMLvl ||
+				chestMLvl < minMLvl || chestMLvl > maxMLvl {
 				return
 			}
 		}
@@ -907,49 +1004,16 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 
 		switch diff {
 		case difficulty.Normal:
-			switch mType {
-			case data.MonsterTypeNone:
-				if base > 45 {
-					base = 45
-				}
-			case data.MonsterTypeChampion:
-				if base > 47 {
-					base = 47
-				}
-			case data.MonsterTypeUnique, data.MonsterTypeSuperUnique:
-				if base > 48 {
-					base = 48
-				}
+			if base > 45 {
+				base = 45
 			}
 		case difficulty.Nightmare:
-			switch mType {
-			case data.MonsterTypeNone:
-				if base > 71 {
-					base = 71
-				}
-			case data.MonsterTypeChampion:
-				if base > 73 {
-					base = 73
-				}
-			case data.MonsterTypeUnique, data.MonsterTypeSuperUnique:
-				if base > 74 {
-					base = 74
-				}
+			if base > 71 {
+				base = 71
 			}
 		case difficulty.Hell:
-			switch mType {
-			case data.MonsterTypeNone:
-				if base > 96 {
-					base = 96
-				}
-			case data.MonsterTypeChampion:
-				if base > 98 {
-					base = 98
-				}
-			case data.MonsterTypeUnique, data.MonsterTypeSuperUnique:
-				if base > 99 {
-					base = 99
-				}
+			if base > 96 {
+				base = 96
 			}
 		}
 		return base
@@ -973,7 +1037,6 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 			return
 		}
 	} else {
-		// Non-terror zone
 		switch chosenSource {
 		case sourceCorpse:
 			if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
@@ -1145,66 +1208,159 @@ func MarkGroundRareSpecificItemIfEligible(i data.Item) {
 		)
 	}
 
-	// ------------------------------------------------------------------
-	// Tie-break logic: nearest corpse vs nearest shattered
-	// ------------------------------------------------------------------
+	// --- Tie-break logic for corpse vs shattered ---
 	if nearestCorpse != nil && nearestShattered != nil &&
 		minCorpseDistance == minShatterDistance {
 
-		getMLvl := func(name any, mType data.MonsterType) (int, bool) {
-			table, ok := game.MonsterLevelTable[fmt.Sprint(name)]
-			if !ok {
-				return 0, false
-			}
-			var mlvl int
+		var corpseMLvl, shatterMLvl int
+		var ok1, ok2 bool
+
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
 			switch ctx.CharacterCfg.Game.Difficulty {
 			case difficulty.Normal:
-				mlvl = table[0]
+				corpseMLvl = table[0]
 			case difficulty.Nightmare:
-				mlvl = table[1]
+				corpseMLvl = table[1]
 			case difficulty.Hell:
-				mlvl = table[2]
+				corpseMLvl = table[2]
 			}
-			switch mType {
+			switch nearestCorpse.Type {
 			case data.MonsterTypeChampion:
-				mlvl += 2
+				corpseMLvl += 2
 			case data.MonsterTypeUnique:
-				mlvl += 3
+				corpseMLvl += 3
 			}
-			return mlvl, true
+			ok1 = true
 		}
 
-		corpseMLvl, ok1 := getMLvl(nearestCorpse.Name, nearestCorpse.Type)
-		shatterMLvl, ok2 := getMLvl(nearestShattered.Name, nearestShattered.Type)
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestShattered.Name)]; ok {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				shatterMLvl = table[0]
+			case difficulty.Nightmare:
+				shatterMLvl = table[1]
+			case difficulty.Hell:
+				shatterMLvl = table[2]
+			}
+			switch nearestShattered.Type {
+			case data.MonsterTypeChampion:
+				shatterMLvl += 2
+			case data.MonsterTypeUnique:
+				shatterMLvl += 3
+			}
+			ok2 = true
+		}
 
-		if ok1 && ok2 &&
-			(nearestCorpse.Type != nearestShattered.Type ||
-				corpseMLvl != shatterMLvl) {
-
+		if ok1 && ok2 && corpseMLvl != shatterMLvl {
 			minMLvl := ctx.CharacterCfg.CubeRecipes.RareMinMonsterLevel
 			maxMLvl := ctx.CharacterCfg.CubeRecipes.RareMaxMonsterLevel
 
 			corpseValid := corpseMLvl >= minMLvl && corpseMLvl <= maxMLvl
 			shatterValid := shatterMLvl >= minMLvl && shatterMLvl <= maxMLvl
 
-			ctx.Logger.Warn(
-				"Corpse/shattered tie with differing origin — validating both",
-				"corpseMLvl", corpseMLvl,
-				"shatterMLvl", shatterMLvl,
-				"corpseValid", corpseValid,
-				"shatterValid", shatterValid,
-			)
-
 			if !corpseValid || !shatterValid {
-				ctx.Logger.Warn("AMBIGUOUS ORIGIN REJECTED — NOT ALL SOURCES SATISFY MLVL RANGE")
 				return
 			}
 		}
 	}
 
-	// ------------------------------------------------------------------
-	// Determine closest source
-	// ------------------------------------------------------------------
+	// --- Tie-break logic: corpse vs chest ---
+	if nearestCorpse != nil && nearestChest != nil &&
+		minCorpseDistance == minChestDistance {
+
+		var corpseMLvl, chestMLvl int
+		var okCorpse, okChest bool
+
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				corpseMLvl = table[0]
+			case difficulty.Nightmare:
+				corpseMLvl = table[1]
+			case difficulty.Hell:
+				corpseMLvl = table[2]
+			}
+			switch nearestCorpse.Type {
+			case data.MonsterTypeChampion:
+				corpseMLvl += 2
+			case data.MonsterTypeUnique:
+				corpseMLvl += 3
+			}
+			okCorpse = true
+		}
+
+		if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				chestMLvl = mlvls[0]
+			case difficulty.Nightmare:
+				chestMLvl = mlvls[1]
+			case difficulty.Hell:
+				chestMLvl = mlvls[2]
+			}
+			okChest = true
+		}
+
+		if okCorpse && okChest && corpseMLvl != chestMLvl {
+			minMLvl := ctx.CharacterCfg.CubeRecipes.RareMinMonsterLevel
+			maxMLvl := ctx.CharacterCfg.CubeRecipes.RareMaxMonsterLevel
+
+			if corpseMLvl < minMLvl || corpseMLvl > maxMLvl ||
+				chestMLvl < minMLvl || chestMLvl > maxMLvl {
+				return
+			}
+		}
+	}
+
+	// --- Tie-break logic: shattered vs chest ---
+	if nearestShattered != nil && nearestChest != nil &&
+		minShatterDistance == minChestDistance {
+
+		var shatterMLvl, chestMLvl int
+		var okShatter, okChest bool
+
+		if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestShattered.Name)]; ok {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				shatterMLvl = table[0]
+			case difficulty.Nightmare:
+				shatterMLvl = table[1]
+			case difficulty.Hell:
+				shatterMLvl = table[2]
+			}
+			switch nearestShattered.Type {
+			case data.MonsterTypeChampion:
+				shatterMLvl += 2
+			case data.MonsterTypeUnique:
+				shatterMLvl += 3
+			}
+			okShatter = true
+		}
+
+		if mlvls, exists := game.AreaLevelTable[areaID]; exists {
+			switch ctx.CharacterCfg.Game.Difficulty {
+			case difficulty.Normal:
+				chestMLvl = mlvls[0]
+			case difficulty.Nightmare:
+				chestMLvl = mlvls[1]
+			case difficulty.Hell:
+				chestMLvl = mlvls[2]
+			}
+			okChest = true
+		}
+
+		if okShatter && okChest && shatterMLvl != chestMLvl {
+			minMLvl := ctx.CharacterCfg.CubeRecipes.RareMinMonsterLevel
+			maxMLvl := ctx.CharacterCfg.CubeRecipes.RareMaxMonsterLevel
+
+			if shatterMLvl < minMLvl || shatterMLvl > maxMLvl ||
+				chestMLvl < minMLvl || chestMLvl > maxMLvl {
+				return
+			}
+		}
+	}
+
+	// --- Decide closest source ---
 	type sourceKind int
 	const (
 		sourceNone sourceKind = iota
@@ -1229,9 +1385,7 @@ func MarkGroundRareSpecificItemIfEligible(i data.Item) {
 		minDist = minChestDistance
 	}
 
-	// ------------------------------------------------------------------
-	// Helper: Terror zone MLVL calculation
-	// ------------------------------------------------------------------
+	// --- Terror zone MLVL helper ---
 	calcTerrorMLvl := func(clvl int, mType data.MonsterType, diff difficulty.Difficulty) int {
 		var base int
 		switch mType {
@@ -1247,58 +1401,22 @@ func MarkGroundRareSpecificItemIfEligible(i data.Item) {
 
 		switch diff {
 		case difficulty.Normal:
-			switch mType {
-			case data.MonsterTypeNone:
-				if base > 45 {
-					base = 45
-				}
-			case data.MonsterTypeChampion:
-				if base > 47 {
-					base = 47
-				}
-			case data.MonsterTypeUnique, data.MonsterTypeSuperUnique:
-				if base > 48 {
-					base = 48
-				}
+			if base > 45 {
+				base = 45
 			}
 		case difficulty.Nightmare:
-			switch mType {
-			case data.MonsterTypeNone:
-				if base > 71 {
-					base = 71
-				}
-			case data.MonsterTypeChampion:
-				if base > 73 {
-					base = 73
-				}
-			case data.MonsterTypeUnique, data.MonsterTypeSuperUnique:
-				if base > 74 {
-					base = 74
-				}
+			if base > 71 {
+				base = 71
 			}
 		case difficulty.Hell:
-			switch mType {
-			case data.MonsterTypeNone:
-				if base > 96 {
-					base = 96
-				}
-			case data.MonsterTypeChampion:
-				if base > 98 {
-					base = 98
-				}
-			case data.MonsterTypeUnique, data.MonsterTypeSuperUnique:
-				if base > 99 {
-					base = 99
-				}
+			if base > 96 {
+				base = 96
 			}
 		}
-
 		return base
 	}
 
-	// ------------------------------------------------------------------
-	// Apply MLVL based on source and terror
-	// ------------------------------------------------------------------
+	// --- Apply MLVL ---
 	if isTerror {
 		if clvlStat, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); ok {
 			clvl := clvlStat.Value
@@ -1316,7 +1434,6 @@ func MarkGroundRareSpecificItemIfEligible(i data.Item) {
 			return
 		}
 	} else {
-		// Non-terror zone
 		switch chosenSource {
 		case sourceCorpse:
 			if table, ok := game.MonsterLevelTable[fmt.Sprint(nearestCorpse.Name)]; ok {
@@ -1366,18 +1483,14 @@ func MarkGroundRareSpecificItemIfEligible(i data.Item) {
 		}
 	}
 
-	// ------------------------------------------------------------------
-	// Validate MLVL against min/max
-	// ------------------------------------------------------------------
+	// --- Validate MLVL ---
 	minMLvl := ctx.CharacterCfg.CubeRecipes.RareMinMonsterLevel
 	maxMLvl := ctx.CharacterCfg.CubeRecipes.RareMaxMonsterLevel
 	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
 		return
 	}
 
-	// ------------------------------------------------------------------
-	// Mark item
-	// ------------------------------------------------------------------
+	// --- Mark item ---
 	ctx.MarkedRareSpecificItemUnitID = i.UnitID
 	ctx.Logger.Warn(
 		"Marked rare specific item on ground",

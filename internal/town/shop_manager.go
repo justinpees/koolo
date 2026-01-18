@@ -3,12 +3,14 @@ package town
 import (
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/nip"
+
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
@@ -285,8 +287,79 @@ func SellJunk(lockConfig ...[][]int) {
 	}
 	// --- END OPTIMIZED LOGIC ---
 
-	// Existing logic to sell other junk items, now with lockConfig support
 	for _, i := range ItemsToBeSold(lockConfig...) {
+
+		// =========================================================
+		// 🔒 PROTECT SPECIFIC MAGIC ITEM (unless duplicate in stash)
+		// =========================================================
+		if ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" &&
+			i.Quality == item.QualityMagic &&
+			i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
+			SpecificFingerprint(i) == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+
+			foundInSharedStash := false
+
+			for _, stashItem := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+				if stashItem.Quality == item.QualityMagic &&
+					stashItem.Name == i.Name &&
+					SpecificFingerprint(stashItem) == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+
+					foundInSharedStash = true
+					break
+				}
+			}
+
+			if !foundInSharedStash {
+				ctx.Logger.Warn(
+					"HARD SKIP SELL: protected specific magic item (no stash duplicate)",
+					"unitID", i.UnitID,
+				)
+				continue
+			}
+
+			ctx.Logger.Warn(
+				"ALLOW SELL: duplicate specific magic item already in shared stash",
+				"unitID", i.UnitID,
+			)
+		}
+
+		// =========================================================
+		// 🔒 PROTECT SPECIFIC RARE ITEM (unless duplicate in stash)
+		// =========================================================
+		if ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" &&
+			i.Quality == item.QualityRare &&
+			i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
+			SpecificRareFingerprint(i) == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+
+			foundInSharedStash := false
+
+			for _, stashItem := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+				if stashItem.Quality == item.QualityRare &&
+					stashItem.Name == i.Name &&
+					SpecificRareFingerprint(stashItem) == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+
+					foundInSharedStash = true
+					break
+				}
+			}
+
+			if !foundInSharedStash {
+				ctx.Logger.Warn(
+					"HARD SKIP SELL: protected specific rare item (no stash duplicate)",
+					"unitID", i.UnitID,
+				)
+				continue
+			}
+
+			ctx.Logger.Warn(
+				"ALLOW SELL: duplicate specific rare item already in shared stash",
+				"unitID", i.UnitID,
+			)
+		}
+
+		// ---------------------------------------------------------
+		// Sell normally
+		// ---------------------------------------------------------
 		SellItem(i)
 	}
 }
@@ -453,6 +526,34 @@ func ItemsToBeSold(lockConfig ...[][]int) (items []data.Item) {
 			continue
 		}
 
+		if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") && itm.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
+			fp := SpecificFingerprint(itm)
+			if fp == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+				for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+					if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
+						it.Quality == item.QualityMagic &&
+						SpecificFingerprint(it) != fp {
+						ctx.Logger.Warn("ABSOLUTELY NOT SELLING SPECIFIC MAGIC ITEM BECAUSE IT MATCHES FINGERPRINT")
+						continue
+					}
+				}
+			}
+		}
+
+		if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") && itm.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) && ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" {
+			fp := SpecificRareFingerprint(itm)
+			if fp == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+				for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+					if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
+						it.Quality == item.QualityRare &&
+						SpecificRareFingerprint(it) != fp {
+						ctx.Logger.Warn("ABSOLUTELY NOT SELLING RARE SPECIFIC MAGIC ITEM BECAUSE IT MATCHES FINGERPRINT")
+						continue
+					}
+				}
+			}
+		}
+
 		// Handle jewels: keep up to the configured limit of non-NIP jewels
 		if craftingEnabled && string(itm.Name) == "Jewel" {
 			// Only consider jewels that are not covered by a NIP rule
@@ -497,4 +598,104 @@ func ItemsToBeSold(lockConfig ...[][]int) (items []data.Item) {
 	}
 
 	return
+}
+
+func SpecificFingerprint(it data.Item) string {
+	ctx := context.Get()
+	// Defensive guard
+	if it.Name != item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || it.Quality != item.QualityMagic {
+		return ""
+	}
+
+	var parts []string
+
+	// Base identity: include actual item name for uniqueness
+	parts = append(parts, string(it.Name))
+
+	// Identified name (stable across games)
+	if it.IdentifiedName != "" {
+		parts = append(parts, it.IdentifiedName)
+	}
+
+	// Magic affixes (prefixes & suffixes)
+	for _, p := range it.Affixes.Magic.Prefixes {
+		if p != 0 {
+			parts = append(parts, fmt.Sprintf("P%d", p))
+		}
+	}
+	for _, s := range it.Affixes.Magic.Suffixes {
+		if s != 0 {
+			parts = append(parts, fmt.Sprintf("S%d", s))
+		}
+	}
+
+	// Serialize stats deterministically
+	stats := make([]string, 0, len(it.Stats))
+	for _, st := range it.Stats {
+		stats = append(stats, fmt.Sprintf(
+			"%d:%d:%d",
+			st.ID,    // stat ID
+			st.Layer, // layer
+			st.Value, // value
+		))
+	}
+
+	// Order-independent
+	sort.Strings(stats)
+
+	for _, s := range stats {
+		parts = append(parts, s)
+	}
+
+	return strings.Join(parts, "|")
+}
+
+func SpecificRareFingerprint(it data.Item) string {
+	ctx := context.Get()
+	// Defensive guard
+	if it.Name != item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) || it.Quality != item.QualityRare {
+		return ""
+	}
+
+	var parts []string
+
+	// Base identity: include actual item name for uniqueness
+	parts = append(parts, string(it.Name))
+
+	// Identified name (stable across games)
+	if it.IdentifiedName != "" {
+		parts = append(parts, it.IdentifiedName)
+	}
+
+	// Magic affixes (prefixes & suffixes)
+	for _, p := range it.Affixes.Magic.Prefixes {
+		if p != 0 {
+			parts = append(parts, fmt.Sprintf("P%d", p))
+		}
+	}
+	for _, s := range it.Affixes.Magic.Suffixes {
+		if s != 0 {
+			parts = append(parts, fmt.Sprintf("S%d", s))
+		}
+	}
+
+	// Serialize stats deterministically
+	stats := make([]string, 0, len(it.Stats))
+	for _, st := range it.Stats {
+		stats = append(stats, fmt.Sprintf(
+			"%d:%d:%d",
+			st.ID,    // stat ID
+			st.Layer, // layer
+			st.Value, // value
+		))
+	}
+
+	// Order-independent
+	sort.Strings(stats)
+
+	for _, s := range stats {
+		parts = append(parts, s)
+	}
+
+	return strings.Join(parts, "|")
 }
