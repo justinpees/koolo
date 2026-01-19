@@ -84,21 +84,7 @@ func BuyConsumables(forceRefill bool) {
 		}
 	}
 
-	disableIDs := false
-	if ctx.CharacterCfg.Game.DisableIdentifyTome {
-		isLeveling := false
-		if ctx.IsLevelingCharacter != nil {
-			isLeveling = *ctx.IsLevelingCharacter
-		} else {
-			isLeveling = ctx.Data.IsLevelingCharacter
-		}
-		disableIDs = !isLeveling
-	}
-
-	if disableIDs {
-		ctx.Logger.Debug("DisableIdentifyTome enabled – skipping ID tome/scroll purchases.")
-	} else if ShouldBuyIDs() || forceRefill {
-
+	if ShouldBuyIDs() || forceRefill {
 		if _, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory); !found && ctx.Data.PlayerUnit.TotalPlayerGold() > 360 {
 			ctx.Logger.Info("ID Tome not found, buying one...")
 			if itm, itmFound := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationVendor); itmFound {

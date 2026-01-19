@@ -5,11 +5,9 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
-	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
-	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 )
@@ -58,15 +56,7 @@ func (p Pindleskin) Run(parameters *RunParameters) error {
 
 	redPortal, found := p.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
 	if !found {
-		if err := action.InteractNPC(npc.Drehya); err != nil {
-			return err
-		}
-		step.CloseAllMenus()
-		p.ctx.RefreshGameData()
-		redPortal, found = p.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
-		if !found {
-			return errors.New("red portal not found after talking to anya")
-		}
+		return errors.New("red portal not found")
 	}
 
 	err = action.InteractObject(redPortal, func() bool {

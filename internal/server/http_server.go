@@ -1355,7 +1355,6 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Discord.EnableDiscordChickenMessages = r.Form.Has("enable_discord_chicken_messages")
 		newConfig.Discord.EnableDiscordErrorMessages = r.Form.Has("enable_discord_error_messages")
 		newConfig.Discord.DisableItemStashScreenshots = r.Form.Has("discord_disable_item_stash_screenshots")
-		newConfig.Discord.IncludePickitInfoInItemText = r.Form.Has("discord_include_pickit_info_in_item_text")
 		newConfig.Discord.Token = r.Form.Get("discord_token")
 		newConfig.Discord.ChannelID = r.Form.Get("discord_channel_id")
 
@@ -1504,6 +1503,7 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		}
 		cfg.KillD2OnStop = values.Has("kill_d2_process")
 		cfg.ClassicMode = values.Has("classic_mode")
+		cfg.CloseMiniPanel = values.Has("close_mini_panel")
 		cfg.HidePortraits = values.Has("hide_portraits")
 	}
 
@@ -1729,7 +1729,6 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 			cfg.Inventory.GemToUpgrade = values.Get("upgradeGemUsingShrine")
 			cfg.Game.CreateLobbyGames = values.Has("createLobbyGames")
 			cfg.Game.IsNonLadderChar = values.Has("isNonLadderChar")
-			cfg.Game.IsHardCoreChar = values.Has("isHardCoreChar")
 			cfg.Game.Difficulty = difficulty.Difficulty(values.Get("gameDifficulty"))
 			cfg.Game.RandomizeRuns = values.Has("gameRandomizeRuns")
 			cfg.Game.ShopVendorsDuringTownVisits = values.Has("shopVendorsDuringTownVisits")
@@ -2073,35 +2072,6 @@ func (s *HttpServer) updateClassSpecificConfig(values url.Values, cfg *config.Ch
 		cfg.Character.NovaSorceress.AggressiveNovaPositioning = values.Has("aggressiveNovaPositioning")
 	}
 
-	// Javazon specific options
-	if cfg.Character.Class == "javazon" {
-		cfg.Character.Javazon.DensityKillerEnabled = values.Has("javazonDensityKillerEnabled")
-		if v := values.Get("javazonDensityKillerIgnoreWhitesBelow"); v != "" {
-			if i, err := strconv.Atoi(v); err == nil {
-				cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = i
-			} else {
-				cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
-			}
-		} else if cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow == 0 {
-			cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
-		}
-		if v := values.Get("javazonDensityKillerForceRefillBelowPercent"); v != "" {
-			if i, err := strconv.Atoi(v); err == nil {
-				if i < 1 {
-					i = 1
-				}
-				if i > 100 {
-					i = 100
-				}
-				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = i
-			} else {
-				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
-			}
-		} else if cfg.Character.Javazon.DensityKillerForceRefillBelowPercent == 0 {
-			cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
-		}
-	}
-
 	// Lightning Sorceress specific options
 	if cfg.Character.Class == "lightsorc" {
 	}
@@ -2241,6 +2211,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.CommandLineArgs = r.Form.Get("commandLineArgs")
 		cfg.KillD2OnStop = r.Form.Has("kill_d2_process")
 		cfg.ClassicMode = r.Form.Has("classic_mode")
+		cfg.CloseMiniPanel = r.Form.Has("close_mini_panel")
 		cfg.HidePortraits = r.Form.Has("hide_portraits")
 
 		// Health config
@@ -2249,7 +2220,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Health.RejuvPotionAtLife, _ = strconv.Atoi(r.Form.Get("rejuvPotionAtLife"))
 		cfg.Health.RejuvPotionAtMana, _ = strconv.Atoi(r.Form.Get("rejuvPotionAtMana"))
 		cfg.Health.ChickenAt, _ = strconv.Atoi(r.Form.Get("chickenAt"))
-		cfg.Health.TownChickenAt, _ = strconv.Atoi(r.Form.Get("townChickenAt"))
 		cfg.Character.UseMerc = r.Form.Has("useMerc")
 		cfg.Health.MercHealingPotionAt, _ = strconv.Atoi(r.Form.Get("mercHealingPotionAt"))
 		cfg.Health.MercRejuvPotionAt, _ = strconv.Atoi(r.Form.Get("mercRejuvPotionAt"))
@@ -2509,35 +2479,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.NovaSorceress.AggressiveNovaPositioning = r.Form.Has("aggressiveNovaPositioning")
 		}
 
-		// Javazon specific options
-		if cfg.Character.Class == "javazon" {
-			cfg.Character.Javazon.DensityKillerEnabled = r.Form.Has("javazonDensityKillerEnabled")
-			if v := r.Form.Get("javazonDensityKillerIgnoreWhitesBelow"); v != "" {
-				if i, err := strconv.Atoi(v); err == nil {
-					cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = i
-				} else {
-					cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
-				}
-			} else if cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow == 0 {
-				cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
-			}
-			if v := r.Form.Get("javazonDensityKillerForceRefillBelowPercent"); v != "" {
-				if i, err := strconv.Atoi(v); err == nil {
-					if i < 1 {
-						i = 1
-					}
-					if i > 100 {
-						i = 100
-					}
-					cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = i
-				} else {
-					cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
-				}
-			} else if cfg.Character.Javazon.DensityKillerForceRefillBelowPercent == 0 {
-				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
-			}
-		}
-
 		for y, row := range cfg.Inventory.InventoryLock {
 			for x := range row {
 				if r.Form.Has(fmt.Sprintf("inventoryLock[%d][%d]", y, x)) {
@@ -2563,10 +2504,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.DisableIdentifyTome = r.PostFormValue("game.disableIdentifyTome") == "on"
 		cfg.Game.InteractWithShrines = r.Form.Has("interactWithShrines")
 		cfg.Game.InteractWithChests = r.Form.Has("interactWithChests")
-		cfg.Game.InteractWithSuperChests = r.Form.Has("interactWithSuperChests")
 		cfg.Game.StopLevelingAt, _ = strconv.Atoi(r.Form.Get("stopLevelingAt"))
 		cfg.Game.IsNonLadderChar = r.Form.Has("isNonLadderChar")
-		cfg.Game.IsHardCoreChar = r.Form.Has("isHardCoreChar")
 
 		if v := r.Form.Get("maxGameLength"); v != "" {
 			cfg.MaxGameLength, _ = strconv.Atoi(v)

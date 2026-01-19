@@ -185,7 +185,7 @@ func GetRuleTemplates() []RuleTemplate {
 				},
 				RightConditions: []Condition{
 					{Property: "ias", Operator: ">=", Value: 15},
-					{Property: "enhanceddamage", Operator: ">=", Value: 30},
+					{Property: "eddmg", Operator: ">=", Value: 30},
 				},
 				Enabled:  true,
 				Priority: 85,

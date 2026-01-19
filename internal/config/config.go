@@ -31,10 +31,6 @@ var (
 	Koolo      *KooloCfg
 	Characters map[string]*CharacterCfg
 	Version    = "dev"
-
-	// NIP rules cache - stores compiled rules by path to avoid recompiling for multiple characters
-	nipRulesCacheMux sync.RWMutex
-	nipRulesCache    = make(map[string]nip.Rules)
 )
 
 type KooloCfg struct {
@@ -60,7 +56,6 @@ type KooloCfg struct {
 		EnableDiscordChickenMessages bool     `yaml:"enableDiscordChickenMessages"`
 		EnableDiscordErrorMessages   bool     `yaml:"enableDiscordErrorMessages"`
 		DisableItemStashScreenshots  bool     `yaml:"disableItemStashScreenshots"`
-		IncludePickitInfoInItemText  bool     `yaml:"includePickitInfoInItemText"`
 		BotAdmins                    []string `yaml:"botAdmins"`
 		MentionID                    []string `yaml:"mentionId"`
 		ChannelID                    string   `yaml:"channelId"`
@@ -189,6 +184,7 @@ type CharacterCfg struct {
 	CommandLineArgs      string `yaml:"commandLineArgs"`
 	KillD2OnStop         bool   `yaml:"killD2OnStop"`
 	ClassicMode          bool   `yaml:"classicMode"`
+	CloseMiniPanel       bool   `yaml:"closeMiniPanel"`
 	UseCentralizedPickit bool   `yaml:"useCentralizedPickit"`
 	HidePortraits        bool   `yaml:"hidePortraits"`
 	AutoStart            bool   `yaml:"autoStart"`
@@ -308,13 +304,6 @@ type CharacterCfg struct {
 		AmazonLeveling struct {
 			UsePacketLearning bool `yaml:"use_packet_learning"`
 		} `yaml:"amazon_leveling"`
-		Javazon struct {
-			DensityKillerEnabled           bool `yaml:"density_killer_enabled"`
-			DensityKillerIgnoreWhitesBelow int  `yaml:"density_killer_ignore_whites_below"`
-			// Force a vendor "Repair All" to replenish javelins in town when quantity is below this % threshold.
-			// Only applied for the Javazon build when DensityKillerEnabled is true.
-			DensityKillerForceRefillBelowPercent int `yaml:"density_killer_force_refill_below_percent"`
-		} `yaml:"javazon"`
 		DruidLeveling struct {
 			UsePacketLearning bool `yaml:"use_packet_learning"`
 		} `yaml:"druid_leveling"`
@@ -352,15 +341,14 @@ type CharacterCfg struct {
 		InteractWithSuperChests     bool                  `yaml:"interactWithSuperChests"`
 		StopLevelingAt              int                   `yaml:"stopLevelingAt"`
 		IsNonLadderChar             bool                  `yaml:"isNonLadderChar"`
-		IsHardCoreChar              bool                  `yaml:"isHardCoreChar"`
 		ClearTPArea                 bool                  `yaml:"clearTPArea"`
 		Difficulty                  difficulty.Difficulty `yaml:"difficulty"`
 		RandomizeRuns               bool                  `yaml:"randomizeRuns"`
+		ShopVendorsDuringTownVisits bool                  `yaml:"shopVendorsDuringTownVisits"`
 		Runs                        []Run                 `yaml:"runs"`
 		CreateLobbyGames            bool                  `yaml:"createLobbyGames"`
 		PublicGameCounter           int                   `yaml:"-"`
 		MaxFailedMenuAttempts       int                   `yaml:"maxFailedMenuAttempts"`
-		ShopVendorsDuringTownVisits bool                  `yaml:"shopVendorsDuringTownVisits"`
 		Pindleskin                  struct {
 			SkipOnImmunities []stat.Resist `yaml:"skipOnImmunities"`
 		} `yaml:"pindleskin"`
@@ -662,14 +650,14 @@ func Load() error {
 			pickitPath = getAbsPath(filepath.Join("config", entry.Name(), "pickit")) + "\\"
 		}
 
-		rules, err := getCachedRulesDir(pickitPath)
+		rules, err := nip.ReadDir(pickitPath)
 		if err != nil {
 			return fmt.Errorf("error reading pickit directory %s: %w", pickitPath, err)
 		}
 
 		// Load the leveling pickit rules
 
-		if len(charCfg.Game.Runs) > 0 && (charCfg.Game.Runs[0] == "leveling" || charCfg.Game.Runs[0] == "leveling_sequence") {
+		if len(charCfg.Game.Runs) > 0 && charCfg.Game.Runs[0] == "leveling" || charCfg.Game.Runs[0] == "leveling_sequence" {
 			nips := getLevelingNipFiles(&charCfg, entry.Name())
 
 			for _, nipFile := range nips {
@@ -712,61 +700,8 @@ func sanitizeDiscordConfig(cfg *KooloCfg) {
 	}
 }
 
-// ClearNIPCache clears the compiled NIP rules cache, forcing recompilation on next load
-func ClearNIPCache() {
-	nipRulesCacheMux.Lock()
-	nipRulesCache = make(map[string]nip.Rules)
-	nipRulesCacheMux.Unlock()
-}
-
-// getCachedRulesDir returns cached NIP rules for a directory, compiling only if not cached
-func getCachedRulesDir(pickitPath string) (nip.Rules, error) {
-	nipRulesCacheMux.RLock()
-	if cached, ok := nipRulesCache[pickitPath]; ok {
-		nipRulesCacheMux.RUnlock()
-		return cached, nil
-	}
-	nipRulesCacheMux.RUnlock()
-
-	// Not cached, compile the rules
-	rules, err := nip.ReadDir(pickitPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Store in cache
-	nipRulesCacheMux.Lock()
-	nipRulesCache[pickitPath] = rules
-	nipRulesCacheMux.Unlock()
-
-	return rules, nil
-}
-
-// getCachedRulesFile returns cached NIP rules for a single file, compiling only if not cached
-func getCachedRulesFile(filePath string) (nip.Rules, error) {
-	nipRulesCacheMux.RLock()
-	if cached, ok := nipRulesCache[filePath]; ok {
-		nipRulesCacheMux.RUnlock()
-		return cached, nil
-	}
-	nipRulesCacheMux.RUnlock()
-
-	// Not cached, compile via temp directory workaround
-	rules, err := readSinglePickitFileUncached(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Store in cache
-	nipRulesCacheMux.Lock()
-	nipRulesCache[filePath] = rules
-	nipRulesCacheMux.Unlock()
-
-	return rules, nil
-}
-
-// Helper function to read a single NIP file using the temp directory workaround (uncached)
-func readSinglePickitFileUncached(filePath string) (nip.Rules, error) {
+// Helper function to read a single NIP file using the temp directory workaround
+func readSinglePickitFile(filePath string) (nip.Rules, error) {
 	tempDir := filepath.Join(filepath.Dir(filePath), "temp_single_read")
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create temp pickit directory: %w", err)
@@ -788,11 +723,6 @@ func readSinglePickitFileUncached(filePath string) (nip.Rules, error) {
 	}
 
 	return rules, nil
-}
-
-// readSinglePickitFile returns cached NIP rules for a single file (for backwards compatibility)
-func readSinglePickitFile(filePath string) (nip.Rules, error) {
-	return getCachedRulesFile(filePath)
 }
 
 func CreateFromTemplate(name string) error {

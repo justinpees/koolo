@@ -7,7 +7,6 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
-	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
@@ -58,20 +57,13 @@ func OpenPortal() error {
 		usedKB := false
 		//Already have tome of portal
 		if tpItemFound {
-			// has tome even scrolls in it?
-			qty, qtyFound := tpItem.FindStat(stat.Quantity, 0)
-			if !qtyFound || qty.Value == 0 {
-				ctx.Logger.Warn("Town Portal Tome is empty, checking for loose scrolls")
-				tpItemFound = false
-			} else if _, bindingFound := ctx.Data.KeyBindings.KeyBindingForSkill(skill.TomeOfTownPortal); bindingFound {
+			if _, bindingFound := ctx.Data.KeyBindings.KeyBindingForSkill(skill.TomeOfTownPortal); bindingFound {
 				ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.MustKBForSkill(skill.TomeOfTownPortal))
 				utils.PingSleep(utils.Medium, 250) // Medium operation: Wait for tome activation
 				ctx.HID.Click(game.RightButton, 300, 300)
 				usedKB = true
 			}
-		}
-
-		if !tpItemFound {
+		} else {
 			tpItem, tpItemFound = ctx.Data.Inventory.Find(item.ScrollOfTownPortal, item.LocationInventory)
 		}
 

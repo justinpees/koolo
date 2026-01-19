@@ -33,8 +33,8 @@ const (
 	SorceressLevelingThreatDistance     = 15
 	AndarielRepositionLength            = 9
 
-	SorceressLevelingDangerDistance = 6
-	SorceressLevelingSafeDistance   = 15
+	SorceressLevelingDangerDistance = 4
+	SorceressLevelingSafeDistance   = 6
 
 	StaticFieldEffectiveRange = 4 // Maximum distance for Static Field to reliably hit
 )
@@ -643,11 +643,10 @@ func (s SorceressLeveling) ShouldResetSkills() bool {
 func (s SorceressLeveling) SkillsToBind() (skill.ID, []skill.ID) {
 	level, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
 
-	skillBindings := []skill.ID{}
-
-	if level.Value < 24 {
-		skillBindings = append(skillBindings, skill.FireBolt)
+	skillBindings := []skill.ID{
+		skill.FireBolt,
 	}
+
 	if level.Value >= 2 {
 		skillBindings = append(skillBindings, skill.FrozenArmor)
 	}

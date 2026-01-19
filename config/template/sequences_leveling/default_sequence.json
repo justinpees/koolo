@@ -83,24 +83,24 @@
         "beforeQuests": [
             {
                 "run": "tristram_early_gold_farm",
-                "maxLevel": 23,
+                "maxLevel": 24,
                 "lowGoldRun": true
             },
             {
                 "run": "tristram",
-                "maxLevel": 9
+                "maxLevel": 10
             },
             {
                 "run": "countess",
-                "maxLevel": 9
+                "maxLevel": 10
             },
             {
                 "run": "andariel",
-                "maxLevel": 11
+                "maxLevel": 12
             },
             {
                 "run": "tal_rasha_tombs",
-                "maxLevel": 23
+                "maxLevel": 24
             },
             {
                 "run": "lower_kurast",
@@ -118,7 +118,7 @@
         ],
         "nextDifficultyConditions": {
             "level": 41,
-            "fireRes": 15,
+            "fireRes": 0,
             "aboveGoldThreshold": true
         },
         "configSettings": [
@@ -166,7 +166,7 @@
             {
                 "run": "frozen_aura_merc"
             },
-            {
+			{
                 "run": "radament"
             },
             {
@@ -230,7 +230,7 @@
         "beforeQuests": [
             {
                 "run": "countess",
-                "maxLevel": 59
+                "maxLevel": 60
             },
             {
                 "run": "countess",
@@ -238,7 +238,7 @@
             },
             {
                 "run": "diablo",
-                "maxLevel": 49
+                "maxLevel": 50
             },
             {
                 "run": "lower_kurast_chest",
@@ -260,11 +260,6 @@
         ],
         "nextDifficultyConditions": {
             "level": 70,
-            "fireRes": 15,
-            "aboveGoldThreshold": true
-        },
-        "stayDifficultyConditions": {
-            "level": 41,
             "fireRes": 15,
             "aboveGoldThreshold": true
         },
@@ -324,7 +319,7 @@
         "beforeQuests": [
             {
                 "run": "mausoleum",
-                "maxLevel": 84
+                "maxLevel": 85
             },
             {
                 "run": "lower_kurast_chest",
@@ -337,9 +332,9 @@
             }
         ],
         "stayDifficultyConditions": {
-            "level": 70,
             "fireRes": 15,
-            "aboveGoldThreshold": true
+            "lightRes": 15,
+            "aboveLowGold": true
         },
         "configSettings": [
             {

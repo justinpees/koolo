@@ -754,18 +754,7 @@ const UI = {
     items.push(...getFormattedItems(filter.selectedGems));
     items.push(...getFormattedItems(filter.selectedKeyTokens)); 
     
-    if (filter.allowedQualities?.length) {
-        const qualityLabels = {
-            base: "White",
-            magic: "Magic",
-            rare: "Rare",
-            set: "Set",
-            unique: "Unique",
-            crafted: "Crafted",
-            runeword: "Runeword"
-        };
-        items.push(...filter.allowedQualities.map(q => qualityLabels[q] || q));
-    }
+    if (filter.allowedQualities?.length) { items.push(...filter.allowedQualities);}
     if (filter.customItems?.length) items.push(`Custom (${filter.customItems.length})`);
 
     const chipsToDisplay = items.slice(0, maxChips);
@@ -824,20 +813,9 @@ const UI = {
         });
     });
 
-    const qualityLabels = {
-        base: "White",
-        magic: "Magic",
-        rare: "Rare",
-        set: "Set",
-        unique: "Unique",
-        crafted: "Crafted",
-        runeword: "Runeword"
-    };
-
     document.querySelectorAll("#dm-card-quality-checkboxes input:checked").forEach(cb => {
         hasItems = true;
-        const label = qualityLabels[cb.value] || cb.value;
-        createChip(`Quality: ${label}`, () => {
+        createChip(`Quality: ${cb.value}`, () => {
             cb.checked = false; 
             cb.dispatchEvent(new Event('change', {bubbles:true}));
         });

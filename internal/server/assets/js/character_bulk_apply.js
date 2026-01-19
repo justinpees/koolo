@@ -284,6 +284,7 @@ document.addEventListener('DOMContentLoaded', function () {
             commandLineArgs: inputVal('commandLineArgs'),
             killD2OnStop: boolVal('kill_d2_process'),
             classicMode: boolVal('classic_mode'),
+            closeMiniPanel: boolVal('close_mini_panel'),
             hidePortraits: boolVal('hide_portraits'),
         };
         return JSON.stringify(state);
@@ -812,6 +813,7 @@ document.addEventListener('DOMContentLoaded', function () {
         'commandLineArgs',
         'kill_d2_process',
         'classic_mode',
+        'close_mini_panel',
         'hide_portraits',
     ]);
 

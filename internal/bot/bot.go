@@ -36,27 +36,6 @@ func (b *Bot) NeedsTPsToContinue() bool {
 	return !action.HasTPsAvailable()
 }
 
-func (b *Bot) shouldReturnToTown(lvl int, needHealingPotionsRefill, needManaPotionsRefill, townChicken bool) bool {
-	if (b.ctx.Data.PlayerUnit.TotalPlayerGold() > 500 && lvl <= 5) ||
-		(b.ctx.Data.PlayerUnit.TotalPlayerGold() > 1000 && lvl < 20) ||
-		(b.ctx.Data.PlayerUnit.TotalPlayerGold() > 5000 && lvl >= 20) {
-		if (b.ctx.CharacterCfg.BackToTown.NoHpPotions && needHealingPotionsRefill ||
-			b.ctx.CharacterCfg.BackToTown.EquipmentBroken && action.IsEquipmentBroken() ||
-			b.ctx.CharacterCfg.BackToTown.NoMpPotions && needManaPotionsRefill ||
-			townChicken ||
-			b.ctx.CharacterCfg.BackToTown.MercDied &&
-				b.ctx.Data.MercHPPercent() <= 0 &&
-				b.ctx.CharacterCfg.Character.UseMerc &&
-				b.ctx.Data.PlayerUnit.TotalPlayerGold() > 100000) &&
-			!b.ctx.Data.PlayerUnit.Area.IsTown() &&
-			b.ctx.Data.PlayerUnit.Area != area.UberTristram {
-			return true
-		}
-	}
-
-	return false
-}
-
 func NewBot(ctx *botCtx.Context, mm MuleManager) *Bot {
 	return &Bot{
 		ctx:                   ctx,
@@ -218,6 +197,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 
 		b.ctx.AttachRoutine(botCtx.PriorityHigh)
 		ticker := time.NewTicker(time.Millisecond * 100)
+		lastAreaCorrection := time.Now()
 
 		for {
 			select {
@@ -312,11 +292,30 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 
 				if _, found := b.ctx.Data.KeyBindings.KeyBindingForSkill(skill.TomeOfTownPortal); found {
 					if !b.NeedsTPsToContinue() {
-						shouldReturnTown = b.shouldReturnToTown(lvl.Value, needHealingPotionsRefill, needManaPotionsRefill, townChicken)
+						if (b.ctx.Data.PlayerUnit.TotalPlayerGold() > 500 && lvl.Value <= 5) ||
+							(b.ctx.Data.PlayerUnit.TotalPlayerGold() > 1000 && lvl.Value < 20) ||
+							(b.ctx.Data.PlayerUnit.TotalPlayerGold() > 5000 && lvl.Value >= 20) {
+
+							if (b.ctx.CharacterCfg.BackToTown.NoHpPotions && needHealingPotionsRefill ||
+								b.ctx.CharacterCfg.BackToTown.EquipmentBroken && action.IsEquipmentBroken() ||
+								b.ctx.CharacterCfg.BackToTown.NoMpPotions && needManaPotionsRefill ||
+								townChicken ||
+								b.ctx.CharacterCfg.BackToTown.MercDied &&
+									b.ctx.Data.MercHPPercent() <= 0 &&
+									b.ctx.CharacterCfg.Character.UseMerc &&
+									b.ctx.Data.PlayerUnit.TotalPlayerGold() > 100000) &&
+								!b.ctx.Data.PlayerUnit.Area.IsTown() &&
+								b.ctx.Data.PlayerUnit.Area != area.UberTristram {
+								shouldReturnTown = true
+							}
+						}
 					}
 				}
 
-				shouldCorrectArea := b.ctx.CurrentGame.AreaCorrection.Enabled
+				shouldCorrectArea := false
+				if b.ctx.CurrentGame.AreaCorrection.Enabled && time.Since(lastAreaCorrection) > 1*time.Second {
+					shouldCorrectArea = true
+				}
 
 				// Action Execution
 				// Only switch to High Priority if we actually have work to do.
@@ -328,6 +327,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 						if err = action.AreaCorrection(); err != nil {
 							b.ctx.Logger.Warn("Area correction failed", "error", err)
 						}
+						lastAreaCorrection = time.Now()
 					}
 
 					// Execute Pickup
@@ -345,15 +345,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 						// Double check condition inside lock if needed, but usually safe to run
 						action.ManageBelt()
 						action.RefillBeltFromInventory()
-
-						if shouldReturnTown {
-							b.ctx.RefreshGameData()
-							_, healingPotionsFoundInBelt = b.ctx.Data.Inventory.Belt.GetFirstPotion(data.HealingPotion)
-							_, manaPotionsFoundInBelt = b.ctx.Data.Inventory.Belt.GetFirstPotion(data.ManaPotion)
-							needHealingPotionsRefill = !healingPotionsFoundInBelt && b.ctx.CharacterCfg.Inventory.BeltColumns.Total(data.HealingPotion) > 0
-							needManaPotionsRefill = !manaPotionsFoundInBelt && b.ctx.CharacterCfg.Inventory.BeltColumns.Total(data.ManaPotion) > 0
-							shouldReturnTown = b.shouldReturnToTown(lvl.Value, needHealingPotionsRefill, needManaPotionsRefill, townChicken)
-						}
+						b.ctx.RefreshGameData()
 					}
 
 					// Execute Town Return

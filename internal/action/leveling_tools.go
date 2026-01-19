@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -167,9 +166,6 @@ func EnsureStatPoints() error {
 		return nil
 	}
 
-	ctx.IsAllocatingStatsOrSkills.Store(true)
-	defer ctx.IsAllocatingStatsOrSkills.Store(false)
-
 	statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 	if !hasUnusedPoints || statPoints.Value == 0 {
 		return nil
@@ -271,7 +267,7 @@ func getAvailableSkillKB() []data.KeyBinding {
 	ctx.SetLastAction("getAvailableSkillKB")
 
 	for _, sb := range ctx.Data.KeyBindings.Skills {
-		if sb.SkillID == -1 && ((sb.Key1[0] != 0 && sb.Key1[0] != 255) || (sb.Key2[0] != 0 && sb.Key2[0] != 255)) {
+		if sb.SkillID == -1 && (sb.Key1[0] != 0 && sb.Key1[0] != 255) || (sb.Key2[0] != 0 && sb.Key2[0] != 255) {
 			availableSkillKB = append(availableSkillKB, sb.KeyBinding)
 		}
 	}
@@ -281,29 +277,27 @@ func getAvailableSkillKB() []data.KeyBinding {
 
 func ResetBindings() error {
 	ctx := context.Get()
-	ctx.SetLastAction("BindTomeOfTownPortalToSkillActions")
+	ctx.SetLastAction("BindTomeOfTownPortalToFKeys") // Updated action name
 
 	// 1. Check if Tome of Town Portal is available in inventory (inventory-based check for legacy compatibility)
 	if _, found := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory); !found {
-		ctx.Logger.Debug("TomeOfTownPortal tome not found in inventory. Skipping skill action binding sequence.")
+		ctx.Logger.Debug("TomeOfTownPortal tome not found in inventory. Skipping F-key binding sequence.")
 		return nil
 	}
 
 	// Determine the skill position once, as it's always TomeOfTownPortal
 	skillPosition, found := calculateSkillPositionInUI(false, skill.TomeOfTownPortal)
 	if !found {
-		ctx.Logger.Error("TomeOfTownPortal skill UI position not found. Cannot proceed with skill action binding.")
+		ctx.Logger.Error("TomeOfTownPortal skill UI position not found. Cannot proceed with F-key binding.")
 		step.CloseAllMenus()
 		return fmt.Errorf("TomeOfTownPortal skill UI position not found")
 	}
 
-	// Loop for skill action 1 through 16 based on configured keybindings.
-	for i, skillBinding := range ctx.Data.KeyBindings.Skills {
-		if (skillBinding.Key1[0] == 0 || skillBinding.Key1[0] == 255) && (skillBinding.Key2[0] == 0 || skillBinding.Key2[0] == 255) {
-			ctx.Logger.Debug(fmt.Sprintf("Skipping skill action %d: no keybinding assigned.", i+1))
-			continue
-		}
-		ctx.Logger.Info(fmt.Sprintf("Attempting to bind TomeOfTownPortal to skill action %d", i+1))
+	// Loop for F1 through F8
+	for i := 0; i < 8; i++ {
+		fKey := byte(win.VK_F1 + i)                            // win.VK_F1 is 0x70, win.VK_F2 is 0x71, and so on.
+		fKeyBinding := data.KeyBinding{Key1: [2]byte{fKey, 0}} // Assuming 0 for no modifier key
+		ctx.Logger.Info(fmt.Sprintf("Attempting to bind TomeOfTownPortal to F%d", i+1))
 
 		// 2. Open the secondary skill assignment UI
 		if ctx.GameReader.LegacyGraphics() {
@@ -317,8 +311,8 @@ func ResetBindings() error {
 		ctx.HID.MovePointer(skillPosition.X, skillPosition.Y)
 		utils.Sleep(500) // Delay for mouse to move and for the hover effect
 
-		// 4. Press current skill action keybinding to assign the skill
-		ctx.HID.PressKeyBinding(skillBinding.KeyBinding)
+		// 4. Press current F-key to assign the skill
+		ctx.HID.PressKeyBinding(fKeyBinding)
 		utils.Sleep(700) // Delay for the binding to register
 
 		// 5. Close the skill assignment menu
@@ -327,7 +321,7 @@ func ResetBindings() error {
 		utils.Sleep(500) // Delay after closing for the next iteration
 	}
 
-	ctx.Logger.Info("TomeOfTownPortal binding to skill action 1-16 sequence completed.")
+	ctx.Logger.Info("TomeOfTownPortal binding to F1-F8 sequence completed.")
 	return nil
 }
 
@@ -356,17 +350,7 @@ func HireMerc() error {
 		}
 
 		// Only hire in Normal difficulty
-		if ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
-			if ctx.Data.PlayerUnit.Area != area.LutGholein {
-				if err := WayPoint(area.LutGholein); err != nil {
-					if strings.Contains(err.Error(), "no available waypoint found to reach destination") {
-						ctx.Logger.Debug("Lut Gholein waypoint not unlocked, skipping merc hire.")
-						return nil
-					}
-					return err
-				}
-			}
-
+		if ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && ctx.Data.PlayerUnit.TotalPlayerGold() > 5000 && ctx.Data.PlayerUnit.Area == area.LutGholein {
 			ctx.Logger.Info("Attempting to hire 'Prayer' mercenary...")
 
 			isLegacy := ctx.Data.LegacyGraphics
@@ -394,19 +378,14 @@ func HireMerc() error {
 			}
 
 			if mercToHire != nil {
-				currentGold := ctx.Data.PlayerUnit.TotalPlayerGold()
-				if currentGold < mercToHire.Cost {
-					ctx.Logger.Info(fmt.Sprintf("Not enough gold to hire merc (gold: %d, cost: %d).", currentGold, mercToHire.Cost))
-				} else {
-					ctx.Logger.Info(fmt.Sprintf("Hiring merc: %s with skill %s", mercToHire.Name, mercToHire.Skill.Name))
-					keySequence := []byte{win.VK_HOME}
-					for i := 0; i < mercToHire.Index; i++ {
-						keySequence = append(keySequence, win.VK_DOWN)
-					}
-					keySequence = append(keySequence, win.VK_RETURN, win.VK_UP, win.VK_RETURN)
-					ctx.HID.KeySequence(keySequence...)
-					utils.Sleep(1000)
+				ctx.Logger.Info(fmt.Sprintf("Hiring merc: %s with skill %s", mercToHire.Name, mercToHire.Skill.Name))
+				keySequence := []byte{win.VK_HOME}
+				for i := 0; i < mercToHire.Index; i++ {
+					keySequence = append(keySequence, win.VK_DOWN)
 				}
+				keySequence = append(keySequence, win.VK_RETURN, win.VK_UP, win.VK_RETURN)
+				ctx.HID.KeySequence(keySequence...)
+				utils.Sleep(1000)
 			} else {
 				ctx.Logger.Info("No merc with Prayer found.")
 				utils.Sleep(1000)
@@ -481,7 +460,7 @@ func ResetStats() error {
 					continue
 				}
 
-				// Ctrl-click to unequip the item to stash directly
+				// Shift-click to unequip the item to inventory
 				ctx.HID.ClickWithModifier(game.LeftButton, slotCoords.X, slotCoords.Y, game.CtrlKey)
 				utils.Sleep(500)
 
@@ -501,7 +480,6 @@ func ResetStats() error {
 		utils.Sleep(1000)
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
 		utils.Sleep(1000)
-		ctx.GameReader.GetData() // Refresh data to update skill values
 
 		// 4. Now, drop any remaining items directly in the inventory
 		ctx.Logger.Info("Dropping all remaining inventory items.")
@@ -532,33 +510,20 @@ func ResetStats() error {
 
 		step.CloseAllMenus()
 		utils.Sleep(500)
-		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
-		utils.Sleep(500)
 
 		// 5. Finalize the reset process
 		err := ResetBindings()
 		if err != nil {
-			ctx.Logger.Error("Failed to bind TomeOfTownPortal after stats reset", slog.Any("error", err))
+			ctx.Logger.Error("Failed to bind TomeOfTownPortal to F8 after stats reset", slog.Any("error", err))
 		}
-		utils.Sleep(500)
-		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
 		utils.Sleep(500)
 
 		EnsureStatPoints()
 		utils.Sleep(500)
-		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
-		utils.Sleep(500)
-		ctx.GameReader.GetData() // Refresh data to update stat values
-
 		EnsureSkillPoints()
 		utils.Sleep(500)
-		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
-		utils.Sleep(500)
-		ctx.GameReader.GetData() // Refresh data to update skill values
 
 		EnsureSkillBindings()
-		utils.Sleep(500)
-		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
 		utils.Sleep(500)
 
 		ctx.EnableItemPickup()
