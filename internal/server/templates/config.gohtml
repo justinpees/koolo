@@ -6,14 +6,14 @@
     <meta name="color-scheme" content="light dark"/>
     <link rel="stylesheet" href="../assets/css/pico.min.css">
     <link rel="stylesheet" href="../assets/css/custom.css">
-    <title>Koolo Settings</title>
+    <title>Koolo Resurrected Settings</title>
     <style>
         :root {
             /* Primary Colors */
             --primary: #0089eb;
             --primary-hover: #1b9bf7;
             --primary-light: #dcf2ff;
-            
+
             /* Accent Colors */
             --accent-pink: #ff758a;
             --accent-purple: #e391db;
@@ -23,20 +23,20 @@
             --accent-orange: #f5ab00;
             --accent-green: #3dba69;
             --accent-lime: #a0b61f;
-            
+
             /* Background Colors */
             --bg-primary: #1a1d24;
             --bg-secondary: #22262e;
             --bg-tertiary: #2a2f38;
             --bg-hover: #32363f;
             --bg-elevated: #2d323c;
-            
+
             /* Text Colors */
             --text-primary: #ffffff;
             --text-secondary: #a0a0a0;
             --text-muted: #666666;
             --text-dim: #4a4a4a;
-            
+
             /* Border & Shadows */
             --border-color: #424549;
             --border-subtle: rgba(255, 255, 255, 0.08);
@@ -45,19 +45,19 @@
             --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.3);
             --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.4);
             --glow-primary: 0 0 20px rgba(0, 137, 235, 0.3);
-            
+
             /* Transitions */
             --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
             --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
             --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-            
+
             /* Spacing */
             --spacing-xs: 4px;
             --spacing-sm: 8px;
             --spacing-md: 16px;
             --spacing-lg: 24px;
             --spacing-xl: 32px;
-            
+
             /* Border Radius */
             --radius-sm: 6px;
             --radius-md: 8px;
@@ -383,8 +383,12 @@
                         Enable Error Messages
                     </label>
                     <label>
-                        <input type="checkbox" name="discord_disable_item_stash_screenshots" value="{{ .Discord.DisableItemStashScreenshots }}" {{ if .Discord.DisableItemStashScreenshots }} checked="checked" {{ end }} />
+                        <input type="checkbox" id="discord-disable-item-stash-screenshots" name="discord_disable_item_stash_screenshots" value="{{ .Discord.DisableItemStashScreenshots }}" {{ if .Discord.DisableItemStashScreenshots }} checked="checked" {{ end }} />
                         Disable Item Stash Screenshots (send text only)
+                    </label>
+                    <label>
+                        <input type="checkbox" id="discord-include-pickit-info" name="discord_include_pickit_info_in_item_text" value="{{ .Discord.IncludePickitInfoInItemText }}" {{ if .Discord.IncludePickitInfoInItemText }} checked="checked" {{ end }} {{ if not .Discord.DisableItemStashScreenshots }} disabled="disabled" {{ end }} />
+                        Show NIP rule (send text only)
                     </label>
                 </fieldset>
                 <h4>Telegram integration</h4>
@@ -575,6 +579,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     webhookCheckbox.addEventListener("change", updateDiscordFields);
     updateDiscordFields();
+
+    const disableItemStashScreenshots = document.getElementById("discord-disable-item-stash-screenshots");
+    const includePickitInfo = document.getElementById("discord-include-pickit-info");
+    if (disableItemStashScreenshots && includePickitInfo) {
+        function updatePickitInfoOption() {
+            const allowPickitInfo = disableItemStashScreenshots.checked;
+            includePickitInfo.disabled = !allowPickitInfo;
+            if (!allowPickitInfo) {
+                includePickitInfo.checked = false;
+            }
+        }
+
+        disableItemStashScreenshots.addEventListener("change", updatePickitInfoOption);
+        updatePickitInfoOption();
+    }
 
     if (!ngrokEnabled || !ngrokConfig) {
         return;

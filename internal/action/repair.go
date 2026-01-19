@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -17,6 +18,150 @@ import (
 	"github.com/lxn/win"
 )
 
+func RepairTownRoutine() error {
+	ctx := context.Get()
+	ctx.SetLastAction("RepairTownRoutine")
+
+	if !ctx.Data.PlayerUnit.Area.IsTown() {
+		return nil
+	}
+
+	force, reason := shouldForceRepairAllForJavazonDkQuantity(ctx)
+	if force {
+		ctx.Logger.Info(reason)
+		repairNPC := town.GetTownByArea(ctx.Data.PlayerUnit.Area).RepairNPC()
+		return repairAllAtNPC(repairNPC)
+	}
+
+	return Repair()
+}
+
+func shouldForceRepairAllForJavazonDkQuantity(ctx *context.Status) (bool, string) {
+	if ctx.CharacterCfg.Character.Class != "javazon" {
+		return false, ""
+	}
+	if !ctx.CharacterCfg.Character.Javazon.DensityKillerEnabled {
+		return false, ""
+	}
+
+	threshold := ctx.CharacterCfg.Character.Javazon.DensityKillerForceRefillBelowPercent
+	if threshold <= 0 || threshold > 100 {
+		threshold = 50
+	}
+
+	for _, itm := range ctx.Data.Inventory.ByLocation(item.LocationEquipped) {
+		if itm.Location.BodyLocation != item.LocLeftArm && itm.Location.BodyLocation != item.LocRightArm {
+			continue
+		}
+
+		if itm.Ethereal {
+			continue
+		}
+
+		itmType := itm.Type()
+		if !itmType.IsType(item.TypeJavelin) && !itmType.IsType(item.TypeAmazonJavelin) {
+			continue
+		}
+
+		qty, qtyFound := itm.FindStat(stat.Quantity, 0)
+		if !qtyFound {
+			continue
+		}
+
+		maxQty := getMaxJavelinQuantity(itm)
+		if maxQty <= 0 {
+			continue
+		}
+
+		if qty.Value < 0 {
+			qty.Value = 0
+		}
+
+		pct := (qty.Value * 100) / maxQty
+
+		if pct < threshold {
+			return true, fmt.Sprintf("Force RepairAll for javelin refill: %s %d/%d (%d%%) < %d%%",
+				itm.Name, qty.Value, maxQty, pct, threshold)
+		}
+	}
+
+	return false, ""
+}
+
+func getMaxJavelinQuantity(itm data.Item) int {
+	qty, qtyFound := itm.FindStat(stat.Quantity, 0)
+	currentQty := 0
+	if qtyFound {
+		currentQty = qty.Value
+	}
+
+	name := strings.ToLower(string(itm.Name))
+
+	// Titan's Revenge: 180 max (Ceremonial Javelin base)
+	if strings.Contains(name, "titan") {
+		return 180
+	}
+	if strings.Contains(name, "ceremonial") && currentQty > 80 {
+		return 180
+	}
+
+	// Thunderstroke: 80 max (Matriarchal Javelin base)
+	if strings.Contains(name, "thunder") || strings.Contains(name, "tstroke") {
+		return 80
+	}
+
+	// Check for Replenishes Quantity stat (Titan's Revenge)
+	for _, s := range itm.Stats {
+		if s.ID == 252 {
+			return 180
+		}
+	}
+
+	// Fallback: base type defaults
+	itmType := itm.Type()
+	if itmType.IsType(item.TypeAmazonJavelin) {
+		return 80
+	}
+	if itmType.IsType(item.TypeJavelin) {
+		return 60
+	}
+
+	return 0
+}
+
+func repairAllAtNPC(repairNPC npc.ID) error {
+	ctx := context.Get()
+
+	if repairNPC == npc.Larzuk {
+		MoveToCoords(data.Position{X: 5135, Y: 5046})
+	}
+	if repairNPC == npc.Hratli {
+		if err := FindHratliEverywhere(); err != nil {
+			return err
+		}
+	}
+
+	if err := InteractNPC(repairNPC); err != nil {
+		return err
+	}
+
+	if repairNPC != npc.Halbu {
+		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+	} else {
+		ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
+	}
+
+	utils.Sleep(100)
+	if ctx.Data.LegacyGraphics {
+		ctx.HID.Click(game.LeftButton, ui.RepairButtonXClassic, ui.RepairButtonYClassic)
+	} else {
+		ctx.HID.Click(game.LeftButton, ui.RepairButtonX, ui.RepairButtonY)
+	}
+	utils.Sleep(500)
+
+	return step.CloseAllMenus()
+}
+
 func Repair() error {
 	ctx := context.Get()
 	ctx.SetLastAction("Repair")
@@ -28,12 +173,10 @@ func Repair() error {
 		_, indestructible := i.FindStat(stat.Indestructible, 0)
 		quantity, quantityFound := i.FindStat(stat.Quantity, 0)
 
-		// skip indestructible and no quantity
 		if indestructible && !quantityFound {
 			continue
 		}
 
-		// skip eth and no qnt
 		if i.Ethereal && !quantityFound {
 			continue
 		}
@@ -67,7 +210,6 @@ func Repair() error {
 			if repairNPC == npc.Larzuk {
 				MoveToCoords(data.Position{X: 5135, Y: 5046})
 			}
-
 			if repairNPC == npc.Hratli {
 				if err := FindHratliEverywhere(); err != nil {
 					return err

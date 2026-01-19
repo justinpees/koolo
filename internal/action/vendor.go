@@ -245,7 +245,6 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	// Buy consumables
 	SwitchVendorTab(4)
 	ctx.RefreshGameData()
-	town.BuyConsumables(forceRefill)
 
 	if ctx.CharacterCfg.Game.ShopVendorsDuringTownVisits {
 		// ---------- SHOP ALL VENDORS ----------
