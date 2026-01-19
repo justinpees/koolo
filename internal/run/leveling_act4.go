@@ -43,7 +43,7 @@ func (a Leveling) act4() error {
 
 	running = true
 
-	action.VendorRefill(action.VendorRefillOpts{SellJunk: true, BuyConsumables: true})
+	action.VendorRefill(false, true)
 
 	rawFireRes, _ := a.ctx.Data.PlayerUnit.FindStat(stat.FireResist, 0)
 	rawLightRes, _ := a.ctx.Data.PlayerUnit.FindStat(stat.LightningResist, 0)
