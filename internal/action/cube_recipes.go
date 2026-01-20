@@ -855,22 +855,7 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); result == nip.RuleResultFullMatch {
 					ctx.Logger.Debug("Skipping item that matches NIP rules for cubing recipe", "item", it.Name, "recipe", recipe.Name)
-					/* if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
-						if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
-							fp := utils.GrandCharmFingerprint(it)
 
-							// If it’s the marked charm and it would be kept by NIP rules,
-							// we can clear the fingerprint because it’s being used now
-							if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
-								ctx.Logger.Warn("MARKED GRAND CHARM WILL BE KEPT — CLEARING FINGERPRINT")
-								ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
-
-								if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
-									ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER CLEARING FINGERPRINT", "err", err)
-								}
-							}
-						}
-					} // I DONT KNOW IF I NEED THIS??? */
 					// Skip this item for cubing
 					continue
 				}
