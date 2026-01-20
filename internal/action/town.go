@@ -123,13 +123,6 @@ func PreRun(firstRun bool) error {
 	// Stash again if needed
 	Stash(false)
 
-
-	
-	
-
-	
-	
-
 	if ctx.CharacterCfg.CubeRecipes.PrioritizeRunewords {
 		MakeRunewords()
 		if !isLevelingChar {
@@ -144,27 +137,34 @@ func PreRun(firstRun bool) error {
 		}
 	}
 
-// --- New addition: ensure upgrade gem is corner-safe for all characters ---
+	// --- New addition: ensure upgrade gem is corner-safe for all characters ---
 	ctx.Logger.Info("Ensuring upgrade gem is corner-safe...")
 	EnsureUpgradeGemCornerSafe()
 	ctx.PauseIfNotPriority()
 	ctx.Logger.Info("Upgrade gem placement complete.")
 
-
 	// After creating or rerolling runewords, stash newly created bases/runewords
 	// so we don't carry them out to the next area unnecessarily.
 	Stash(false)
-
 
 	if isLevelingChar {
 		OptimizeInventory(item.LocationInventory)
 	}
 
 	// Leveling related checks
-	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
+	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation && isLevelingChar {
 		ResetStats()
 		EnsureStatPoints()
 		EnsureSkillPoints()
+	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+		AutoRespecIfNeeded()
+		EnsureStatPoints()
+		if !shouldDeferAutoSkillsForStats() {
+			EnsureSkillPoints()
+			EnsureSkillBindings()
+		} else {
+			ctx.Logger.Debug("Auto stat targets pending; skipping skill allocation for now.")
+		}
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {
@@ -180,8 +180,8 @@ func PreRun(firstRun bool) error {
 
 func InRunReturnTownRoutine() error {
 	ctx := context.Get()
-	
-_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
+
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 
 	ctx.Logger.Info("Pausing if not priority at start of town routine...")
 	ctx.PauseIfNotPriority()
@@ -268,36 +268,26 @@ _, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after post-reroll Stash
 
-
-	ctx.Logger.Info("Stashing items after vendor...")
-	Stash(false)
-	ctx.PauseIfNotPriority()
-
-	ctx.Logger.Info("Gambling...")
-	Gamble()
-	ctx.PauseIfNotPriority()
-
-	ctx.Logger.Info("Stashing items after gambling...")
-	Stash(false)
-	ctx.PauseIfNotPriority()
-
-	ctx.Logger.Info("Performing cube recipes...")
-	CubeRecipes()
-	ctx.PauseIfNotPriority()
-
-	ctx.Logger.Info("Making runewords...")
-	MakeRunewords()
-	ctx.PauseIfNotPriority()
-
-	// Leveling related checks
-	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
-		ctx.Logger.Info("Ensuring stat points allocation...")
+	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation && isLevelingChar {
 		EnsureStatPoints()
 		ctx.PauseIfNotPriority()
 
 		ctx.Logger.Info("Ensuring skill points allocation...")
 		EnsureSkillPoints()
-		ctx.PauseIfNotPriority()
+		ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
+	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+		AutoRespecIfNeeded()
+		ctx.PauseIfNotPriority() // Check after AutoRespecIfNeeded
+		EnsureStatPoints()
+		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
+		if !shouldDeferAutoSkillsForStats() {
+			EnsureSkillPoints()
+			ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
+			EnsureSkillBindings()
+			ctx.PauseIfNotPriority() // Check after EnsureSkillBindings
+		} else {
+			ctx.Logger.Debug("Auto stat targets pending; skipping skill allocation for now.")
+		}
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {

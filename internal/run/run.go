@@ -106,6 +106,14 @@ func BuildRun(run string) Run {
 		return NewArachnidLair()
 	case string(config.TristramRun):
 		return NewTristram()
+	case string(config.JailRun):
+		return NewJail()
+	case string(config.BoneAshRun):
+		return NewBoneAsh()
+	case string(config.CaveRun):
+		return NewCave()
+	case string(config.FlayerJungleRun):
+		return NewFlayerJungle()
 	case string(config.LowerKurastRun):
 		return NewLowerKurast()
 	case string(config.LowerKurastChestRun):
