@@ -15,6 +15,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
+	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
@@ -101,9 +102,7 @@ func (h Hellforge) Run(parameters *RunParameters) error {
 
 	action.InteractNPC(npc.DeckardCain4)
 
-	if err := h.equipHammer(); err != nil {
-		return err
-	}
+	h.equipHammer()
 
 	action.UsePortalInTown()
 
@@ -139,15 +138,30 @@ func (h Hellforge) breakStone() error {
 		return err
 	}
 
-	return withQuestWeaponSlot(h.ctx, "HellforgeHammer", func() error {
-		if err := action.InteractObject(hellforge, func() bool {
-			return !h.hasHammer()
-		}); err != nil {
-			return err
-		}
+	if h.ctx.Data.ActiveWeaponSlot == 0 {
 		utils.Sleep(500)
-		return nil
+		h.ctx.HID.PressKeyBinding(h.ctx.Data.KeyBindings.SwapWeapons)
+		utils.Sleep(500)
+	}
+
+	defer func() {
+		if h.ctx.Data.ActiveWeaponSlot == 1 {
+			utils.Sleep(500)
+			h.ctx.HID.PressKeyBinding(h.ctx.Data.KeyBindings.SwapWeapons)
+			utils.Sleep(500)
+		}
+	}()
+
+	err = action.InteractObject(hellforge, func() bool {
+		return !h.hasHammer()
 	})
+	if err != nil {
+		return err
+	}
+
+	utils.Sleep(500)
+
+	return nil
 }
 
 func (h Hellforge) hasSoul() bool {
@@ -161,31 +175,43 @@ func (h Hellforge) hasHammer() bool {
 }
 
 func (h Hellforge) equipHammer() error {
-	_, _, err := ensureQuestWeaponEquipped(h.ctx, "HellforgeHammer", swapWeaponSlot)
-	if err == nil {
+	hammer, found := h.ctx.Data.Inventory.Find("HellforgeHammer", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	if found {
+		if hammer.Location.LocationType != item.LocationEquipped {
+			step.CloseAllMenus()
+			if h.ctx.Data.ActiveWeaponSlot == 0 {
+				utils.Sleep(500)
+				h.ctx.HID.PressKeyBinding(h.ctx.Data.KeyBindings.SwapWeapons)
+				utils.Sleep(500)
+			}
+			if hammer.Location.LocationType == item.LocationStash {
+				bank, found := h.ctx.Data.Objects.FindOne(object.Bank)
+				if !found {
+					h.ctx.Logger.Info("bank object not found")
+				}
+				utils.Sleep(300)
+				err := action.InteractObject(bank, func() bool {
+					return h.ctx.Data.OpenMenus.Stash
+				})
+				if err != nil {
+					return err
+				}
+			}
+			if hammer.Location.LocationType == item.LocationInventory && !h.ctx.Data.OpenMenus.Inventory {
+				h.ctx.HID.PressKeyBinding(h.ctx.Data.KeyBindings.Inventory)
+			}
+			screenPos := ui.GetScreenCoordsForItem(hammer)
+			h.ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.ShiftKey)
+			utils.Sleep(300)
+			if h.ctx.Data.ActiveWeaponSlot == 1 {
+				utils.Sleep(500)
+				h.ctx.HID.PressKeyBinding(h.ctx.Data.KeyBindings.SwapWeapons)
+				utils.Sleep(500)
+
+			}
+			step.CloseAllMenus()
+		}
 		return nil
 	}
-
-	if !h.ctx.Data.PlayerUnit.Area.IsTown() {
-		return err
-	}
-
-	if _, found := h.ctx.Data.Inventory.Find("HellforgeHammer", item.LocationInventory, item.LocationStash, item.LocationSharedStash); !found {
-		return err
-	}
-
-	h.ctx.Logger.Debug("Retrying Hellforge Hammer equip after clearing swap weapons")
-	for _, loc := range []item.LocationType{item.LocLeftArmSecondary, item.LocRightArmSecondary} {
-		equipped := action.GetEquippedItem(h.ctx.Data.Inventory, loc)
-		if equipped.UnitID == 0 {
-			continue
-		}
-		if _, unequipErr := action.EnsureItemNotEquipped(equipped); unequipErr != nil {
-			return unequipErr
-		}
-		h.ctx.RefreshGameData()
-	}
-
-	_, _, retryErr := ensureQuestWeaponEquipped(h.ctx, "HellforgeHammer", swapWeaponSlot)
-	return retryErr
+	return errors.New("hellforge hammer not found")
 }

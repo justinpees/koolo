@@ -75,7 +75,6 @@ func (s Shenk) Run(parameters *RunParameters) error {
 	}
 
 	action.ClearAreaAroundPlayer(25, data.MonsterAnyFilter())
-	action.ItemPickup(30)
 
 	err = action.ReturnTown()
 	if err != nil {

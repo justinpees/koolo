@@ -283,8 +283,6 @@ func (a Leveling) killRavenGetMerc() error {
 		}, nil)
 	}
 
-	action.ItemPickup(30)
-
 	return nil
 }
 

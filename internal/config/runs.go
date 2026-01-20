@@ -22,10 +22,6 @@ const (
 	PindleskinRun       Run = "pindleskin"
 	NihlathakRun        Run = "nihlathak"
 	TristramRun         Run = "tristram"
-	JailRun             Run = "jail"
-	BoneAshRun          Run = "bone_ash"
-	CaveRun             Run = "cave"
-	FlayerJungleRun     Run = "flayer_jungle"
 	LowerKurastRun      Run = "lower_kurast"
 	LowerKurastChestRun Run = "lower_kurast_chest"
 	StonyTombRun        Run = "stony_tomb"
@@ -105,10 +101,6 @@ var AvailableRuns = map[Run]interface{}{
 	PindleskinRun:       nil,
 	NihlathakRun:        nil,
 	TristramRun:         nil,
-	JailRun:             nil,
-	BoneAshRun:          nil,
-	CaveRun:             nil,
-	FlayerJungleRun:     nil,
 	LowerKurastRun:      nil,
 	LowerKurastChestRun: nil,
 	StonyTombRun:        nil,
@@ -180,8 +172,6 @@ var SequencerRuns = []Run{
 	ArachnidLairRun,
 	BaalRun,
 	BloodravenRun,
-	BoneAshRun,
-	CaveRun,
 	CountessRun,
 	CowsRun,
 	CubeRun,
@@ -191,17 +181,14 @@ var SequencerRuns = []Run{
 	DurielRun,
 	EldritchRun,
 	EnduguRun,
-	FireEyeRun,
-	FlayerJungleRun,
 	FrozenAuraMercRun,
+	FireEyeRun,
 	GidbinnRun,
 	IzualRun,
 	JadeFigurineRun,
-	JailRun,
 	KhalimsBrainRun,
 	KhalimsEyeRun,
 	KhalimsHeartRun,
-	KurastTemplesRun,
 	LamEsenRun,
 	LowerKurastChestRun,
 	LowerKurastRun,

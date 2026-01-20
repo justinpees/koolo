@@ -161,21 +161,14 @@ func dropItemFromInventoryUI(i data.Item) error {
 
 func EnsureStatPoints() error {
 	ctx := context.Get()
-	ctx.SetLastAction("EnsureStatPoints")
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	if !isLevelingChar {
-		if !ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
-			return nil
-		}
+		return nil
 	}
 
 	statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 	if !hasUnusedPoints || statPoints.Value == 0 {
 		return nil
-	}
-
-	if !isLevelingChar {
-		return ensureConfiguredStatPoints(statPoints.Value)
 	}
 
 	// Check if we should use packet mode for any leveling class
@@ -209,39 +202,29 @@ func EnsureStatPoints() error {
 
 		// Calculate how many points we can actually spend
 		pointsToSpend := min(allocation.Points-currentValue.Value, remainingPoints)
-		failures := 0
-		for pointsToSpend > 0 && remainingPoints > 0 {
-			var spent int
+		for i := 0; i < pointsToSpend; i++ {
+
+			var success bool
 			if usePacketMode {
+				// Use packet mode
 				err := AllocateStatPointPacket(allocation.Stat)
-				if err != nil {
+				success = err == nil
+				if !success {
 					ctx.Logger.Error(fmt.Sprintf("Failed to spend point in %v via packet: %v", allocation.Stat, err))
-				} else {
-					spent = 1
 				}
 			} else {
-				useBulk := pointsToSpend >= 5 && remainingPoints >= 5
-				spent = spendStatPoint(allocation.Stat, useBulk)
-				if spent == 0 {
+				// Use traditional UI mode
+				success = spendStatPoint(allocation.Stat)
+				if !success {
 					ctx.Logger.Error(fmt.Sprintf("Failed to spend point in %v", allocation.Stat))
 				}
 			}
 
-			if spent <= 0 {
-				failures++
-				if failures >= 3 {
-					break
-				}
+			if !success {
 				continue
 			}
 
-			failures = 0
-			if spent > pointsToSpend {
-				ctx.Logger.Warn(fmt.Sprintf("Spent more stat points than requested in %v (spent=%d, needed=%d)", allocation.Stat, spent, pointsToSpend))
-				spent = pointsToSpend
-			}
-			remainingPoints -= spent
-			pointsToSpend -= spent
+			remainingPoints--
 
 			updatedValue, _ := ctx.Data.PlayerUnit.BaseStats.FindStat(allocation.Stat, 0)
 			if updatedValue.Value >= allocation.Points {
@@ -257,65 +240,7 @@ func EnsureStatPoints() error {
 	return nil
 }
 
-func ensureConfiguredStatPoints(remainingPoints int) error {
-	ctx := context.Get()
-
-	statKeyToID := map[string]stat.ID{
-		"strength":  stat.Strength,
-		"dexterity": stat.Dexterity,
-		"vitality":  stat.Vitality,
-		"energy":    stat.Energy,
-	}
-
-	usePacketMode := false
-	for _, entry := range ctx.CharacterCfg.Character.AutoStatSkill.Stats {
-		if remainingPoints <= 0 {
-			break
-		}
-		statKey := strings.ToLower(strings.TrimSpace(entry.Stat))
-		statID, ok := statKeyToID[statKey]
-		if !ok {
-			ctx.Logger.Warn(fmt.Sprintf("Unknown stat key in auto stat config: %s", entry.Stat))
-			continue
-		}
-		if entry.Target <= 0 {
-			continue
-		}
-
-		currentValue, _ := ctx.Data.PlayerUnit.BaseStats.FindStat(statID, 0)
-		if currentValue.Value >= entry.Target {
-			continue
-		}
-
-		pointsToSpend := min(entry.Target-currentValue.Value, remainingPoints)
-		failures := 0
-		for pointsToSpend > 0 && remainingPoints > 0 {
-			useBulk := pointsToSpend >= 5 && remainingPoints >= 5
-			spent := spendStatPoint(statID, useBulk)
-			if spent <= 0 {
-				failures++
-				if failures >= 3 {
-					break
-				}
-				continue
-			}
-			failures = 0
-			if spent > pointsToSpend {
-				ctx.Logger.Warn(fmt.Sprintf("Spent more stat points than requested in %v (spent=%d, needed=%d)", statID, spent, pointsToSpend))
-				spent = pointsToSpend
-			}
-			remainingPoints -= spent
-			pointsToSpend -= spent
-		}
-	}
-
-	if !usePacketMode {
-		return step.CloseAllMenus()
-	}
-	return nil
-}
-
-func spendStatPoint(statID stat.ID, useBulk bool) int {
+func spendStatPoint(statID stat.ID) bool {
 	ctx := context.Get()
 	beforePoints, _ := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 
@@ -329,31 +254,11 @@ func spendStatPoint(statID stat.ID, useBulk bool) int {
 		statBtnPosition = uiStatButtonPositionLegacy[statID]
 	}
 
-	if useBulk {
-		ctx.HID.ClickWithModifier(game.LeftButton, statBtnPosition.X, statBtnPosition.Y, game.CtrlKey)
-	} else {
-		ctx.HID.Click(game.LeftButton, statBtnPosition.X, statBtnPosition.Y)
-	}
+	ctx.HID.Click(game.LeftButton, statBtnPosition.X, statBtnPosition.Y)
 	utils.Sleep(300)
 
 	afterPoints, _ := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
-	spent := beforePoints.Value - afterPoints.Value
-	if spent == 0 && useBulk {
-		ctx.RefreshGameData()
-		afterPoints, _ = ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
-		spent = beforePoints.Value - afterPoints.Value
-		if spent == 0 {
-			ctx.HID.Click(game.LeftButton, statBtnPosition.X, statBtnPosition.Y)
-			utils.Sleep(300)
-			ctx.RefreshGameData()
-			afterPoints, _ = ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
-			spent = beforePoints.Value - afterPoints.Value
-		}
-	}
-	if spent < 0 {
-		return 0
-	}
-	return spent
+	return beforePoints.Value-afterPoints.Value == 1
 }
 
 func getAvailableSkillKB() []data.KeyBinding {

@@ -282,8 +282,6 @@ func (d Duriel) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	action.ItemPickup(30)
-
 	if IsQuestRun(parameters) {
 		action.ClearAreaAroundPlayer(30, d.durielFilter())
 

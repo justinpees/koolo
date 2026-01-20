@@ -49,16 +49,11 @@ func (t Threshsocket) Run(parameters *RunParameters) error {
 	}
 
 	// Kill Threshsocket
-	if err := t.ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
+	return t.ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
 		if m, found := d.Monsters.FindOne(npc.BloodBringer, data.MonsterTypeSuperUnique); found {
 			return m.UnitID, true
 		}
 
 		return 0, false
-	}, nil); err != nil {
-		return err
-	}
-
-	action.ItemPickup(30)
-	return nil
+	}, nil)
 }

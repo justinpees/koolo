@@ -297,9 +297,6 @@ func (a Andariel) Run(parameters *RunParameters) error {
 	err = a.ctx.Char.KillAndariel()
 
 	a.ctx.EnableItemPickup()
-	if err == nil {
-		action.ItemPickup(30)
-	}
 
 	if IsQuestRun(parameters) {
 		a.goToAct2()

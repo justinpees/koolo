@@ -68,11 +68,5 @@ func (p Pindleskin) Run(parameters *RunParameters) error {
 
 	_ = action.MoveToCoords(pindleSafePosition)
 
-	if err := p.ctx.Char.KillPindle(); err != nil {
-		return err
-	}
-
-	action.ItemPickup(30)
-
-	return nil
+	return p.ctx.Char.KillPindle()
 }

@@ -49,7 +49,6 @@ func (t Rakanishu) Run(parameters *RunParameters) error {
 	action.MoveToCoords(cairnStone.Position, step.WithDistanceToFinish(10))
 
 	action.ClearAreaAroundPosition(cairnStone.Position, 15, data.MonsterAnyFilter())
-	action.ItemPickup(30)
 
 	return nil
 }

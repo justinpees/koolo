@@ -54,8 +54,6 @@ func (e Eldritch) Run(parameters *RunParameters) error {
 		return 0, false
 	}, nil)
 
-	action.ItemPickup(30)
-
 	// Move to Shenk and kill him, if enabled
 	if e.ctx.CharacterCfg.Game.Eldritch.KillShenk {
 		// Move into position
@@ -64,7 +62,7 @@ func (e Eldritch) Run(parameters *RunParameters) error {
 		}
 
 		// Kill Shenk
-		if err := e.ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
+		return e.ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
 			if m, found := d.Monsters.FindOne(npc.OverSeer, data.MonsterTypeSuperUnique); found {
 				if m.Stats[stat.Life] > 0 {
 					return m.UnitID, true
@@ -73,12 +71,7 @@ func (e Eldritch) Run(parameters *RunParameters) error {
 			}
 
 			return 0, false
-		}, nil); err != nil {
-			return err
-		}
-
-		action.ItemPickup(30)
-		return nil
+		}, nil)
 	}
 
 	return nil
