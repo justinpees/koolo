@@ -147,20 +147,11 @@ func EnsureSkillBindings() error {
 		return nil
 	}
 	mainSkill, skillsToBind := char.SkillsToBind()
-<<<<<<< HEAD
-
-	notBoundSkills := make([]skill.ID, 0)
-=======
 	notBoundSkills := make([]skill.ID, 0, len(skillsToBind))
->>>>>>> a74ce9ed (Merge pull request #494 from sungrief/Bugfixes)
 	for _, sk := range skillsToBind {
 		// Only add skills that are not already bound AND are either TomeOfTownPortal or the player has learned them.
 		if _, found := ctx.Data.KeyBindings.KeyBindingForSkill(sk); !found && (sk == skill.TomeOfTownPortal || ctx.Data.PlayerUnit.Skills[sk].Level > 0) {
 			notBoundSkills = append(notBoundSkills, sk)
-<<<<<<< HEAD
-			slices.Sort(notBoundSkills)
-			notBoundSkills = slices.Compact(notBoundSkills) // In case we have duplicates (tp tome)
-=======
 		}
 	}
 	if len(notBoundSkills) > 1 {
@@ -210,7 +201,6 @@ func EnsureSkillBindings() error {
 		default:
 			ctx.Logger.Warn(fmt.Sprintf("Skill cannot be bound to left or right: %v", skill.SkillNames[skillID]))
 			return false, false
->>>>>>> a74ce9ed (Merge pull request #494 from sungrief/Bugfixes)
 		}
 	}
 	// Bind F-key skills
@@ -225,48 +215,6 @@ func EnsureSkillBindings() error {
 
 		availableKB := getAvailableSkillKB()
 		ctx.Logger.Debug(fmt.Sprintf("Available KB: %v", availableKB))
-<<<<<<< HEAD
-		if len(notBoundSkills) > 0 {
-			for i, sk := range notBoundSkills {
-				if i >= len(availableKB) { // Prevent out-of-bounds if more skills than available keybindings
-					ctx.Logger.Warn(fmt.Sprintf("Not enough available keybindings for skill %v", skill.SkillNames[sk]))
-					break
-				}
-				skillPosition, found := calculateSkillPositionInUI(false, sk)
-				if !found {
-					ctx.Logger.Error(fmt.Sprintf("Skill %v UI position not found for binding.", skill.SkillNames[sk]))
-					continue
-				}
-
-				if sk == skill.TomeOfTownPortal {
-					gfx := "D2R"
-					if ctx.GameReader.LegacyGraphics() {
-						gfx = "Legacy"
-					}
-					ctx.Logger.Info(fmt.Sprintf("TomeOfTownPortal will be bound now at (%d,%d) [%s]", skillPosition.X, skillPosition.Y, gfx))
-					ctx.Logger.Info(fmt.Sprintf("EnsureSkillBindings Tome coords (secondary): X=%d Y=%d [Legacy=%v]", skillPosition.X, skillPosition.Y, ctx.GameReader.LegacyGraphics()))
-				}
-
-				ctx.HID.MovePointer(skillPosition.X, skillPosition.Y)
-				utils.Sleep(100)
-				ctx.HID.PressKeyBinding(availableKB[i])
-				utils.Sleep(300)
-				if sk == skill.TomeOfTownPortal {
-					ctx.GameReader.GetData()
-					utils.Sleep(150)
-					if _, ok := ctx.Data.KeyBindings.KeyBindingForSkill(skill.TomeOfTownPortal); ok {
-						ctx.Logger.Info("TomeOfTownPortal binding verified")
-					} else {
-						ctx.Logger.Warn("TomeOfTownPortal binding verification failed after click")
-					}
-				}
-			}
-		} else {
-			if _, found := ctx.Data.KeyBindings.KeyBindingForSkill(skill.FireBolt); !found {
-				ctx.Logger.Debug("Lvl 1 sorc found - forcing fire bolt bind")
-				if ctx.GameReader.LegacyGraphics() {
-					ctx.HID.MovePointer(1000, 530) // Position for Fire Bolt in Legacy
-=======
 		for i, sk := range notBoundSkills {
 			if i >= len(availableKB) {
 				ctx.Logger.Warn(fmt.Sprintf("Not enough available keybindings for skill %v", skill.SkillNames[sk]))
@@ -299,7 +247,6 @@ func EnsureSkillBindings() error {
 				utils.Sleep(150)
 				if _, ok := ctx.Data.KeyBindings.KeyBindingForSkill(skill.TomeOfTownPortal); ok {
 					ctx.Logger.Info("TomeOfTownPortal binding verified")
->>>>>>> a74ce9ed (Merge pull request #494 from sungrief/Bugfixes)
 				} else {
 					ctx.HID.MovePointer(685, 545) // Position for Fire Bolt in Resurrected
 				}
@@ -313,18 +260,6 @@ func EnsureSkillBindings() error {
 				}
 			}
 		}
-<<<<<<< HEAD
-		// Close the skill assignment menu if it was opened for binding F-keys
-		step.CloseAllMenus()
-		utils.Sleep(300)
-	}
-
-	// Set left (main) skill
-	if ctx.GameReader.LegacyGraphics() {
-		ctx.HID.Click(game.LeftButton, ui.MainSkillButtonXClassic, ui.MainSkillButtonYClassic)
-	} else {
-		ctx.HID.Click(game.LeftButton, ui.MainSkillButtonX, ui.MainSkillButtonY)
-=======
 	} else {
 		// Special handling for Fire Bolt on level 1 sorcs
 		if _, found := ctx.Data.KeyBindings.KeyBindingForSkill(skill.FireBolt); !found {
@@ -361,7 +296,6 @@ func EnsureSkillBindings() error {
 	} else if skillData, found := ctx.Data.PlayerUnit.Skills[mainSkill]; found && skillData.Level > 0 {
 		// Regular skill exists and has at least 1 level
 		mainSkillExists = true
->>>>>>> a74ce9ed (Merge pull request #494 from sungrief/Bugfixes)
 	}
 	if !mainSkillExists {
 		ctx.Logger.Debug(fmt.Sprintf("Main skill %v not yet available (level %d), skipping left-hand binding", skill.SkillNames[mainSkill], clvl.Value))
@@ -405,21 +339,11 @@ func calculateSkillPositionInUI(mainSkill bool, skillID skill.ID) (data.Position
 		if sk.Desc().ListRow < 0 {
 			continue
 		}
-<<<<<<< HEAD
-
-		// Skip skills that can not be bind to current mouse button
-		if (mainSkill && !sk.LeftSkill) || (!mainSkill && !sk.RightSkill) {
-			continue
-		}
-
-		//Skip skills with charges
-=======
 		// Skip skills that cannot be bound to the current mouse button
 		if (mainSkill && !sk.LeftSkill) || (!mainSkill && !sk.RightSkill) {
 			continue
 		}
 		// Skip skills with charges
->>>>>>> a74ce9ed (Merge pull request #494 from sungrief/Bugfixes)
 		if ctx.Data.PlayerUnit.Skills[skID].Charges > 0 {
 			continue
 		}
