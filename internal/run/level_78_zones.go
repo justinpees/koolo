@@ -32,6 +32,54 @@ func (a Level78Zones) Run(parameters *RunParameters) error {
 	monsterFilter := data.MonsterAnyFilter()
 
 	// =====================
+	// ACT 2 – HAREM / PALACE
+	// =====================
+
+	if err := action.WayPoint(area.LutGholein); err != nil {
+		return err
+	}
+
+	if err := action.MoveToArea(area.HaremLevel1); err != nil {
+		return err
+	}
+
+	if err := action.MoveToArea(area.HaremLevel2); err != nil {
+		return err
+	}
+
+	if err := action.ClearCurrentLevel(true, monsterFilter); err != nil {
+		return err
+	}
+
+	if err := action.MoveToArea(area.PalaceCellarLevel1); err != nil {
+		return err
+	}
+
+	if err := action.ClearCurrentLevel(true, monsterFilter); err != nil {
+		return err
+	}
+
+	if err := action.MoveToArea(area.PalaceCellarLevel2); err != nil {
+		return err
+	}
+
+	if err := action.ClearCurrentLevel(true, monsterFilter); err != nil {
+		return err
+	}
+
+	if err := action.MoveToArea(area.PalaceCellarLevel3); err != nil {
+		return err
+	}
+
+	if err := action.ClearCurrentLevel(true, monsterFilter); err != nil {
+		return err
+	}
+
+	if err := action.ReturnTown(); err != nil {
+		return err
+	}
+
+	// =====================
 	// ACT 1 – CAVE
 	// =====================
 
@@ -115,49 +163,5 @@ func (a Level78Zones) Run(parameters *RunParameters) error {
 
 	action.ItemPickup(30)
 
-	if err := action.ReturnTown(); err != nil {
-		return err
-	}
-
-	// =====================
-	// ACT 2 – HAREM / PALACE
-	// =====================
-
-	if err := action.WayPoint(area.LutGholein); err != nil {
-		return err
-	}
-
-	if err := action.MoveToArea(area.HaremLevel1); err != nil {
-		return err
-	}
-
-	if err := action.MoveToArea(area.HaremLevel2); err != nil {
-		return err
-	}
-
-	if err := action.ClearCurrentLevel(true, monsterFilter); err != nil {
-		return err
-	}
-
-	if err := action.MoveToArea(area.PalaceCellarLevel1); err != nil {
-		return err
-	}
-
-	if err := action.ClearCurrentLevel(true, monsterFilter); err != nil {
-		return err
-	}
-
-	if err := action.MoveToArea(area.PalaceCellarLevel2); err != nil {
-		return err
-	}
-
-	if err := action.ClearCurrentLevel(true, monsterFilter); err != nil {
-		return err
-	}
-
-	if err := action.MoveToArea(area.PalaceCellarLevel3); err != nil {
-		return err
-	}
-
-	return action.ClearCurrentLevel(true, monsterFilter)
+	return nil
 }

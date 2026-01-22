@@ -972,6 +972,20 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 		sourceChest
 	)
 
+	// 👇 ADD THIS RIGHT HERE
+	sourceToString := func(s sourceKind) string {
+		switch s {
+		case sourceCorpse:
+			return "corpse"
+		case sourceShattered:
+			return "shattered"
+		case sourceChest:
+			return "chest"
+		default:
+			return "none"
+		}
+	}
+
 	chosenSource := sourceNone
 	minDist := 9999
 
@@ -1090,16 +1104,27 @@ func MarkGroundSpecificItemIfEligible(i data.Item) {
 	minMLvl := ctx.CharacterCfg.CubeRecipes.MinMonsterLevel
 	maxMLvl := ctx.CharacterCfg.CubeRecipes.MaxMonsterLevel
 	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
+		ctx.Logger.Warn(
+			"Magic specific item NOT marked: monster level out of range",
+			"unitID", i.UnitID,
+			"itemName", i.Name,
+			"areaID", areaID,
+			"mlvl", areaMLvl,
+			"minMLvl", minMLvl,
+			"maxMLvl", maxMLvl,
+			"source", sourceToString(chosenSource),
+		)
 		return
 	}
 
 	// --- Mark item ---
 	ctx.MarkedSpecificItemUnitID = i.UnitID
 	ctx.Logger.Warn(
-		"Marked specific item on ground",
+		"Marked rare specific item on ground",
 		"unitID", i.UnitID,
 		"areaID", areaID,
 		"monsterLevel", areaMLvl,
+		"source", sourceToString(chosenSource),
 	)
 }
 
@@ -1369,6 +1394,20 @@ func MarkGroundRareSpecificItemIfEligible(i data.Item) {
 		sourceChest
 	)
 
+	// 👇 ADD THIS RIGHT HERE
+	sourceToString := func(s sourceKind) string {
+		switch s {
+		case sourceCorpse:
+			return "corpse"
+		case sourceShattered:
+			return "shattered"
+		case sourceChest:
+			return "chest"
+		default:
+			return "none"
+		}
+	}
+
 	chosenSource := sourceNone
 	minDist := 9999
 
@@ -1487,6 +1526,16 @@ func MarkGroundRareSpecificItemIfEligible(i data.Item) {
 	minMLvl := ctx.CharacterCfg.CubeRecipes.RareMinMonsterLevel
 	maxMLvl := ctx.CharacterCfg.CubeRecipes.RareMaxMonsterLevel
 	if areaMLvl < minMLvl || areaMLvl > maxMLvl {
+		ctx.Logger.Warn(
+			"Rare specific item NOT marked: monster level out of range",
+			"unitID", i.UnitID,
+			"itemName", i.Name,
+			"areaID", areaID,
+			"mlvl", areaMLvl,
+			"minMLvl", minMLvl,
+			"maxMLvl", maxMLvl,
+			"source", sourceToString(chosenSource),
+		)
 		return
 	}
 
@@ -1497,6 +1546,7 @@ func MarkGroundRareSpecificItemIfEligible(i data.Item) {
 		"unitID", i.UnitID,
 		"areaID", areaID,
 		"monsterLevel", areaMLvl,
+		"source", sourceToString(chosenSource),
 	)
 }
 
