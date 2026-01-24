@@ -3,6 +3,7 @@ package run
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -135,7 +136,7 @@ func (t Tristram) Run(parameters *RunParameters) error {
 		action.MoveToCoords(pos)
 		action.ClearAreaAroundPlayer(40, data.MonsterAnyFilter())
 	}
-	if t.ctx.CharacterCfg.Game.Tristram.GetLegForCrafting {
+	if t.ctx.CharacterCfg.Game.Tristram.GetLegForCrafting && (slices.Contains(t.ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "MagicWirtsLegStep1") || slices.Contains(t.ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "MagicWirtsLegStep2")) {
 
 		c := Cows{ctx: t.ctx}
 
@@ -164,11 +165,11 @@ func (t Tristram) Run(parameters *RunParameters) error {
 		}
 
 		// Socket check
-		if !leg.HasSockets {
+		/* if !leg.HasSockets {
 			t.ctx.Logger.Info("Dropping 0-socket Wirt's Leg")
 			action.DropItem(leg) // ✅ leg is a data.Item, DropItem takes exactly that
 			return nil
-		}
+		} */
 
 		// Keep the leg
 		t.ctx.Logger.Info("Keeping socketed Wirt's Leg", "sockets", leg.Sockets)

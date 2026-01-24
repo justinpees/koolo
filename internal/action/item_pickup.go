@@ -505,6 +505,11 @@ func GetItemsToPickup(maxDistance int) []data.Item {
 			continue
 		}
 
+		if ctx.Data.PlayerUnit.Area != area.Tristram && itm.Name == "WirtsLeg" {
+			//ctx.Logger.Warn("Not picking up that trash wirts leg")
+			continue
+		}
+
 		// Skip potion pickup for Berserker Barb in Travincal if configured
 		if ctx.CharacterCfg.Character.Class == "berserker" &&
 			ctx.CharacterCfg.Character.BerserkerBarb.SkipPotionPickupInTravincal &&
