@@ -2576,6 +2576,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Tristram.ClearPortal = r.Form.Has("gameTristramClearPortal")
 		cfg.Game.Tristram.FocusOnElitePacks = r.Form.Has("gameTristramFocusOnElitePacks")
 		cfg.Game.Tristram.OnlyFarmRejuvs = r.Form.Has("gameTristramOnlyFarmRejuvs")
+		cfg.Game.Tristram.GetLegForCrafting = r.Form.Has("gameGetLegForCrafting")
 
 		cfg.Game.Nihlathak.ClearArea = r.Form.Has("gameNihlathakClearArea")
 		cfg.Game.Summoner.KillFireEye = r.Form.Has("gameSummonerKillFireEye")
@@ -2658,6 +2659,14 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 		cfg.CubeRecipes.SpecificItemToReroll = r.Form.Get("specificItemToReroll")         // dropdown box for reroll specific item
 		cfg.CubeRecipes.RareSpecificItemToReroll = r.Form.Get("rareSpecificItemToReroll") // dropdown box for reroll specific item
+
+		if r.FormValue("clearMarkedSpecificItemFingerprint") == "1" {
+			cfg.CubeRecipes.MarkedSpecificItemFingerprint = ""
+		}
+
+		if r.FormValue("clearMarkedRareSpecificItemFingerprint") == "1" {
+			cfg.CubeRecipes.MarkedRareSpecificItemFingerprint = ""
+		}
 
 		// textbox for min mlvl
 		if v := r.Form.Get("rareMinMonsterLevel"); v != "" {
@@ -3078,6 +3087,7 @@ func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg
 			cfg.Game.Tristram.ClearPortal = values.Has("gameTristramClearPortal")
 			cfg.Game.Tristram.FocusOnElitePacks = values.Has("gameTristramFocusOnElitePacks")
 			cfg.Game.Tristram.OnlyFarmRejuvs = values.Has("gameTristramOnlyFarmRejuvs")
+			cfg.Game.Tristram.GetLegForCrafting = values.Has("gameGetLegForCrafting")
 		case "nihlathak":
 			cfg.Game.Nihlathak.ClearArea = values.Has("gameNihlathakClearArea")
 		case "summoner":

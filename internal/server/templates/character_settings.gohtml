@@ -1311,7 +1311,7 @@
             <fieldset class="grid">
             <label>
                     Specific magic item to reroll
-                    <select id="specificItemToReroll" name="specificItemToReroll" title="You can use this formula to get another chance at a Magic Item of the same type. Formula: ilvl = ilvl. This means that the ilvl of the output is exactly the same as the ilvl of the input. You can also use this on Charms and Jewels.">
+                    <select id="specificItemToReroll" name="specificItemToReroll" title="You can use this formula to get another chance at a Magic Item of the same type. Formula: ilvl = ilvl. This means that the ilvl of the output is exactly the same as the ilvl of the input. You can also use this on Charms and Jewels. Quality level, or qlvl 85 means that a monster must be at least level 85 to drop that item. ilvl is item level. This is equal to the actual level of the monster that dropped the item.">
                         <option value="None" {{if eq .Config.CubeRecipes.SpecificItemToReroll "None"}}selected{{end}}>None</option>
                         <option value="GrandCharm" {{if eq .Config.CubeRecipes.SpecificItemToReroll "GrandCharm"}}selected{{end}}>GrandCharm</option>
                         <option value="LargeCharm" {{if eq .Config.CubeRecipes.SpecificItemToReroll "LargeCharm"}}selected{{end}}>LargeCharm</option>
@@ -1744,6 +1744,7 @@
                         <option value="YewWand" {{if eq .Config.CubeRecipes.SpecificItemToReroll "YewWand"}}selected{{end}}>YewWand</option>
                         <option value="Zweihander" {{if eq .Config.CubeRecipes.SpecificItemToReroll "Zweihander"}}selected{{end}}>Zweihander</option>
                     </select>
+                    <small>{{ .Config.CubeRecipes.MarkedSpecificItemFingerprint }}</small>
                 </label>
                  <label>
                 Min mlvl:
@@ -1753,12 +1754,16 @@
                 Max mlvl:
                 <input type="number" name="maxMonsterLevel" min="1" value="{{ .Config.CubeRecipes.MaxMonsterLevel }}" />
             </label>
+            <label>
+            <span style="display:inline-block; margin-bottom:4px;">&nbsp;</span>
+<button type="submit" name="clearMarkedSpecificItemFingerprint" value="1" {{ if not .Config.CubeRecipes.MarkedSpecificItemFingerprint }}disabled{{ end }}>Clear fingerprint</button>
+            </label>
             </fieldset>
 
             <fieldset class="grid">
             <label>
                     Specific rare item to reroll
-                    <select id="rareSpecificItemToReroll" name="rareSpecificItemToReroll" title="You can use this formula to get another chance at a Rare Item of the same type. Formula: ilvl = int(.4 * clvl) + int(.4 * ilvl) both integers are rounded down in this formula. This formula will not work on items larger than 3x2.">
+                    <select id="rareSpecificItemToReroll" name="rareSpecificItemToReroll" title="You can use this formula to get another chance at a Rare Item of the same type. Formula: ilvl = int(.4 * clvl) + int(.4 * ilvl) both integers are rounded down in this formula. This formula will not work on items larger than 3x2. Quality level, or qlvl 85 means that a monster must be at least level 85 to drop that item. ilvl is item level. This is equal to the actual level of the monster that dropped the item. ">
                         <option value="None" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "None"}}selected{{end}}>None</option>
                         <option value="Diadem" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Diadem"}}selected{{end}}>Diadem</option>
                         <option value="Coronet" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "Coronet"}}selected{{end}}>Coronet</option>
@@ -2116,6 +2121,7 @@
                         <option value="WyrmhideBoots" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "WyrmhideBoots"}}selected{{end}}>WyrmhideBoots</option>
                         <option value="YewWand" {{if eq .Config.CubeRecipes.RareSpecificItemToReroll "YewWand"}}selected{{end}}>YewWand</option>
                     </select>
+                    <small>{{ .Config.CubeRecipes.MarkedRareSpecificItemFingerprint }}</small>
                 </label>
                  <label>
                 Min mlvl:
@@ -2124,6 +2130,10 @@
                              <label>
                 Max mlvl:
                 <input type="number" name="rareMaxMonsterLevel" min="1" value="{{ .Config.CubeRecipes.RareMaxMonsterLevel }}" />
+            </label>
+             <label>
+              <span style="display:inline-block; margin-bottom:4px;">&nbsp;</span>
+<button type="submit" name="clearMarkedRareSpecificItemFingerprint" value="1" {{ if not .Config.CubeRecipes.MarkedRareSpecificItemFingerprint }}disabled{{ end }}>Clear fingerprint</button>
             </label>
             </fieldset>
 

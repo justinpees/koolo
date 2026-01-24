@@ -7,6 +7,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
@@ -133,6 +134,44 @@ func (t Tristram) Run(parameters *RunParameters) error {
 		}
 		action.MoveToCoords(pos)
 		action.ClearAreaAroundPlayer(40, data.MonsterAnyFilter())
+	}
+	if t.ctx.CharacterCfg.Game.Tristram.GetLegForCrafting {
+
+		c := Cows{ctx: t.ctx}
+
+		wirt, found := c.ctx.Data.Objects.FindOne(object.WirtCorpse)
+		if !found {
+			return errors.New("wirt corpse not found")
+		}
+
+		_ = action.MoveToCoords(wirt.Position)
+
+		// Pick it up
+		if err := action.InteractObject(wirt, func() bool {
+			return c.HasWirtsLeg()
+		}); err != nil {
+			return err
+		}
+
+		// Inspect the leg
+		leg, found := c.ctx.Data.Inventory.Find(
+			"WirtsLeg",
+			item.LocationInventory,
+			item.LocationCube,
+		)
+		if !found {
+			return nil
+		}
+
+		// Socket check
+		if !leg.HasSockets {
+			t.ctx.Logger.Info("Dropping 0-socket Wirt's Leg")
+			action.DropItem(leg) // ✅ leg is a data.Item, DropItem takes exactly that
+			return nil
+		}
+
+		// Keep the leg
+		t.ctx.Logger.Info("Keeping socketed Wirt's Leg", "sockets", leg.Sockets)
 	}
 
 	return nil

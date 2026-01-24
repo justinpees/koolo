@@ -111,7 +111,6 @@ func (a Cows) Run(parameters *RunParameters) error {
 		return err
 	}
 
-
 	return action.ClearCurrentLevel(
 		a.ctx.CharacterCfg.Game.Cows.OpenChests,
 		data.MonsterAnyFilter(),
@@ -134,43 +133,43 @@ func (a Cows) preparePortal() error {
 	if !found {
 		return nil
 	}
-if a.ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
-	// 🔴 MAGIC LEG — always stash & skip
-	if leg.Quality == item.QualityMagic {
-		a.ctx.Logger.Info("Magic Wirt's Leg detected — stashing and skipping cows")
-		_ = action.Stash(true)
-		return ErrSkipCowRun
-	}
-
-	// 🔴 SOCKETED NORMAL LEG — stash & skip
-	if leg.Quality == item.QualityNormal && leg.HasSockets {
-		a.ctx.Logger.Info("Socketed Wirt's Leg detected — stashing and skipping cows")
-		_ = action.Stash(true)
-		return ErrSkipCowRun
-	}
-
-	// 🟡 CRAFTED LEG — consult NIP
-	if leg.Quality == item.QualityCrafted {
-		_, result := a.ctx.CharacterCfg.Runtime.Rules.EvaluateAll(leg)
-
-		if result == nip.RuleResultFullMatch {
-			a.ctx.Logger.Info("Crafted Wirt's Leg is a NIP keeper — stashing and skipping cows")
+	if a.ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
+		// 🔴 MAGIC LEG — always stash & skip
+		if leg.Quality == item.QualityMagic {
+			a.ctx.Logger.Info("Magic Wirt's Leg detected — stashing and skipping cows")
 			_ = action.Stash(true)
 			return ErrSkipCowRun
 		}
 
-		a.ctx.Logger.Info("Crafted Wirt's Leg is NOT a keeper — using it for cows")
-	}
-
-	// 🛑 SAFETY NET — never cube a keeper
-	if leg.Quality >= item.QualityMagic {
-		if _, result := a.ctx.CharacterCfg.Runtime.Rules.EvaluateAll(leg); result == nip.RuleResultFullMatch {
-			a.ctx.Logger.Warn("Safety abort: keeper Wirt's Leg would be cubed")
+		// 🔴 SOCKETED NORMAL LEG — stash & skip
+		if leg.Quality == item.QualityNormal && leg.HasSockets {
+			a.ctx.Logger.Info("Socketed Wirt's Leg detected — stashing and skipping cows")
 			_ = action.Stash(true)
 			return ErrSkipCowRun
 		}
+
+		// 🟡 CRAFTED LEG — consult NIP
+		if leg.Quality == item.QualityCrafted {
+			_, result := a.ctx.CharacterCfg.Runtime.Rules.EvaluateAll(leg)
+
+			if result == nip.RuleResultFullMatch {
+				a.ctx.Logger.Info("Crafted Wirt's Leg is a NIP keeper — stashing and skipping cows")
+				_ = action.Stash(true)
+				return ErrSkipCowRun
+			}
+
+			a.ctx.Logger.Info("Crafted Wirt's Leg is NOT a keeper — using it for cows")
+		}
+
+		// 🛑 SAFETY NET — never cube a keeper
+		if leg.Quality >= item.QualityMagic {
+			if _, result := a.ctx.CharacterCfg.Runtime.Rules.EvaluateAll(leg); result == nip.RuleResultFullMatch {
+				a.ctx.Logger.Warn("Safety abort: keeper Wirt's Leg would be cubed")
+				_ = action.Stash(true)
+				return ErrSkipCowRun
+			}
+		}
 	}
-}
 	// ===== Tome handling =====
 
 	var spareTome data.Item
@@ -254,26 +253,26 @@ func (a Cows) hasWristAndBookInCube() bool {
 	var hasLeg, hasTome bool
 
 	for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationCube) {
-	if a.ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
-        if itm.Name == "WirtsLeg" && itm.Quality < item.QualityMagic {
-            hasLeg = true
-        }
-    } else {
-        // If CraftWirtsLeg is false, just check if any Wirt's Leg exists
-        if itm.Name == "WirtsLeg" {
-            hasLeg = true
-        }
-    }
+		if a.ctx.CharacterCfg.Game.Cows.CraftWirtsLeg {
+			if itm.Name == "WirtsLeg" && itm.Quality < item.QualityMagic {
+				hasLeg = true
+			}
+		} else {
+			// If CraftWirtsLeg is false, just check if any Wirt's Leg exists
+			if itm.Name == "WirtsLeg" {
+				hasLeg = true
+			}
+		}
 
-    if itm.Name == item.TomeOfTownPortal {
-        hasTome = true
-    }
+		if itm.Name == item.TomeOfTownPortal {
+			hasTome = true
+		}
+	}
+
+	return hasLeg && hasTome
 }
 
-return hasLeg && hasTome
-}
-
-func (a Cows) hasWirtsLeg() bool {
+func (a Cows) HasWirtsLeg() bool {
 	_, found := a.ctx.Data.Inventory.Find(
 		"WirtsLeg",
 		item.LocationStash,
@@ -285,7 +284,7 @@ func (a Cows) hasWirtsLeg() bool {
 
 func (a Cows) getWirtsLeg() error {
 
-	if a.hasWirtsLeg() {
+	if a.HasWirtsLeg() {
 		return nil
 	}
 
@@ -325,7 +324,7 @@ func (a Cows) getWirtsLeg() error {
 	}
 
 	if err := action.InteractObject(wirt, func() bool {
-		return a.hasWirtsLeg()
+		return a.HasWirtsLeg()
 	}); err != nil {
 		return err
 	}

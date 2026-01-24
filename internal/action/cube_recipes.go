@@ -610,7 +610,7 @@ func CubeRecipes() error {
 						continue
 					}
 
-					if it.Name == "WirtsLeg" && it.Quality >= item.QualityMagic {
+					if it.Name == "WirtsLeg" && (it.Quality == item.QualityMagic || it.Quality == item.QualityCrafted) {
 						ctx.Logger.Debug("FORCING STASH OF WIRT'S LEG AFTER CUBING", "quality", it.Quality.ToString())
 						stashingRequired = true
 						continue

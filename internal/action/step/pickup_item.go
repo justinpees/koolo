@@ -190,6 +190,7 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 			strings.Contains(name, "overseer skull") ||
 			strings.Contains(name, "hawk helm") ||
 			strings.Contains(name, "rage mask") ||
+			strings.Contains(name, "falcon mask") ||
 			strings.Contains(name, "sun spirit") {
 
 			// 🔍 Check number of sockets

@@ -414,6 +414,7 @@ type CharacterCfg struct {
 			ClearPortal       bool `yaml:"clearPortal"`
 			FocusOnElitePacks bool `yaml:"focusOnElitePacks"`
 			OnlyFarmRejuvs    bool `yaml:"onlyFarmRejuvs"`
+			GetLegForCrafting bool `yaml:"getLegForCrafting"`
 		} `yaml:"tristram"`
 		Nihlathak struct {
 			ClearArea bool `yaml:"clearArea"`
