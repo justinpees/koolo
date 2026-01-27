@@ -102,7 +102,7 @@ func (a Level78Zones) Run(parameters *RunParameters) error {
 	if err := action.ReturnTown(); err != nil {
 		return err
 	}
-	//WAYPOINT TO DRY HILLS
+	/* //WAYPOINT TO DRY HILLS
 	if err := action.WayPoint(area.DryHills); err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (a Level78Zones) Run(parameters *RunParameters) error {
 	//RETURN TO TOWN
 	if err := action.ReturnTown(); err != nil {
 		return err
-	}
+	} */
 
 	// =====================
 	// ACT 1 – CAVE

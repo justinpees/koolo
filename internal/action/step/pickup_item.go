@@ -3,13 +3,15 @@ package step
 import (
 	"errors"
 	"fmt"
-	"strings"
+
+	//"strings"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/mode"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
+	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/pather"
@@ -47,10 +49,15 @@ func PickupItem(it data.Item, itemPickupAttempt int) error {
 func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 	ctx := context.Get()
 
-	// Wait for the character to finish casting or moving before proceeding.
-	// We'll use a local timeout to prevent an indefinite wait.
+	// ------------------------------------
+	// WAIT FOR CHARACTER TO BE IDLE
+	// ------------------------------------
 	waitingStartTime := time.Now()
-	for ctx.Data.PlayerUnit.Mode == mode.CastingSkill || ctx.Data.PlayerUnit.Mode == mode.Running || ctx.Data.PlayerUnit.Mode == mode.Walking || ctx.Data.PlayerUnit.Mode == mode.WalkingInTown {
+	for ctx.Data.PlayerUnit.Mode == mode.CastingSkill ||
+		ctx.Data.PlayerUnit.Mode == mode.Running ||
+		ctx.Data.PlayerUnit.Mode == mode.Walking ||
+		ctx.Data.PlayerUnit.Mode == mode.WalkingInTown {
+
 		if time.Since(waitingStartTime) > 2*time.Second {
 			ctx.Logger.Warn("Timeout waiting for character to stop moving or casting, proceeding anyway.")
 			break
@@ -59,49 +66,62 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 		ctx.RefreshGameData()
 	}
 
-	// Calculate base screen position for item
+	// ------------------------------------
+	// CALCULATE BASE SCREEN POSITION
+	// ------------------------------------
 	baseX := it.Position.X - 1
 	baseY := it.Position.Y - 1
+
 	switch itemPickupAttempt {
 	case 3:
-		baseX = baseX + 1
+		baseX++
 	case 4:
 		maxInteractions = 44
-		baseY = baseY + 1
+		baseY++
 	case 5:
 		maxInteractions = 44
-		baseX = baseX - 1
-		baseY = baseY - 1
+		baseX--
+		baseY--
 	default:
 		maxInteractions = 24
 	}
-	baseScreenX, baseScreenY := ctx.PathFinder.GameCoordsToScreenCords(baseX, baseY)
 
-	// Check for monsters first
+	baseScreenX, baseScreenY :=
+		ctx.PathFinder.GameCoordsToScreenCords(baseX, baseY)
+
+	// ------------------------------------
+	// SAFETY CHECKS
+	// ------------------------------------
 	if hasHostileMonstersNearby(it.Position) {
 		return ErrMonsterAroundItem
 	}
 
-	// Validate line of sight
 	if !ctx.PathFinder.LineOfSight(ctx.Data.PlayerUnit.Position, it.Position) {
 		return ErrNoLOSToItem
 	}
 
-	// Check distance
 	distance := ctx.PathFinder.DistanceFromMe(it.Position)
 	if distance >= 7 {
 		return fmt.Errorf("%w (%d): %s", ErrItemTooFar, distance, it.Desc().Name)
 	}
 
-	ctx.Logger.Debug(fmt.Sprintf("Picking up: %s [%s]", it.Desc().Name, it.Quality.ToString()))
+	ctx.Logger.Debug(
+		fmt.Sprintf("Picking up: %s [%s]", it.Desc().Name, it.Quality.ToString()),
+	)
 
-	// Track interaction state
+	// ------------------------------------
+	// PRE-CALCULATE NIP RULE (LOGGING ONLY)
+	// ------------------------------------
+	matchedRule, ruleResult := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAll(it)
+
+	// ------------------------------------
+	// PICKUP LOOP STATE
+	// ------------------------------------
 	waitingForInteraction := time.Time{}
 	spiralAttempt := 0
 	targetItem := it
 	lastMonsterCheck := time.Now()
 	const monsterCheckInterval = 150 * time.Millisecond
-
 	startTime := time.Now()
 
 	for {
@@ -116,34 +136,69 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 			lastMonsterCheck = time.Now()
 		}
 
-		// Check if item still exists
+		// ------------------------------------
+		// CHECK IF ITEM STILL EXISTS (SUCCESS)
+		// ------------------------------------
 		currentItem, exists := findItemOnGround(targetItem.UnitID)
 		if !exists {
+			// Determine logging text based on rule result
+			switch ruleResult {
+			case nip.RuleResultFullMatch, nip.RuleResultPartial:
+				ctx.Logger.Info(fmt.Sprintf(
+					"Picked up: %s [%s] | Line:%d | Item Pickup Attempt:%d | Spiral Attempt:%d",
+					targetItem.Desc().Name,
+					targetItem.Quality.ToString(),
+					matchedRule.LineNumber,
+					itemPickupAttempt,
+					spiralAttempt,
+				))
+			default:
+				// Items without any NIP match (Wirt's Leg, quest items, gold, heuristics)
+				ctx.Logger.Info(fmt.Sprintf(
+					"Picked up: %s [%s] | Line:<none> | Item Pickup Attempt:%d | Spiral Attempt:%d",
+					targetItem.Desc().Name,
+					targetItem.Quality.ToString(),
+					itemPickupAttempt,
+					spiralAttempt,
+				))
+			}
 
-			ctx.Logger.Info(fmt.Sprintf("Picked up: %s [%s] | Item Pickup Attempt:%d | Spiral Attempt:%d", targetItem.Desc().Name, targetItem.Quality.ToString(), itemPickupAttempt, spiralAttempt))
+			// Mark item as picked up in game state
+			ctx.CurrentGame.PickedUpItems[int(targetItem.UnitID)] =
+				int(ctx.Data.PlayerUnit.Area.Area().ID)
 
-			ctx.CurrentGame.PickedUpItems[int(targetItem.UnitID)] = int(ctx.Data.PlayerUnit.Area.Area().ID)
-
-			return nil // Success!
+			return nil // SUCCESS
 		}
 
-		// Check timeout conditions
+		// ------------------------------------
+		// TIMEOUT / FAILURE CONDITIONS
+		// ------------------------------------
 		if spiralAttempt > maxInteractions ||
-			(!waitingForInteraction.IsZero() && time.Since(waitingForInteraction) > pickupTimeout) ||
+			(!waitingForInteraction.IsZero() &&
+				time.Since(waitingForInteraction) > pickupTimeout) ||
 			time.Since(startTime) > pickupTimeout {
-			return fmt.Errorf("failed to pick up %s after %d attempts", it.Desc().Name, spiralAttempt)
+
+			return fmt.Errorf(
+				"failed to pick up %s after %d attempts",
+				it.Desc().Name,
+				spiralAttempt,
+			)
 		}
 
+		// ------------------------------------
+		// SPIRAL CURSOR MOVEMENT
+		// ------------------------------------
 		offsetX, offsetY := utils.ItemSpiral(spiralAttempt)
 		cursorX := baseScreenX + offsetX
 		cursorY := baseScreenY + offsetY
 
-		// Move cursor directly to target position
 		ctx.HID.MovePointer(cursorX, cursorY)
 		time.Sleep(spiralDelay)
 
-		// Click on item if mouse is hovering over
-		if currentItem.UnitID == ctx.GameReader.GameReader.GetData().HoverData.UnitID {
+		// Click if hovering item
+		if currentItem.UnitID ==
+			ctx.GameReader.GameReader.GetData().HoverData.UnitID {
+
 			ctx.HID.Click(game.LeftButton, cursorX, cursorY)
 			utils.PingSleep(utils.Light, 150)
 
@@ -153,8 +208,7 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 			continue
 		}
 
-		// Sometimes we got stuck because mouse is hovering a chest and item is in behind, it usually happens a lot
-		// on Andariel, so we open it
+		// Open chest/shrine if blocking
 		if isChestorShrineHovered() {
 			ctx.HID.Click(game.LeftButton, cursorX, cursorY)
 			time.Sleep(50 * time.Millisecond)
@@ -185,7 +239,7 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 	ctx := context.Get()
 
 	for _, i := range ctx.Data.Inventory.ByLocation(item.LocationGround) {
-		name := strings.ToLower(strings.TrimSpace(i.Desc().Name))
+		/* name := strings.ToLower(strings.TrimSpace(i.Desc().Name))
 		if strings.Contains(name, "antlers") ||
 			strings.Contains(name, "overseer skull") ||
 			strings.Contains(name, "hawk helm") ||
@@ -196,21 +250,25 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 			// 🔍 Check number of sockets
 			numSockets := 0
 			if s, ok := i.FindStat(stat.NumSockets, 0); ok {
+
 				numSockets = s.Value
 			}
 
 			// 🔍 DEBUG: log ALL ground items of interest
 			ctx.Logger.Warn(
 				"GROUND ITEM",
-				"unitID", i.UnitID,
+				//"unitID", i.UnitID,
 				"name", i.Desc().Name,
 				"type", i.Type().Name,
-				"base", i.Name,
+				//"base", i.Name,
 				"quality", i.Quality.ToString(),
 				"sockets", numSockets,
 				"ethereal", i.Ethereal,
+				"affixes", i.Affixes,
+				"baststats", i.BaseStats,
+				"stats", i.Stats,
 			)
-		}
+		} */
 		if i.UnitID == targetID {
 			return i, true
 		}

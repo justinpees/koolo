@@ -157,10 +157,12 @@ func stashInventory(firstRun bool) {
 	ctx := context.Get()
 	ctx.SetLastAction("stashInventory")
 
+	fullTabs := make(map[int]bool) // NEW: remember full tabs across items
+
 	// Determine starting tab based on configuration
-	startTab := 1 // Personal stash by default (tab 1)
+	startTab := 1
 	if ctx.CharacterCfg.Character.StashToShared {
-		startTab = 2 // Start with first shared stash tab if configured (tabs 2-4 are shared)
+		startTab = 2
 	}
 
 	currentTab := startTab
@@ -170,18 +172,12 @@ func stashInventory(firstRun bool) {
 	// ENSURE GEM TO UPGRADE EXISTS IN INVENTORY
 	// ------------------------------------------------------------------
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-
-		// Safety: stash must be open
 		if !ctx.Data.OpenMenus.Stash {
 			ctx.Logger.Warn("Stash not open while trying to pull gem for upgrade")
 		} else {
-
 			gemName := item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade)
-
-			// Refresh before checking inventory / stash
 			ctx.RefreshGameData()
 
-			// Count gem in inventory
 			invCount := 0
 			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 				if it.Name == gemName {
@@ -189,14 +185,7 @@ func stashInventory(firstRun bool) {
 				}
 			}
 
-			// If none in inventory, pull ONE from stash (prefer shared stash)
 			if invCount == 0 {
-
-				ctx.Logger.Debug(
-					"No gem to upgrade in inventory, searching stash",
-					slog.String("gem", string(gemName)),
-				)
-
 				stashedItems := ctx.Data.Inventory.ByLocation(
 					item.LocationSharedStash,
 					item.LocationStash,
@@ -207,17 +196,18 @@ func stashInventory(firstRun bool) {
 						continue
 					}
 
-					// Switch to correct stash tab
-					SwitchStashTab(it.Location.Page + 1)
+					tab := it.Location.Page + 1 // NEW
+					if currentTab != tab {      // NEW
+						SwitchStashTab(tab) // NEW
+						currentTab = tab    // NEW
+					}
 					utils.PingSleep(utils.Medium, 200)
 
-					// Move gem to inventory
 					screenPos := ui.GetScreenCoordsForItem(it)
 					ctx.HID.MovePointer(screenPos.X, screenPos.Y)
 					ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
 					utils.PingSleep(utils.Medium, 500)
 
-					// Refresh and verify move
 					ctx.RefreshGameData()
 
 					found := false
@@ -229,25 +219,21 @@ func stashInventory(firstRun bool) {
 					}
 
 					if !found {
-						ctx.Logger.Warn("FAILED TO MOVE " + ctx.CharacterCfg.Inventory.GemToUpgrade + " FROM STASH TO INVENTORY")
+						ctx.Logger.Warn("FAILED TO MOVE " + ctx.CharacterCfg.Inventory.GemToUpgrade)
 						continue
 					}
 
-					ctx.Logger.Debug("MOVED " + ctx.CharacterCfg.Inventory.GemToUpgrade + " FROM STASH TO INVENTORY FOR SHRINE UPGRADE")
-
-					break // ONLY take one
+					break
 				}
 			}
 		}
 	}
 
-	// Make a copy of inventory items to avoid issues if the slice changes during iteration
 	itemsToProcess := make([]data.Item, 0)
 	for _, i := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 		if i.IsPotion() {
 			continue
 		}
-
 		itemsToProcess = append(itemsToProcess, i)
 	}
 
@@ -255,11 +241,10 @@ func stashInventory(firstRun bool) {
 		stashIt, dropIt, matchedRule, ruleFile := shouldStashIt(i, firstRun)
 
 		if dropIt {
-			ctx.Logger.Debug(fmt.Sprintf("Dropping item %s [%s] due to MaxQuantity rule.", i.Desc().Name, i.Quality.ToString()))
 			blacklistItem(i)
-			utils.PingSleep(utils.Medium, 500) // Medium operation: Prepare for item drop
+			utils.PingSleep(utils.Medium, 500)
 			DropItem(i)
-			utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for drop to complete
+			utils.PingSleep(utils.Medium, 500)
 			step.CloseAllMenus()
 			continue
 		}
@@ -268,15 +253,13 @@ func stashInventory(firstRun bool) {
 			continue
 		}
 
-		// Determine target tab for this specific item
 		targetStartTab := startTab
 
-		// Always stash unique charms to the shared stash (override personal stash setting)
 		if (i.Name == "grandcharm" || i.Name == "smallcharm" || i.Name == "largecharm") && i.Quality == item.QualityUnique {
-			targetStartTab = 2 // Force shared stash for unique charms
+			targetStartTab = 2
 		}
 		if i.Name == "WirtsLeg" {
-			targetStartTab = 1 // Force personal stash for Wirt's Leg
+			targetStartTab = 1
 		}
 
 		itemStashed := false
@@ -284,7 +267,6 @@ func stashInventory(firstRun bool) {
 		name := i.Desc().Name
 		lowerName := strings.ToLower(name)
 
-		// Priority items
 		isPriorityItem :=
 			strings.Contains(lowerName, "rune") ||
 				strings.Contains(lowerName, "jewel") ||
@@ -300,78 +282,108 @@ func stashInventory(firstRun bool) {
 				strings.Contains(lowerName, "diamond")
 
 		// 1. Priority items → try tab 2 first
-		if isPriorityItem {
-			priorityTab := 2
-			SwitchStashTab(priorityTab)
+		if isPriorityItem && !fullTabs[2] {
+			if currentTab != 2 { // NEW
+				SwitchStashTab(2)
+				currentTab = 2 // NEW
+			}
+
 			if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-				lastSuccessfulStashTab = priorityTab
+				lastSuccessfulStashTab = 2
 				itemStashed = true
-				ctx.Logger.Info(fmt.Sprintf("Priority item %s stashed to tab %d", name, priorityTab))
+			} else {
+				fullTabs[2] = true
 			}
 		}
 
-		// 2. Try last successful stash tab first (skip tab 2 for non-priority)
-		if !itemStashed && lastSuccessfulStashTab != -1 {
+		// 2. Try last successful stash tab
+		if !itemStashed && lastSuccessfulStashTab != -1 && !fullTabs[lastSuccessfulStashTab] {
 			if !isPriorityItem && lastSuccessfulStashTab == 2 {
 				// skip
 			} else {
-				SwitchStashTab(lastSuccessfulStashTab)
+				if currentTab != lastSuccessfulStashTab { // NEW
+					SwitchStashTab(lastSuccessfulStashTab)
+					currentTab = lastSuccessfulStashTab // NEW
+				}
+
 				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
 					itemStashed = true
+				} else {
+					fullTabs[lastSuccessfulStashTab] = true
 				}
 			}
 		}
 
-		// 3. Normal stash rotation (skip tab 2 for non-priority items)
+		// 3. Normal stash rotation
 		if !itemStashed {
 			fallbackToTab2 := false
 
 			for tabAttempt := targetStartTab; tabAttempt <= maxTab; tabAttempt++ {
-				// Skip tab 2 for non-priority items for now
+
+				if fullTabs[tabAttempt] {
+					continue
+				}
+
 				if !isPriorityItem && tabAttempt == 2 {
 					fallbackToTab2 = true
 					continue
 				}
-				// Skip last successful tab
+
 				if tabAttempt == lastSuccessfulStashTab {
 					continue
 				}
 
-				SwitchStashTab(tabAttempt)
+				if currentTab != tabAttempt { // NEW
+					SwitchStashTab(tabAttempt)
+					currentTab = tabAttempt // NEW
+				}
+
 				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
 					if tabAttempt > 1 {
 						lastSuccessfulStashTab = tabAttempt
 					}
 					itemStashed = true
 					break
+				} else {
+					fullTabs[tabAttempt] = true
 				}
 			}
 
-			// Only fallback to tab 2 if no other tab worked
-			if !itemStashed && fallbackToTab2 {
-				SwitchStashTab(2)
+			if !itemStashed && fallbackToTab2 && !fullTabs[2] {
+				if currentTab != 2 { // NEW
+					SwitchStashTab(2)
+					currentTab = 2 // NEW
+				}
+
 				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
 					lastSuccessfulStashTab = 2
 					itemStashed = true
+				} else {
+					fullTabs[2] = true
 				}
 			}
 		}
 
-		// 4. Fallback to personal stash if nothing else worked
-		if !itemStashed {
-			SwitchStashTab(1)
+		// 4. Fallback to personal stash
+		if !itemStashed && !fullTabs[1] {
+			if currentTab != 1 { // NEW
+				SwitchStashTab(1)
+				currentTab = 1 // NEW
+			}
+
 			if stashItemAction(i, matchedRule, ruleFile, firstRun) {
 				itemStashed = true
+			} else {
+				fullTabs[1] = true
 			}
 		}
 
-		// 5. Final warning
-
+		// 5. Final brute-force fallback (ignore fullTabs)
 		if !itemStashed {
 			stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
 			if !stashed {
 				ctx.Logger.Warn(fmt.Sprintf(
-					"ERROR: Item %s [%s] could not be stashed into any tab. All stash tabs might be full.",
+					"ERROR: Item %s [%s] could not be stashed into any tab.",
 					i.Desc().Name, i.Quality.ToString(),
 				))
 			}

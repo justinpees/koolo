@@ -10,6 +10,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
@@ -17,9 +18,12 @@ import (
 	botCtx "github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/drop"
 	"github.com/hectorgimenez/koolo/internal/event"
+	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/health"
 	"github.com/hectorgimenez/koolo/internal/run"
+	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
+	"github.com/lxn/win"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -116,7 +120,15 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 	b.ctx.RefreshGameData()
 
 	b.updateActivityAndPosition() // Initial update for activity and position
+	ctx1 := botCtx.Get()
+	if ctx1.Data.PlayerUnit.Area == area.LutGholein {
+		if err := talkToWarriv(ctx1); err != nil {
+			return err
+		}
 
+		// Now it's safe
+		ctx1.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+	}
 	// This routine is in charge of refreshing the game data and handling cancellation, will work in parallel with any other execution
 	g.Go(func() error {
 		b.ctx.AttachRoutine(botCtx.PriorityBackground)
@@ -239,7 +251,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 
 				// Merc check (Fast)
 				if b.ctx.CharacterCfg.BackToTown.MercDied && b.ctx.Data.MercHPPercent() <= 0 && b.ctx.CharacterCfg.Character.UseMerc {
-					time.Sleep(2000 * time.Millisecond)
+					time.Sleep(200 * time.Millisecond)
 				}
 
 				// Legacy/Portrait/Chat checks (Fast, Read-only/Input-gated)
@@ -505,4 +517,46 @@ type MuleManager interface {
 
 type StatsReporter interface {
 	ReportStats()
+}
+
+func talkToWarriv(ctx *botCtx.Status) error {
+	ctx.Logger.Debug("Attempting to talk to Warriv")
+
+	const maxAttempts = 10
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		ctx.Logger.Debug("Trying to click Warriv", "attempt", attempt)
+
+		// 1. Find Warriv in the current game data
+		warriv, found := ctx.Data.Monsters.FindOne(npc.Warriv2, data.MonsterTypeNone)
+		if !found {
+			ctx.Logger.Warn("Warriv not found in game data, retrying...")
+			utils.PingSleep(utils.Medium, 300)
+			continue
+		}
+
+		// 2. Convert game coordinates to screen coordinates
+		screenX, screenY := ui.GameCoordsToScreenCords(warriv.Position.X, warriv.Position.Y)
+
+		// 3. Move mouse and click
+		ctx.HID.MovePointer(screenX, screenY)
+		ctx.HID.Click(game.LeftButton, screenX, screenY)
+
+		// 4. Wait a bit for dialog to open
+		utils.PingSleep(utils.Medium, 400)
+		ctx.RefreshGameData()
+
+		// 5. Check if NPC dialog opened
+		if ctx.Data.OpenMenus.NPCInteract {
+			ctx.Logger.Debug("Successfully interacted with Warriv")
+			return nil
+		}
+
+		// 6. Slight random offset for next attempt in case click missed
+		warriv.Position.X += attempt % 2 // tiny variation
+		warriv.Position.Y += attempt % 2
+		utils.PingSleep(utils.Light, 100)
+	}
+
+	return fmt.Errorf("failed to interact with Warriv after %d attempts", maxAttempts)
 }

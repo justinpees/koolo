@@ -638,6 +638,15 @@ func CubeRecipes() error {
 						stashingRareSpecificItem = true
 						continue
 					}
+
+					// 🔻 NOTHING MATCHED → DROP IT
+					ctx.Logger.Warn(
+						"Dropping item after cube recipe",
+						"item", it.Name,
+						"recipe", recipe.Name,
+					)
+					DropInventoryItem(it)
+
 				}
 
 				if stashingRequired {
