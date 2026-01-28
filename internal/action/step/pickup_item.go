@@ -105,9 +105,9 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 		return fmt.Errorf("%w (%d): %s", ErrItemTooFar, distance, it.Desc().Name)
 	}
 
-	ctx.Logger.Debug(
+	/* ctx.Logger.Debug(
 		fmt.Sprintf("Picking up: %s [%s]", it.Desc().Name, it.Quality.ToString()),
-	)
+	) */
 
 	// ------------------------------------
 	// PRE-CALCULATE NIP RULE (LOGGING ONLY)

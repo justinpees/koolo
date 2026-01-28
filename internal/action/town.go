@@ -123,13 +123,6 @@ func PreRun(firstRun bool) error {
 	// Stash again if needed
 	Stash(false)
 
-
-	
-	
-
-	
-	
-
 	if ctx.CharacterCfg.CubeRecipes.PrioritizeRunewords {
 		MakeRunewords()
 		if !isLevelingChar {
@@ -144,17 +137,15 @@ func PreRun(firstRun bool) error {
 		}
 	}
 
-// --- New addition: ensure upgrade gem is corner-safe for all characters ---
+	// --- New addition: ensure upgrade gem is corner-safe for all characters ---
 	ctx.Logger.Info("Ensuring upgrade gem is corner-safe...")
 	EnsureUpgradeGemCornerSafe()
 	ctx.PauseIfNotPriority()
 	ctx.Logger.Info("Upgrade gem placement complete.")
 
-
 	// After creating or rerolling runewords, stash newly created bases/runewords
 	// so we don't carry them out to the next area unnecessarily.
 	Stash(false)
-
 
 	if isLevelingChar {
 		OptimizeInventory(item.LocationInventory)
@@ -180,8 +171,8 @@ func PreRun(firstRun bool) error {
 
 func InRunReturnTownRoutine() error {
 	ctx := context.Get()
-	
-_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
+
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 
 	ctx.Logger.Info("Pausing if not priority at start of town routine...")
 	ctx.PauseIfNotPriority()
@@ -267,7 +258,6 @@ _, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	// before leaving town.
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after post-reroll Stash
-
 
 	ctx.Logger.Info("Stashing items after vendor...")
 	Stash(false)
