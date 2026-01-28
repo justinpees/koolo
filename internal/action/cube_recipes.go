@@ -595,6 +595,8 @@ func CubeRecipes() error {
 					return err
 				}
 
+				ctx.SetLastAction("CubeTransmute") // this updates the lastaction watcher for 3m timeout not to go in effect when cubing.
+
 				itemsInInv := ctx.Data.Inventory.ByLocation(item.LocationInventory)
 
 				stashingRequired := false
