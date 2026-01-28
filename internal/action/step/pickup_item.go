@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	//"strings"
+	"strings"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -139,13 +139,19 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 		// ------------------------------------
 		// CHECK IF ITEM STILL EXISTS (SUCCESS)
 		// ------------------------------------
+		ethLabel := ""
+		if targetItem.Ethereal {
+			ethLabel = "Ethereal "
+		}
+
 		currentItem, exists := findItemOnGround(targetItem.UnitID)
 		if !exists {
 			// Determine logging text based on rule result
 			switch ruleResult {
 			case nip.RuleResultFullMatch, nip.RuleResultPartial:
 				ctx.Logger.Info(fmt.Sprintf(
-					"Picked up: %s [%s] | Line:%d | Item Pickup Attempt:%d | Spiral Attempt:%d",
+					"Picked up: %s%s [%s] | Line:%d | Item Pickup Attempt:%d | Spiral Attempt:%d",
+					ethLabel,
 					targetItem.Desc().Name,
 					targetItem.Quality.ToString(),
 					matchedRule.LineNumber,
@@ -269,6 +275,27 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 				"stats", i.Stats,
 			)
 		} */
+		if i.Type().Name == "Pelt" {
+			// 🔍 Check number of sockets
+			numSockets := 0
+			if s, ok := i.FindStat(stat.NumSockets, 0); ok {
+
+				numSockets = s.Value
+			}
+			for _, st := range i.Stats {
+				if strings.Contains(st.String(), "+3 to Fury") || strings.Contains(st.String(), "+3 to Rabies") || strings.Contains(st.String(), "+3 to Feral Rage") || strings.Contains(st.String(), "+3 to Fire Claws") || strings.Contains(st.String(), "+3 to Maul") {
+					ctx.Logger.Error(
+						"+3 SKILL PELT DETECTED ON FLOOR (STRING MATCH)",
+						"name", i.Desc().Name,
+						"quality", i.Quality.ToString(),
+						"ethereal", i.Ethereal,
+						"sockets", numSockets,
+					)
+					break
+				}
+			}
+		}
+
 		if i.UnitID == targetID {
 			return i, true
 		}
