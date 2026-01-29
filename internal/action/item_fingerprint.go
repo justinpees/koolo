@@ -26,11 +26,11 @@ func SpecificFingerprint(it data.Item) string {
 
 	//snowy prefix became snowflake for some reason
 	// Identified name (normalized, best-effort)
-	if it.IdentifiedName != "" {
+	/* if it.IdentifiedName != "" {
 		name := it.IdentifiedName
 		name = strings.ReplaceAll(name, "Snowflake", "Snowy")
 		parts = append(parts, name)
-	}
+	} */
 
 	// Magic affixes (prefixes & suffixes)
 	for _, p := range it.Affixes.Magic.Prefixes {
@@ -78,9 +78,9 @@ func SpecificRareFingerprint(it data.Item) string {
 	parts = append(parts, string(it.Name))
 
 	// Identified name (stable across games)
-	if it.IdentifiedName != "" {
+	/* if it.IdentifiedName != "" {
 		parts = append(parts, it.IdentifiedName)
-	}
+	} */
 
 	// Magic affixes (prefixes & suffixes)
 	for _, p := range it.Affixes.Magic.Prefixes {

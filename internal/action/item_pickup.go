@@ -1617,6 +1617,7 @@ func identifySpecificMarkedItem(idTome data.Item, i data.Item) {
 		ctx.MarkedSpecificItemUnitID = 0 // reset
 		return
 	}
+	step.CloseAllMenus()
 
 	// ✅ Fingerprint logic for marked Specific Item (NOW SAFE)
 	if identified.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
@@ -1632,6 +1633,51 @@ func identifySpecificMarkedItem(idTome data.Item, i data.Item) {
 			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
 				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
 			}
+
+			//PHYSICALLY STASH IMMEDIATELY AFTER FINDING
+			// 🚨 Immediately stash marked item to avoid any future selling/cubing issues
+			ctx.Logger.Warn("Immediately stashing marked specific item", "unitID", identified.UnitID)
+
+			// Ensure town
+			if ctx.Data.PlayerUnit.Area != area.Harrogath && ctx.Data.PlayerUnit.Area != area.ThePandemoniumFortress && ctx.Data.PlayerUnit.Area != area.KurastDocks && ctx.Data.PlayerUnit.Area != area.LutGholein && ctx.Data.PlayerUnit.Area != area.RogueEncampment {
+				ReturnTown()
+				utils.PingSleep(utils.Critical, 1500)
+			}
+			// Open stash
+			OpenStash()
+			utils.PingSleep(utils.Medium, 800)
+			// 🔁 REFRESH + RE-FIND ITEM
+			ctx.RefreshGameData()
+
+			var stashItem *data.Item
+			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+				// Match by fingerprint instead of UnitID
+				if SpecificFingerprint(it) == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+					stashItem = &it
+					break
+				}
+			}
+
+			if stashItem == nil {
+				ctx.Logger.Error(
+					"Marked item not found in inventory after opening stash",
+				)
+				step.CloseAllMenus()
+				return
+			}
+
+			// ✅ Physically stash the identified marked item
+			if stashItem != nil {
+				if !stashItemAction(*stashItem, "MARKED_SPECIFIC_ITEM", "", false) {
+					ctx.Logger.Error("Failed to physically stash marked specific item", "unitID", stashItem.UnitID)
+				} else {
+					ctx.Logger.Warn("Successfully stashed marked specific item", "unitID", stashItem.UnitID)
+				}
+				utils.PingSleep(utils.Medium, 2000) // ensure the stash action completes
+				step.CloseAllMenus()
+			}
+
+			UsePortalInTown()
 		} else {
 			ctx.Logger.Warn("SPECIFIC ITEM THAT I WAS GOING TO MARK TURNED OUT TO BE A KEEPER, NOT MARKING IT")
 		}
@@ -1710,7 +1756,7 @@ func identifyRareSpecificMarkedItem(idTome data.Item, i data.Item) {
 		ctx.MarkedRareSpecificItemUnitID == identified.UnitID {
 
 		if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(identified); res != nip.RuleResultFullMatch {
-			fp := SpecificFingerprint(identified)
+			fp := SpecificRareFingerprint(identified)
 
 			ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = fp
 			ctx.Logger.Warn("SAVED MARKED RARE SPECIFIC ITEM FINGERPRINT", "fp", fp)
@@ -1718,6 +1764,50 @@ func identifyRareSpecificMarkedItem(idTome data.Item, i data.Item) {
 			if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
 				ctx.Logger.Error("FAILED TO SAVE CharacterCfg WITH FINGERPRINT", "err", err)
 			}
+			//PHYSICALLY STASH IMMEDIATELY AFTER FINDING
+			// 🚨 Immediately stash marked item to avoid any future selling/cubing issues
+			ctx.Logger.Warn("Immediately stashing marked rare specific item", "unitID", identified.UnitID)
+
+			// Ensure town
+			if ctx.Data.PlayerUnit.Area != area.Harrogath && ctx.Data.PlayerUnit.Area != area.ThePandemoniumFortress && ctx.Data.PlayerUnit.Area != area.KurastDocks && ctx.Data.PlayerUnit.Area != area.LutGholein && ctx.Data.PlayerUnit.Area != area.RogueEncampment {
+				ReturnTown()
+				utils.PingSleep(utils.Critical, 1500)
+			}
+			// Open stash
+			OpenStash()
+			utils.PingSleep(utils.Medium, 800)
+			// 🔁 REFRESH + RE-FIND ITEM
+			ctx.RefreshGameData()
+
+			var stashItem *data.Item
+			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+				// Match by fingerprint instead of UnitID
+				if SpecificRareFingerprint(it) == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+					stashItem = &it
+					break
+				}
+			}
+
+			if stashItem == nil {
+				ctx.Logger.Error(
+					"Rare Marked item not found in inventory after opening stash",
+				)
+				step.CloseAllMenus()
+				return
+			}
+
+			// ✅ Physically stash the identified marked item
+			if stashItem != nil {
+				if !stashItemAction(*stashItem, "MARKED_RARE_ITEM", "", false) {
+					ctx.Logger.Error("Failed to physically stash marked specific item", "unitID", stashItem.UnitID)
+				} else {
+					ctx.Logger.Warn("Successfully stashed marked rare specific item", "unitID", stashItem.UnitID)
+				}
+				utils.PingSleep(utils.Medium, 2000) // ensure the stash action completes
+				step.CloseAllMenus()
+			}
+
+			UsePortalInTown()
 		} else {
 			ctx.Logger.Warn("SPECIFIC RARE ITEM THAT I WAS GOING TO MARK TURNED OUT TO BE A KEEPER, NOT MARKING IT")
 		}
