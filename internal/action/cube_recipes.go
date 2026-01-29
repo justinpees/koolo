@@ -642,11 +642,8 @@ func CubeRecipes() error {
 					}
 
 					// 🔻 NOTHING MATCHED → DROP IT
-					ctx.Logger.Warn(
-						"Dropping item after cube recipe",
-						"item", it.Name,
-						"recipe", recipe.Name,
-					)
+					ctx.Logger.Debug("Dropping items that dont match nip")
+
 					DropInventoryItem(it)
 
 				}

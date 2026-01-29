@@ -215,7 +215,7 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 				SpecificRareFingerprint(it) == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
 
 				ctx.Logger.Warn(
-					"LOCKING MARKED SPECIFIC ITEM TO PREVENT SELLING",
+					"LOCKING RARE MARKED SPECIFIC ITEM TO PREVENT SELLING",
 					"unitID", it.UnitID,
 					"fp", ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint,
 				)

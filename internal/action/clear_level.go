@@ -77,7 +77,7 @@ func ClearCurrentLevelEx(openChests bool, filter data.MonsterFilter, shouldInter
 				}
 
 				if shouldOpen {
-					ctx.Logger.Debug(fmt.Sprintf(
+					/* ctx.Logger.Debug(fmt.Sprintf(
 						"Found chest. attempting to interact. Name=%s.\nID=%v UnitID=%v Pos=%v,%v Area='%s' InteractType=%v",
 						o.Desc().Name,
 						o.Name,
@@ -86,7 +86,7 @@ func ClearCurrentLevelEx(openChests bool, filter data.MonsterFilter, shouldInter
 						o.Position.Y,
 						ctx.Data.PlayerUnit.Area.Area().Name,
 						o.InteractType,
-					))
+					)) */
 
 					err = MoveToCoords(o.Position)
 					if err != nil {
