@@ -570,6 +570,7 @@ func CubeRecipes() error {
 
 		continueProcessing := true
 		for continueProcessing {
+			ctx.SetLastAction("CubeRecipes")
 			if items, hasItems := hasItemsForRecipe(ctx, recipe); hasItems {
 
 				if recipe.PurchaseRequired {
