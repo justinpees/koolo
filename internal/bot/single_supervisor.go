@@ -295,6 +295,22 @@ func (s *SinglePlayerSupervisor) Start() error {
 		s.logGameStart(runs)
 		s.bot.ctx.RefreshGameData()
 
+		// Dump armory data on game start
+		if err := s.dumpArmory(); err != nil {
+			s.bot.ctx.Logger.Warn("Failed to dump armory data", slog.Any("error", err))
+		}
+
+		if s.bot.ctx.Data.IsLevelingCharacter && s.bot.ctx.Data.ActiveWeaponSlot != 0 {
+			for attempt := 0; attempt < 3 && s.bot.ctx.Data.ActiveWeaponSlot != 0; attempt++ {
+				s.bot.ctx.HID.PressKeyBinding(s.bot.ctx.Data.KeyBindings.SwapWeapons)
+				utils.PingSleep(utils.Light, 150)
+				s.bot.ctx.RefreshGameData()
+			}
+			if s.bot.ctx.Data.ActiveWeaponSlot != 0 {
+				s.bot.ctx.Logger.Warn("Failed to return to main weapon slot after game start", "slot", s.bot.ctx.Data.ActiveWeaponSlot)
+			}
+		}
+
 		if s.bot.ctx.CharacterCfg.Companion.Enabled && s.bot.ctx.CharacterCfg.Companion.Leader {
 			event.Send(event.RequestCompanionJoinGame(event.Text(s.name, "New Game Started "+s.bot.ctx.Data.Game.LastGameName), s.bot.ctx.CharacterCfg.CharacterName, s.bot.ctx.Data.Game.LastGameName, s.bot.ctx.Data.Game.LastGamePassword))
 		}
@@ -762,4 +778,14 @@ func (s *SinglePlayerSupervisor) createLobbyGame() error {
 	s.bot.ctx.CharacterCfg.Game.PublicGameCounter++
 	s.bot.ctx.CurrentGame.FailedToCreateGameAttempts = 0
 	return nil
+}
+
+// dumpArmory saves the current character inventory state to a JSON file
+func (s *SinglePlayerSupervisor) dumpArmory() error {
+	if s.bot.ctx.Data == nil {
+		return fmt.Errorf("game data not available")
+	}
+
+	gameName := s.bot.ctx.GameReader.LastGameName()
+	return dumpArmoryData(s.name, s.bot.ctx.Data, gameName)
 }
