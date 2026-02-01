@@ -474,12 +474,12 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 
 		if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "MagicWirtsLegStep1") || slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "MagicWirtsLegStep2") {
 			if i.Name == "WirtsLeg" && i.Quality == item.QualityMagic { // This is the simplest way given your logs
-				ctx.Logger.Warn("stashing magic wirts leg, cows disabled")
+				ctx.Logger.Debug("stashing magic wirts leg, cows disabled")
 				return true, false, "", "" // Explicitly stash the wirts leg
 			}
 			if i.Name == "WirtsLeg" && i.Quality == item.QualityCrafted {
 				if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i); res != nip.RuleResultFullMatch {
-					ctx.Logger.Warn("dropping crafted wirts leg, cows disabled and doesnt match nip")
+					ctx.Logger.Debug("dropping crafted wirts leg, cows disabled and doesnt match nip")
 					ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, i) // blacklist it so bot never tries to pick it back up
 					return false, true, "", ""                                                     // Explicitly drop the crafted wirts leg that doesnt match nip
 
@@ -490,12 +490,12 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 
 			}
 			if i.Name == "WirtsLeg" && i.Quality == item.QualityNormal && i.HasSockets {
-				ctx.Logger.Warn("stashing wirts leg that has sockets, cows disabled")
+				ctx.Logger.Debug("stashing wirts leg that has sockets, cows disabled")
 				return true, false, "", "" // Explicitly keep the normal socketed wirts leg
 			}
 
 			if i.Name == "WirtsLeg" && i.Quality == item.QualityNormal && !i.HasSockets && ctx.Data.PlayerUnit.Area != area.Tristram {
-				ctx.Logger.Warn("dropping wirts leg that has no sockets, cows disabled")
+				ctx.Logger.Debug("dropping wirts leg that has no sockets, cows disabled")
 				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, i) // blacklist it so bot never tries to pick it back up
 				return false, true, "", ""                                                     // Explicitly drop the normal 0-socket wirts leg
 			}

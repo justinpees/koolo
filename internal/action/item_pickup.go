@@ -1668,10 +1668,18 @@ func identifySpecificMarkedItem(idTome data.Item, i data.Item) {
 
 			// ✅ Physically stash the identified marked item
 			if stashItem != nil {
-				if !stashItemAction(*stashItem, "MARKED_SPECIFIC_ITEM", "", false) {
-					ctx.Logger.Error("Failed to physically stash marked specific item", "unitID", stashItem.UnitID)
+				if ctx.CharacterCfg.Character.StashToShared {
+					if !stashItemAcrossTabs(*stashItem, "MARKED_SPECIFIC_ITEM", "", false) {
+						ctx.Logger.Error("Failed to physically stash marked specific item", "unitID", stashItem.UnitID)
+					} else {
+						ctx.Logger.Warn("Successfully stashed marked specific item", "unitID", stashItem.UnitID)
+					}
 				} else {
-					ctx.Logger.Warn("Successfully stashed marked specific item", "unitID", stashItem.UnitID)
+					if !stashItemAction(*stashItem, "MARKED_SPECIFIC_ITEM", "", false) {
+						ctx.Logger.Error("Failed to physically stash marked specific item", "unitID", stashItem.UnitID)
+					} else {
+						ctx.Logger.Warn("Successfully stashed marked specific item", "unitID", stashItem.UnitID)
+					}
 				}
 				utils.PingSleep(utils.Medium, 2000) // ensure the stash action completes
 				step.CloseAllMenus()
@@ -1798,10 +1806,18 @@ func identifyRareSpecificMarkedItem(idTome data.Item, i data.Item) {
 
 			// ✅ Physically stash the identified marked item
 			if stashItem != nil {
-				if !stashItemAction(*stashItem, "MARKED_RARE_ITEM", "", false) {
-					ctx.Logger.Error("Failed to physically stash marked specific item", "unitID", stashItem.UnitID)
+				if ctx.CharacterCfg.Character.StashToShared {
+					if !stashItemAcrossTabs(*stashItem, "MARKED_RARE_ITEM", "", false) {
+						ctx.Logger.Error("Failed to physically stash marked specific item", "unitID", stashItem.UnitID)
+					} else {
+						ctx.Logger.Warn("Successfully stashed marked specific item", "unitID", stashItem.UnitID)
+					}
 				} else {
-					ctx.Logger.Warn("Successfully stashed marked rare specific item", "unitID", stashItem.UnitID)
+					if !stashItemAction(*stashItem, "MARKED_RARE_ITEM", "", false) {
+						ctx.Logger.Error("Failed to physically stash marked specific item", "unitID", stashItem.UnitID)
+					} else {
+						ctx.Logger.Warn("Successfully stashed marked specific item", "unitID", stashItem.UnitID)
+					}
 				}
 				utils.PingSleep(utils.Medium, 2000) // ensure the stash action completes
 				step.CloseAllMenus()

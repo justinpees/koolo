@@ -570,7 +570,6 @@ func CubeRecipes() error {
 
 		continueProcessing := true
 		for continueProcessing {
-			ctx.SetLastAction("CubeRecipes")
 			if items, hasItems := hasItemsForRecipe(ctx, recipe); hasItems {
 
 				if recipe.PurchaseRequired {
@@ -595,8 +594,9 @@ func CubeRecipes() error {
 				if err := CubeTransmute(); err != nil {
 					return err
 				}
+				// Reset last action so the activity monitor sees it
 
-				ctx.SetLastAction("CubeTransmute") // this updates the lastaction watcher for 3m timeout not to go in effect when cubing.
+				//ctx.SetLastAction("CubeTransmute") // this updates the lastaction watcher for 3m timeout not to go in effect when cubing.
 
 				itemsInInv := ctx.Data.Inventory.ByLocation(item.LocationInventory)
 
@@ -644,7 +644,6 @@ func CubeRecipes() error {
 
 					// 🔻 NOTHING MATCHED → DROP IT
 					ctx.Logger.Debug("Dropping items that dont match nip")
-
 					DropInventoryItem(it)
 
 				}
