@@ -181,6 +181,11 @@ func attack(settings attackSettings) error {
 			return nil // Target is not valid, we don't have anything to attack
 		}
 
+		/* if IsDiabloClone(monster) {
+			ctx.Logger.Warn("DIABLO CLONE DETECTED!")
+			ctx.DiabloCloneDetected = true
+		} */
+
 		distance := ctx.PathFinder.DistanceFromMe(monster.Position)
 		if !lastRunAt.IsZero() && !settings.followEnemy && distance > settings.maxDistance {
 			return nil // Enemy is out of range and followEnemy is disabled, we cannot attack
@@ -409,7 +414,7 @@ func ensureEnemyIsInRange(monster data.Monster, state *attackState, maxDistance,
 	// Handle repositioning if needed (due to no damage, or no LoS for burst attacks)
 	if needsRepositioning {
 		// If we've already tried repositioning once for this "stuck" phase
-		if state.repositionAttempts >= 1 { // This is the problematic part. User wants to allow 1 attempt.
+		if !IsUnskippableBoss(monster) && state.repositionAttempts >= 1 { // This is the problematic part. User wants to allow 1 attempt.
 			ctx.Logger.Info(fmt.Sprintf(
 				"Already attempted repositioning for monster [%d] in area [%s]. Skipping further attempts and considering monster unkillable.", // Updated log message
 				monster.Name, ctx.Data.PlayerUnit.Area.Area().Name,
@@ -498,6 +503,12 @@ func checkMonsterDamage(monster data.Monster) (bool, *attackState) {
 	didDamage := false
 	currentHealth := monster.Stats[stat.Life]
 
+	// PREVENTS NEEDSREPOSITIONING FROM EVER BECOMING TRUE FOR DIABLO CLONE
+	if IsUnskippableBoss(monster) && !state.failedAttemptStartTime.IsZero() {
+		state.failedAttemptStartTime = time.Time{}
+		state.repositionAttempts = 0
+	}
+
 	// Only update health check if some time has passed
 	if time.Since(state.lastHealthCheckTime) > 100*time.Millisecond {
 		if currentHealth < state.lastHealth {
@@ -526,4 +537,13 @@ func checkMonsterDamage(monster data.Monster) (bool, *attackState) {
 	}
 
 	return didDamage, state
+}
+
+func IsDiabloClone(monster data.Monster) bool {
+	return monster.Type == data.MonsterTypeSuperUnique &&
+		monster.Name == npc.DiabloClone
+}
+
+func IsUnskippableBoss(monster data.Monster) bool {
+	return IsDiabloClone(monster)
 }

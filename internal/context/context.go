@@ -74,7 +74,8 @@ type Context struct {
 
 	MarkedSpecificItemUnitID     data.UnitID
 	MarkedRareSpecificItemUnitID data.UnitID
-	IsDyingOnPurpose             bool
+
+	IsDyingOnPurpose bool
 }
 
 type RecentlySeenMonster struct {

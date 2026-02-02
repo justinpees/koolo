@@ -234,6 +234,7 @@ type CharacterCfg struct {
 		ManaPotionCount    int         `yaml:"manaPotionCount"`
 		RejuvPotionCount   int         `yaml:"rejuvPotionCount"`
 		GemToUpgrade       string      `yaml:"upgradeGemUsingShrine"`
+		AnniFingerprint    string      `yaml:"anniFingerprint"`
 	} `yaml:"inventory"`
 	Character struct {
 		Class                        string `yaml:"class"`

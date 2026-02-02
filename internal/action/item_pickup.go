@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -507,6 +508,18 @@ func GetItemsToPickup(maxDistance int) []data.Item {
 
 		if ctx.Data.PlayerUnit.Area != area.Tristram && itm.Name == "WirtsLeg" {
 			//ctx.Logger.Warn("Not picking up that trash wirts leg")
+			continue
+		}
+
+		// Check for unique small charm (anni)
+		if itm.Quality == item.QualityUnique && itm.Name == "SmallCharm" {
+			ctx.Logger.Warn("Unique grand charm detected on floor: " + string(itm.Name))
+
+			if err := HandleSmallCharmOnFloor(itm); err != nil {
+				ctx.Logger.Error("Failed handling small charm", "err", err)
+			}
+
+			// Do NOT let normal pickup logic touch this item
 			continue
 		}
 
@@ -1832,3 +1845,352 @@ func identifyRareSpecificMarkedItem(idTome data.Item, i data.Item) {
 		ctx.MarkedRareSpecificItemUnitID = 0
 	}
 }
+
+func HandleSmallCharmOnFloor(groundCharm data.Item) error {
+	ctx := context.Get()
+	ctx.RefreshGameData()
+
+	// ----------------------------------------
+	// 1. Detect existing unique small charm
+	// ----------------------------------------
+	var existingCharm *data.Item
+	var origX, origY int
+
+	for i := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		it := ctx.Data.Inventory.ByLocation(item.LocationInventory)[i]
+		if it.Name == "SmallCharm" && it.Quality == item.QualityUnique {
+			existingCharm = &it
+			origX, origY = it.Position.X, it.Position.Y
+			ctx.CharacterCfg.Inventory.AnniFingerprint = SpecificFingerprint(it)
+			break
+		}
+	}
+
+	// ----------------------------------------
+	// 2. If one exists → stash it
+	// ----------------------------------------
+	if existingCharm != nil {
+		ctx.Logger.Warn("Existing unique small charm found, stashing it")
+
+		origLock := ctx.CharacterCfg.Inventory.InventoryLock[origY][origX]
+		ctx.Logger.Warn("ORIGINAL LOCKED/UNLOCKED INTEGER FOR ANNI IN INVENTORY: " + strconv.Itoa(origLock))
+		ctx.Logger.Warn("SWITCHING INTEGER TO 0 (I THINK 0 MEANS UNLOCK IT?)")
+		ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = 0
+
+		if err := ReturnTown(); err != nil {
+			return err
+		}
+		utils.PingSleep(utils.Critical, 1200)
+
+		if err := OpenStash(); err != nil {
+			return err
+		}
+		utils.PingSleep(utils.Medium, 800)
+
+		stashItemAcrossTabs(*existingCharm, "Temporarily_stashing_small_charm", "", false)
+		utils.PingSleep(utils.Medium, 1500)
+		step.CloseAllMenus()
+
+		ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = origLock
+		UsePortalInTown()
+	}
+
+	// ----------------------------------------
+	// 3. Pick up the unid ground charm
+	// ----------------------------------------
+	ItemPickup(40)
+	ctx.RefreshGameData()
+
+	// ----------------------------------------
+	// 4. Find newly picked-up charm
+	// ----------------------------------------
+	var newCharm *data.Item
+	for i := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		it := ctx.Data.Inventory.ByLocation(item.LocationInventory)[i]
+		if it.Name == "SmallCharm" && it.Quality == item.QualityUnique {
+			newCharm = &it
+			break
+		}
+	}
+
+	if newCharm == nil {
+		ctx.Logger.Warn("No new unique small charm found after pickup")
+		return nil
+	}
+
+	// ----------------------------------------
+	// 5. Stash the newly picked-up charm
+	// ----------------------------------------
+	ctx.Logger.Warn("Stashing newly picked-up unique small charm")
+
+	newLock := ctx.CharacterCfg.Inventory.InventoryLock[newCharm.Position.Y][newCharm.Position.X]
+	ctx.CharacterCfg.Inventory.InventoryLock[newCharm.Position.Y][newCharm.Position.X] = 0
+
+	if err := ReturnTown(); err != nil {
+		return err
+	}
+	utils.PingSleep(utils.Critical, 1200)
+
+	if err := OpenStash(); err != nil {
+		return err
+	}
+	utils.PingSleep(utils.Medium, 800)
+
+	stashItemAcrossTabs(*newCharm, "Temporarily_stashing_small_charm", "", false)
+	utils.PingSleep(utils.Medium, 1500)
+
+	// ----------------------------------------
+	// 6. Take back ORIGINAL charm from shared stash
+	// ----------------------------------------
+	ctx.RefreshGameData()
+	var toTake []data.Item
+
+	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+		if it.Name == "SmallCharm" &&
+			it.Quality == item.QualityUnique &&
+			SpecificFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
+			toTake = append(toTake, it)
+			break
+		}
+	}
+
+	if len(toTake) == 0 {
+		return fmt.Errorf("failed to locate original unique small charm in shared stash")
+	}
+
+	if err := TakeItemsFromStash(toTake); err != nil {
+		return err
+	}
+
+	// ----------------------------------------
+	// 7. Move charm back to ORIGINAL SLOT
+	// ----------------------------------------
+	ctx.RefreshGameData()
+
+	var returnedCharm *data.Item
+	for i := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		it := ctx.Data.Inventory.ByLocation(item.LocationInventory)[i]
+		if it.Name == "SmallCharm" &&
+			it.Quality == item.QualityUnique &&
+			SpecificFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
+			returnedCharm = &it
+			break
+		}
+	}
+
+	if returnedCharm == nil {
+		return fmt.Errorf("returned charm not found in inventory")
+	}
+
+	origLock := ctx.CharacterCfg.Inventory.InventoryLock[origY][origX]
+	ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = 0
+
+	from := ui.GetScreenCoordsForItem(*returnedCharm)
+	to := ui.GetScreenCoordsForInventoryPosition(
+		data.Position{X: origX, Y: origY},
+		item.LocationInventory,
+	)
+
+	ctx.HID.Click(game.LeftButton, from.X, from.Y)
+	utils.PingSleep(utils.Light, 150)
+	ctx.HID.Click(game.LeftButton, to.X, to.Y)
+	utils.PingSleep(utils.Light, 200)
+
+	ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = origLock
+	ctx.CharacterCfg.Inventory.InventoryLock[newCharm.Position.Y][newCharm.Position.X] = newLock
+
+	step.CloseAllMenus()
+	ctx.CharacterCfg.Inventory.AnniFingerprint = "" // reset fingerprint
+	ctx.Logger.Warn("Small charm handling complete")
+	UsePortalInTown()
+
+	return nil
+}
+
+//THIS BELOW IS A SAFER OPTION SO THAT THE ORINAL SLOT ALWAYS GETS SET BACK TO ITS ORIGINAL LOCK STATE NO MATTER WHAT HAPPENS
+/* func HandleSmallCharmOnFloor(groundCharm data.Item) error {
+	ctx := context.Get()
+	ctx.RefreshGameData()
+
+	// Safety net: never leave locks broken even on panic
+	defer func() {
+		if r := recover(); r != nil {
+			ctx.Logger.Error("panic in HandleSmallCharmOnFloor", "panic", r)
+		}
+	}()
+
+	invItems := ctx.Data.Inventory.ByLocation(item.LocationInventory)
+
+	// ----------------------------------------
+	// 1. Detect existing unique small charm
+	// ----------------------------------------
+	var existingCharm *data.Item
+	var origX, origY int
+
+	for i := range invItems {
+		it := invItems[i]
+		if it.Name == "SmallCharm" && it.Quality == item.QualityUnique {
+			existingCharm = &it
+			origX, origY = it.Position.X, it.Position.Y
+			ctx.CharacterCfg.Inventory.AnniFingerprint = SpecificFingerprint(it)
+			break
+		}
+	}
+
+	// ----------------------------------------
+	// 2. If one exists → stash it
+	// ----------------------------------------
+	if existingCharm != nil {
+		ctx.Logger.Warn("Existing unique small charm found, stashing it")
+
+		origLock := ctx.CharacterCfg.Inventory.InventoryLock[origY][origX]
+		ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = 0
+
+		// GUARANTEED restoration
+		defer func(x, y, lock int) {
+			ctx.CharacterCfg.Inventory.InventoryLock[y][x] = lock
+			ctx.Logger.Debug("Restored original charm lock", "x", x, "y", y)
+		}(origX, origY, origLock)
+
+		if err := ReturnTown(); err != nil {
+			return err
+		}
+		utils.PingSleep(utils.Critical, 1200)
+
+		if err := OpenStash(); err != nil {
+			return err
+		}
+		utils.PingSleep(utils.Medium, 800)
+
+		stashItemAcrossTabs(*existingCharm, "Temporarily_stashing_small_charm", "", false)
+		utils.PingSleep(utils.Medium, 1500)
+
+		step.CloseAllMenus()
+		UsePortalInTown()
+	}
+
+	// ----------------------------------------
+	// 3. Pick up the ground charm
+	// ----------------------------------------
+	ItemPickup(40)
+	ctx.RefreshGameData()
+
+	invItems = ctx.Data.Inventory.ByLocation(item.LocationInventory)
+
+	// ----------------------------------------
+	// 4. Find newly picked-up charm
+	// ----------------------------------------
+	var newCharm *data.Item
+	for i := range invItems {
+		it := invItems[i]
+		if it.Name == "SmallCharm" && it.Quality == item.QualityUnique {
+			newCharm = &it
+			break
+		}
+	}
+
+	if newCharm == nil {
+		ctx.Logger.Warn("No new unique small charm found after pickup")
+		return nil
+	}
+
+	// ----------------------------------------
+	// 5. Stash the newly picked-up charm
+	// ----------------------------------------
+	ctx.Logger.Warn("Stashing newly picked-up unique small charm")
+
+	nx, ny := newCharm.Position.X, newCharm.Position.Y
+	newLock := ctx.CharacterCfg.Inventory.InventoryLock[ny][nx]
+	ctx.CharacterCfg.Inventory.InventoryLock[ny][nx] = 0
+
+	// GUARANTEED restoration
+	defer func(x, y, lock int) {
+		ctx.CharacterCfg.Inventory.InventoryLock[y][x] = lock
+		ctx.Logger.Debug("Restored new charm lock", "x", x, "y", y)
+	}(nx, ny, newLock)
+
+	if err := ReturnTown(); err != nil {
+		return err
+	}
+	utils.PingSleep(utils.Critical, 1200)
+
+	if err := OpenStash(); err != nil {
+		return err
+	}
+	utils.PingSleep(utils.Medium, 800)
+
+	stashItemAcrossTabs(*newCharm, "Temporarily_stashing_small_charm", "", false)
+	utils.PingSleep(utils.Medium, 1500)
+
+	// ----------------------------------------
+	// 6. Take back ORIGINAL charm from shared stash
+	// ----------------------------------------
+	ctx.RefreshGameData()
+
+	var toTake []data.Item
+	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+		if it.Name == "SmallCharm" &&
+			it.Quality == item.QualityUnique &&
+			SpecificFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
+			toTake = append(toTake, it)
+			break
+		}
+	}
+
+	if len(toTake) == 0 {
+		return fmt.Errorf("failed to locate original unique small charm in shared stash")
+	}
+
+	if err := TakeItemsFromStash(toTake); err != nil {
+		return err
+	}
+
+	// ----------------------------------------
+	// 7. Move charm back to ORIGINAL SLOT
+	// ----------------------------------------
+	ctx.RefreshGameData()
+	invItems = ctx.Data.Inventory.ByLocation(item.LocationInventory)
+
+	var returnedCharm *data.Item
+	for i := range invItems {
+		it := invItems[i]
+		if it.Name == "SmallCharm" &&
+			it.Quality == item.QualityUnique &&
+			SpecificFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
+			returnedCharm = &it
+			break
+		}
+	}
+
+	if returnedCharm == nil {
+		return fmt.Errorf("returned charm not found in inventory")
+	}
+
+	// Temporarily unlock original slot again (safe due to defer)
+	origLock := ctx.CharacterCfg.Inventory.InventoryLock[origY][origX]
+	ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = 0
+
+	defer func(x, y, lock int) {
+		ctx.CharacterCfg.Inventory.InventoryLock[y][x] = lock
+		ctx.Logger.Debug("Final restore of original slot lock", "x", x, "y", y)
+	}(origX, origY, origLock)
+
+	from := ui.GetScreenCoordsForItem(*returnedCharm)
+	to := ui.GetScreenCoordsForInventoryPosition(
+		data.Position{X: origX, Y: origY},
+		item.LocationInventory,
+	)
+
+	ctx.HID.Click(game.LeftButton, from.X, from.Y)
+	utils.PingSleep(utils.Light, 150)
+	ctx.HID.Click(game.LeftButton, to.X, to.Y)
+	utils.PingSleep(utils.Light, 200)
+
+	step.CloseAllMenus()
+	ctx.CharacterCfg.Inventory.AnniFingerprint = "" // reset fingerprint
+	ctx.Logger.Warn("Small charm handling complete")
+	UsePortalInTown()
+
+
+	return nil
+} */
