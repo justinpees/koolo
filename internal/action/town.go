@@ -3,10 +3,13 @@ package action
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
+	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
+	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -318,6 +321,47 @@ func InRunReturnTownRoutine() error {
 	EnsureUpgradeGemCornerSafe()
 	ctx.PauseIfNotPriority()
 	ctx.Logger.Info("Upgrade gem placement complete.")
+
+	// if specific item in stash does not match nip and is not fingerprint match, make it the fingerprint
+	var matcheditem data.Item
+	var matchedrareitem data.Item
+	itemsInStash := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
+
+	for _, stashitem := range itemsInStash {
+
+		if ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" && slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
+			ctx.Logger.Warn("Checking for stale magic fingerprint...")
+			if stashitem.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) {
+				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashitem); result != nip.RuleResultFullMatch {
+					matcheditem = stashitem
+					fp := SpecificFingerprint(matcheditem)
+
+					if fp != ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+						ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = fp
+						ctx.Logger.Warn("Magic fingerprint mismatch found, updating the stale fingerprint")
+					}
+				}
+
+			}
+		}
+
+		if ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" && slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") {
+			ctx.Logger.Warn("Checking for stale rare fingerprint...")
+			if stashitem.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) {
+				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashitem); result != nip.RuleResultFullMatch {
+					matchedrareitem = stashitem
+					fpr := SpecificRareFingerprint(matchedrareitem)
+
+					if fpr != ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+						ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = fpr
+						ctx.Logger.Warn("Rare fingerprint mismatch found, updating the stale fingerprint")
+					}
+				}
+
+			}
+		}
+
+	}
 
 	// Portal / town exit
 	if ctx.CharacterCfg.Companion.Leader {
