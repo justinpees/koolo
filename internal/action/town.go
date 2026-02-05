@@ -169,6 +169,48 @@ func PreRun(firstRun bool) error {
 	ReviveMerc()
 	HireMerc()
 
+	// if specific item in stash does not match nip and is not fingerprint match, make it the fingerprint
+	var matcheditem data.Item
+	var matchedrareitem data.Item
+	itemsInStash := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
+	ctx.Logger.Warn("Checking for stale magic fingerprint...")
+	ctx.Logger.Warn("Checking for stale rare fingerprint...")
+	for _, stashitem := range itemsInStash {
+
+		if ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" && slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
+
+			if stashitem.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) {
+				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashitem); result != nip.RuleResultFullMatch {
+					matcheditem = stashitem
+					fp := SpecificFingerprint(matcheditem)
+
+					if fp != ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
+						ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = fp
+						ctx.Logger.Warn("Magic fingerprint mismatch found, updating the stale fingerprint")
+					}
+				}
+
+			}
+		}
+
+		if ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" && slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") {
+
+			if stashitem.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) {
+				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashitem); result != nip.RuleResultFullMatch {
+					matchedrareitem = stashitem
+					fpr := SpecificRareFingerprint(matchedrareitem)
+
+					if fpr != ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
+						ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = fpr
+						ctx.Logger.Warn("Rare fingerprint mismatch found, updating the stale fingerprint")
+					}
+				}
+
+			}
+		}
+
+	}
+
 	return Repair()
 }
 
