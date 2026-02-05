@@ -326,11 +326,12 @@ func InRunReturnTownRoutine() error {
 	var matcheditem data.Item
 	var matchedrareitem data.Item
 	itemsInStash := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
-
+	ctx.Logger.Warn("Checking for stale magic fingerprint...")
+	ctx.Logger.Warn("Checking for stale rare fingerprint...")
 	for _, stashitem := range itemsInStash {
 
 		if ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" && slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
-			ctx.Logger.Warn("Checking for stale magic fingerprint...")
+
 			if stashitem.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashitem); result != nip.RuleResultFullMatch {
 					matcheditem = stashitem
@@ -346,7 +347,7 @@ func InRunReturnTownRoutine() error {
 		}
 
 		if ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" && slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") {
-			ctx.Logger.Warn("Checking for stale rare fingerprint...")
+
 			if stashitem.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashitem); result != nip.RuleResultFullMatch {
 					matchedrareitem = stashitem
