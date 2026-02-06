@@ -495,9 +495,9 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 			}
 
 			if i.Name == "WirtsLeg" && i.Quality == item.QualityNormal && !i.HasSockets && ctx.Data.PlayerUnit.Area != area.Tristram {
-				ctx.Logger.Debug("dropping wirts leg that has no sockets, cows disabled")
+				ctx.Logger.Debug("not stashing wirts leg that has 0 sockets, cows disabled")
 				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, i) // blacklist it so bot never tries to pick it back up
-				return false, true, "", ""                                                     // Explicitly drop the normal 0-socket wirts leg
+				return false, false, "", ""                                                    // do not stash and do not drop yet... only drop in town routine
 			}
 		}
 

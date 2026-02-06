@@ -211,6 +211,18 @@ func PreRun(firstRun bool) error {
 
 	}
 
+	if !slices.Contains(ctx.CharacterCfg.Game.Runs, "Cows") {
+		itemsInInventory := ctx.Data.Inventory.ByLocation(item.LocationInventory)
+		//ctx.Logger.Warn("Checking for stale magic fingerprint...")
+		for _, invitem := range itemsInInventory {
+			if invitem.Name == "WirtsLeg" && invitem.Quality == item.QualityNormal && !invitem.HasSockets {
+				ctx.Logger.Warn("dropping wirts leg that has no sockets, cows disabled")
+				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, invitem) // blacklist it so bot never tries to pick it back up
+				DropItem(invitem)                                                                    // Explicitly drop the normal 0-socket wirts leg
+			}
+		}
+	}
+
 	return Repair()
 }
 
@@ -404,6 +416,18 @@ func InRunReturnTownRoutine() error {
 			}
 		}
 
+	}
+
+	if !slices.Contains(ctx.CharacterCfg.Game.Runs, "Cows") {
+		itemsInInventory := ctx.Data.Inventory.ByLocation(item.LocationInventory)
+		//ctx.Logger.Warn("Checking for stale magic fingerprint...")
+		for _, invitem := range itemsInInventory {
+			if invitem.Name == "WirtsLeg" && invitem.Quality == item.QualityNormal && !invitem.HasSockets {
+				ctx.Logger.Warn("dropping wirts leg that has no sockets, cows disabled")
+				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, invitem) // blacklist it so bot never tries to pick it back up
+				DropItem(invitem)                                                                    // Explicitly drop the normal 0-socket wirts leg
+			}
+		}
 	}
 
 	// Portal / town exit
