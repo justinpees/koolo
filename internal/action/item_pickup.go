@@ -279,6 +279,8 @@ outer:
 					ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 				}
 
+				onAnniPickedUp(itemToPickup)
+
 				// ✅ If we marked the specific item before pickup, identify it now
 				if ctx.MarkedSpecificItemUnitID != 0 && ctx.MarkedSpecificItemUnitID == itemToPickup.UnitID {
 
@@ -425,6 +427,9 @@ outer:
 					if err == nil {
 						pickedUp = true
 						lastError = nil
+
+						onAnniPickedUp(itemToPickup)
+
 						if debugPickit {
 							ctx.Logger.Info(fmt.Sprintf("Successfully picked up item after LOS correction: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 						}
@@ -511,16 +516,17 @@ func GetItemsToPickup(maxDistance int) []data.Item {
 			continue
 		}
 
-		// Check for unique small charm (anni)
 		if itm.Quality == item.QualityUnique && itm.Name == "SmallCharm" {
-			ctx.Logger.Warn("Unique grand charm detected on floor: " + string(itm.Name))
-
-			if err := HandleSmallCharmOnFloor(itm); err != nil {
-				ctx.Logger.Error("Failed handling small charm", "err", err)
+			if !ctx.CharacterCfg.Inventory.AllowAnniPickup {
+				ctx.Logger.Warn("Unique small charm detected (prep phase)")
+				if err := HandleSmallCharmOnFloor(itm); err != nil {
+					ctx.Logger.Error("Failed Anni prep", "err", err)
+				}
+				continue
 			}
 
-			// Do NOT let normal pickup logic touch this item
-			continue
+			// Allow normal pickup
+			ctx.Logger.Warn("Unique small charm pickup allowed")
 		}
 
 		// Skip potion pickup for Berserker Barb in Travincal if configured
@@ -1850,6 +1856,168 @@ func HandleSmallCharmOnFloor(groundCharm data.Item) error {
 	ctx := context.Get()
 	ctx.RefreshGameData()
 
+	// Guard: already in pickup-allowed phase
+	if ctx.CharacterCfg.Inventory.AllowAnniPickup {
+		return nil
+	}
+
+	var existingCharm *data.Item
+	var origX, origY int
+
+	// Find existing Anni
+	for i := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		it := ctx.Data.Inventory.ByLocation(item.LocationInventory)[i]
+		if it.Name == "SmallCharm" && it.Quality == item.QualityUnique {
+			existingCharm = &it
+			origX, origY = it.Position.X, it.Position.Y
+			ctx.CharacterCfg.Inventory.AnniFingerprint = SpecificUniqueFingerprint(it)
+			break
+		}
+	}
+
+	// If we already have an Anni, stash it
+	if existingCharm != nil {
+		ctx.Logger.Warn("Existing Anni found, stashing it")
+
+		origLock := ctx.CharacterCfg.Inventory.InventoryLock[origY][origX]
+		ctx.Logger.Warn("ORIGINAL LOCKED/UNLOCKED INTEGER FOR ANNI IN INVENTORY: " + strconv.Itoa(origLock))
+		ctx.Logger.Warn("SWITCHING INTEGER TO 0 (I THINK 0 MEANS UNLOCK IT?)")
+		ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = 0
+
+		if err := ReturnTown(); err != nil {
+			return err
+		}
+		utils.PingSleep(utils.Critical, 1200)
+
+		if err := OpenStash(); err != nil {
+			return err
+		}
+		utils.PingSleep(utils.Medium, 800)
+
+		stashItemAcrossTabs(*existingCharm, "Temp_Anni", "", false)
+		utils.PingSleep(utils.Medium, 1500)
+		step.CloseAllMenus()
+
+		ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = origLock
+	}
+
+	// ✅ Enable pickup and return to area
+	ctx.CharacterCfg.Inventory.AllowAnniPickup = true
+	ctx.Logger.Warn("Anni pickup ENABLED, returning through TP")
+
+	UsePortalInTown()
+	return nil
+}
+
+func HandleNewAnniPickup(newCharm data.Item) error {
+	ctx := context.Get()
+	ctx.RefreshGameData()
+
+	ctx.Logger.Warn("New Anni picked up, handling swap")
+
+	// Disable further Anni pickup immediately
+	ctx.CharacterCfg.Inventory.AllowAnniPickup = false
+
+	// Save original inventory lock for the new Anni slot and unlock it
+	newLock := ctx.CharacterCfg.Inventory.InventoryLock[newCharm.Position.Y][newCharm.Position.X]
+	ctx.CharacterCfg.Inventory.InventoryLock[newCharm.Position.Y][newCharm.Position.X] = 0
+
+	// Return to town
+	if err := ReturnTown(); err != nil {
+		return err
+	}
+	utils.PingSleep(utils.Critical, 1200)
+
+	// Open stash
+	if err := OpenStash(); err != nil {
+		return err
+	}
+	utils.PingSleep(utils.Medium, 800)
+
+	// Stash the newly picked Anni
+	stashItemAcrossTabs(newCharm, "Temp_Anni", "", false)
+	utils.PingSleep(utils.Medium, 1500)
+
+	// Retrieve original Anni from stash
+	ctx.RefreshGameData()
+	var originalAnni *data.Item
+	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
+		if it.Name == "SmallCharm" &&
+			it.Quality == item.QualityUnique &&
+			SpecificUniqueFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
+			originalAnni = &it
+			break
+		}
+	}
+
+	if originalAnni == nil {
+		return fmt.Errorf("original Anni not found in stash")
+	}
+
+	// Save inventory lock for original Anni's original slot and unlock it
+	origX, origY := originalAnni.Position.X, originalAnni.Position.Y
+	origLock := ctx.CharacterCfg.Inventory.InventoryLock[origY][origX]
+	ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = 0
+
+	// Move original Anni from stash to its original inventory slot
+	from := ui.GetScreenCoordsForItem(*originalAnni)
+	to := ui.GetScreenCoordsForInventoryPosition(
+		data.Position{X: origX, Y: origY},
+		item.LocationInventory,
+	)
+
+	// Pick up original Anni from stash (normal left-click)
+	ctx.HID.MovePointer(from.X, from.Y)
+	ctx.HID.Click(game.LeftButton, from.X, from.Y)
+	utils.PingSleep(utils.Medium, 300)
+
+	// Place original Anni in its original inventory slot
+	ctx.HID.MovePointer(to.X, to.Y)
+	ctx.HID.Click(game.LeftButton, to.X, to.Y)
+	utils.PingSleep(utils.Medium, 300)
+
+	// Restore inventory locks
+	ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = origLock
+	ctx.CharacterCfg.Inventory.InventoryLock[newCharm.Position.Y][newCharm.Position.X] = newLock
+	ctx.CharacterCfg.Inventory.AnniFingerprint = ""
+
+	// Cleanup
+	step.CloseAllMenus()
+	UsePortalInTown()
+
+	ctx.Logger.Warn("Anni swap complete")
+	return nil
+}
+
+func onAnniPickedUp(itemToPickup data.Item) {
+	ctx := context.Get()
+
+	if itemToPickup.Name == "SmallCharm" &&
+		itemToPickup.Quality == item.QualityUnique &&
+		ctx.CharacterCfg.Inventory.AllowAnniPickup {
+
+		ctx.Logger.Warn("Anni picked up — running post-pickup handler")
+
+		ctx.RefreshInventory()
+
+		for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+			if it.Name == "SmallCharm" && it.Quality == item.QualityUnique {
+				_ = HandleNewAnniPickup(it)
+				break
+			}
+		}
+	}
+}
+
+/* func HandleSmallCharmOnFloor(groundCharm data.Item) error {
+	ctx := context.Get()
+	ctx.RefreshGameData()
+
+	if ctx.CharacterCfg.Inventory.AllowAnniPickup {
+		return nil
+	}
+
+
 	// ----------------------------------------
 	// 1. Detect existing unique small charm
 	// ----------------------------------------
@@ -1861,7 +2029,7 @@ func HandleSmallCharmOnFloor(groundCharm data.Item) error {
 		if it.Name == "SmallCharm" && it.Quality == item.QualityUnique {
 			existingCharm = &it
 			origX, origY = it.Position.X, it.Position.Y
-			ctx.CharacterCfg.Inventory.AnniFingerprint = SpecificFingerprint(it)
+			ctx.CharacterCfg.Inventory.AnniFingerprint = SpecificUniqueFingerprint(it)
 			break
 		}
 	}
@@ -1890,6 +2058,7 @@ func HandleSmallCharmOnFloor(groundCharm data.Item) error {
 		stashItemAcrossTabs(*existingCharm, "Temporarily_stashing_small_charm", "", false)
 		utils.PingSleep(utils.Medium, 1500)
 		step.CloseAllMenus()
+		ctx.CharacterCfg.Inventory.AllowAnniPickup = true
 
 		ctx.CharacterCfg.Inventory.InventoryLock[origY][origX] = origLock
 		UsePortalInTown()
@@ -1898,8 +2067,10 @@ func HandleSmallCharmOnFloor(groundCharm data.Item) error {
 	// ----------------------------------------
 	// 3. Pick up the unid ground charm
 	// ----------------------------------------
-	ItemPickup(40)
+	utils.PingSleep(utils.Critical, 2000)
 	ctx.RefreshGameData()
+
+	ctx.CharacterCfg.Inventory.AllowAnniPickup = false
 
 	// ----------------------------------------
 	// 4. Find newly picked-up charm
@@ -1948,7 +2119,7 @@ func HandleSmallCharmOnFloor(groundCharm data.Item) error {
 	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
 		if it.Name == "SmallCharm" &&
 			it.Quality == item.QualityUnique &&
-			SpecificFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
+			SpecificUniqueFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
 			toTake = append(toTake, it)
 			break
 		}
@@ -1972,7 +2143,7 @@ func HandleSmallCharmOnFloor(groundCharm data.Item) error {
 		it := ctx.Data.Inventory.ByLocation(item.LocationInventory)[i]
 		if it.Name == "SmallCharm" &&
 			it.Quality == item.QualityUnique &&
-			SpecificFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
+			SpecificUniqueFingerprint(it) == ctx.CharacterCfg.Inventory.AnniFingerprint {
 			returnedCharm = &it
 			break
 		}
@@ -2005,7 +2176,7 @@ func HandleSmallCharmOnFloor(groundCharm data.Item) error {
 	UsePortalInTown()
 
 	return nil
-}
+} */
 
 //THIS BELOW IS A SAFER OPTION SO THAT THE ORINAL SLOT ALWAYS GETS SET BACK TO ITS ORIGINAL LOCK STATE NO MATTER WHAT HAPPENS
 /* func HandleSmallCharmOnFloor(groundCharm data.Item) error {

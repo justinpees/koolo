@@ -114,3 +114,53 @@ func SpecificRareFingerprint(it data.Item) string {
 
 	return strings.Join(parts, "|")
 }
+
+func SpecificUniqueFingerprint(it data.Item) string {
+	//ctx := context.Get()
+	// Defensive guard
+	if it.Name != "SmallCharm" || it.Quality != item.QualityUnique {
+		return ""
+	}
+
+	var parts []string
+
+	// Base identity: include actual item name for uniqueness
+	parts = append(parts, string(it.Name))
+
+	// Identified name (stable across games)
+	/* if it.IdentifiedName != "" {
+		parts = append(parts, it.IdentifiedName)
+	} */
+
+	// Magic affixes (prefixes & suffixes)
+	for _, p := range it.Affixes.Magic.Prefixes {
+		if p != 0 {
+			parts = append(parts, fmt.Sprintf("P%d", p))
+		}
+	}
+	for _, s := range it.Affixes.Magic.Suffixes {
+		if s != 0 {
+			parts = append(parts, fmt.Sprintf("S%d", s))
+		}
+	}
+
+	// Serialize stats deterministically
+	stats := make([]string, 0, len(it.Stats))
+	for _, st := range it.Stats {
+		stats = append(stats, fmt.Sprintf(
+			"%d:%d:%d",
+			st.ID,    // stat ID
+			st.Layer, // layer
+			st.Value, // value
+		))
+	}
+
+	// Order-independent
+	sort.Strings(stats)
+
+	for _, s := range stats {
+		parts = append(parts, s)
+	}
+
+	return strings.Join(parts, "|")
+}
