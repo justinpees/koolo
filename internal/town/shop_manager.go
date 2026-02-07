@@ -72,12 +72,33 @@ func BuyConsumables(forceRefill bool) {
 	// --- Buy Scrolls of TP ---
 	if ShouldBuyTPs() || forceRefill {
 		ctx.Logger.Debug("Filling TP Tome...")
-		if itm, found := ctx.Data.Inventory.Find(item.ScrollOfTownPortal, item.LocationVendor); found {
-			if ctx.Data.PlayerUnit.TotalPlayerGold() > 6000 {
-				buyFullStack(itm, -1)
-			} else {
-				BuyItem(itm, 1)
+
+		// Find the TP tome in inventory
+		if tpTome, found := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory); found {
+			// Check current quantity
+			qtyStat, found := tpTome.FindStat(stat.Quantity, 0)
+			currentQty := 0
+			if found {
+				currentQty = int(qtyStat.Value)
 			}
+
+			// Only buy if below your threshold
+			if currentQty < 20 {
+				if itm, found := ctx.Data.Inventory.Find(item.ScrollOfTownPortal, item.LocationVendor); found {
+					ctx.Logger.Warn("Buying Scrolls of TP to top off Tome...")
+					utils.PingSleep(utils.Light, 400)
+
+					if ctx.Data.PlayerUnit.TotalPlayerGold() > 6000 {
+						buyFullStack(itm, -1)
+					} else {
+						BuyItem(itm, 1)
+					}
+				}
+			} else {
+				ctx.Logger.Debug("TP Tome already full — skipping purchase")
+			}
+		} else {
+			ctx.Logger.Warn("No TP Tome found in inventory — cannot buy scrolls")
 		}
 	}
 

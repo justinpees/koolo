@@ -158,22 +158,21 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 
 	// ---------- REFILL VENDOR ----------
 	vendorNPC := town.GetTownByArea(currentArea).RefillNPC()
-	if !ctx.CharacterCfg.BackToTown.IdentifyInField {
-		if vendorNPC == npc.Drognan {
-			_, needsBuy := town.ShouldBuyKeys()
-			if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
-				vendorNPC = npc.Lysander
-			}
-		}
 
-		if vendorNPC == npc.Ormus {
-			_, needsBuy := town.ShouldBuyKeys()
-			if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
-				if err := FindHratliEverywhere(); err != nil {
-					return err
-				}
-				vendorNPC = npc.Hratli
+	if vendorNPC == npc.Drognan {
+		_, needsBuy := town.ShouldBuyKeys()
+		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
+			vendorNPC = npc.Lysander
+		}
+	}
+
+	if vendorNPC == npc.Ormus {
+		_, needsBuy := town.ShouldBuyKeys()
+		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
+			if err := FindHratliEverywhere(); err != nil {
+				return err
 			}
+			vendorNPC = npc.Hratli
 		}
 	}
 
