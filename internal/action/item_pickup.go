@@ -2025,9 +2025,15 @@ func onAnniPickedUp(itemToPickup data.Item) {
 // TODO:sjdgbhk
 func TryIdentifyInventoryOnSpot() bool {
 	ctx := context.Get()
+	ctx.FieldIdentifying = true
+	defer func() { ctx.FieldIdentifying = false }() // resets it to false at the end
+	//get initial player position
 
 	ctx.Logger.Warn("CLEARING AREA AROUND FIRST BEFORE ID'ING")
 	ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
+
+	//return to initial player position in case wandered too far to pick up original item that dropped?
+
 	//ClearAreaAroundPosition(itemToPickup.Position, 4, data.MonsterAnyFilter())
 
 	ctx.RefreshInventory()
@@ -2122,6 +2128,8 @@ func TryIdentifyInventoryOnSpot() bool {
 	utils.PingSleep(utils.Medium, 500)
 	step.CloseAllMenus()
 	ctx.RefreshInventory()
+	ctx.Logger.Warn("Checking if we need to re-apply buffs after field identification")
+	BuffIfRequired() // re-apply buffs after ID routine
 	return true
 }
 

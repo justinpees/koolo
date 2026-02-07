@@ -173,8 +173,8 @@ func PreRun(firstRun bool) error {
 	var matcheditem data.Item
 	var matchedrareitem data.Item
 	itemsInStash := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
-	ctx.Logger.Warn("Checking for stale magic fingerprint...")
-	ctx.Logger.Warn("Checking for stale rare fingerprint...")
+	ctx.Logger.Debug("Checking for stale magic fingerprint...")
+	ctx.Logger.Debug("Checking for stale rare fingerprint...")
 	for _, stashitem := range itemsInStash {
 
 		if ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" && slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
@@ -216,7 +216,7 @@ func PreRun(firstRun bool) error {
 		//ctx.Logger.Warn("Checking for stale magic fingerprint...")
 		for _, invitem := range itemsInInventory {
 			if invitem.Name == "WirtsLeg" && invitem.Quality == item.QualityNormal && !invitem.HasSockets {
-				ctx.Logger.Warn("dropping wirts leg that has no sockets, cows disabled")
+				ctx.Logger.Debug("dropping wirts leg that has no sockets, cows disabled")
 				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, invitem) // blacklist it so bot never tries to pick it back up
 				DropItem(invitem)                                                                    // Explicitly drop the normal 0-socket wirts leg
 			}
@@ -380,8 +380,8 @@ func InRunReturnTownRoutine() error {
 	var matcheditem data.Item
 	var matchedrareitem data.Item
 	itemsInStash := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
-	ctx.Logger.Warn("Checking for stale magic fingerprint...")
-	ctx.Logger.Warn("Checking for stale rare fingerprint...")
+	ctx.Logger.Debug("Checking for stale magic fingerprint...")
+	ctx.Logger.Debug("Checking for stale rare fingerprint...")
 	for _, stashitem := range itemsInStash {
 
 		if ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" && slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
@@ -423,7 +423,7 @@ func InRunReturnTownRoutine() error {
 		//ctx.Logger.Warn("Checking for stale magic fingerprint...")
 		for _, invitem := range itemsInInventory {
 			if invitem.Name == "WirtsLeg" && invitem.Quality == item.QualityNormal && !invitem.HasSockets {
-				ctx.Logger.Warn("dropping wirts leg that has no sockets, cows disabled")
+				ctx.Logger.Debug("dropping wirts leg that has no sockets, cows disabled")
 				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, invitem) // blacklist it so bot never tries to pick it back up
 				DropItem(invitem)                                                                    // Explicitly drop the normal 0-socket wirts leg
 			}

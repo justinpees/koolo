@@ -22,6 +22,11 @@ import (
 func BuffIfRequired() {
 	ctx := context.Get()
 
+	if ctx.FieldIdentifying { // skip buffs during ID
+		ctx.Logger.Warn("Skipping buffs during field identification")
+		return
+	}
+
 	if !IsRebuffRequired() || ctx.Data.PlayerUnit.Area.IsTown() {
 		return
 	}

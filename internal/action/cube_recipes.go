@@ -700,16 +700,16 @@ func CubeRecipes() error {
 		}
 	}
 
-	ctx.Logger.Warn("Reroll Specific Magic Item enabled?", "enabled",
+	ctx.Logger.Debug("Reroll Specific Magic Item enabled?", "enabled",
 		slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item"))
-	ctx.Logger.Warn("Marked SpecificItem UnitID", "unitID", ctx.MarkedSpecificItemUnitID)
-	ctx.Logger.Warn("Current marked SpecificItem fingerprint", "fp",
+	ctx.Logger.Debug("Marked SpecificItem UnitID", "unitID", ctx.MarkedSpecificItemUnitID)
+	ctx.Logger.Debug("Current marked SpecificItem fingerprint", "fp",
 		ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint)
 
-	ctx.Logger.Warn("Reroll Specific Rare Item enabled?", "enabled",
+	ctx.Logger.Debug("Reroll Specific Rare Item enabled?", "enabled",
 		slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item"))
-	ctx.Logger.Warn("Marked RareSpecificItem UnitID", "unitID", ctx.MarkedRareSpecificItemUnitID)
-	ctx.Logger.Warn("Current marked RareSpecificItem fingerprint", "fp",
+	ctx.Logger.Debug("Marked RareSpecificItem UnitID", "unitID", ctx.MarkedRareSpecificItemUnitID)
+	ctx.Logger.Debug("Current marked RareSpecificItem fingerprint", "fp",
 		ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint)
 
 	return nil

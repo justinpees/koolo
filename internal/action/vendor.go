@@ -327,7 +327,7 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 			slog.Int("itemCount", len(lastVendorInventoryItems)),
 		)
 	} else {
-		ctx.Logger.Warn("Quicky Shop")
+		ctx.Logger.Debug("Checking items in shop...")
 		scanAndPurchaseItems(vendorNPC, NewTownActionShoppingPlan())
 	}
 
