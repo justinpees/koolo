@@ -2027,7 +2027,8 @@ func TryIdentifyInventoryOnSpot() bool {
 	ctx := context.Get()
 
 	ctx.Logger.Warn("CLEARING AREA AROUND FIRST BEFORE ID'ING")
-	ClearAreaAroundPlayer(10, data.MonsterAnyFilter())
+	ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
+	//ClearAreaAroundPosition(itemToPickup.Position, 4, data.MonsterAnyFilter())
 
 	ctx.RefreshInventory()
 
@@ -2115,6 +2116,7 @@ func TryIdentifyInventoryOnSpot() bool {
 			"itemName", invItem.Name,
 			"unitID", invItem.UnitID,
 		)
+		//shouldStashIt(invItem, false) // just added, false means: We are doing normal decision logic. True means stash everything even if does not match nip?
 
 	}
 	utils.PingSleep(utils.Medium, 500)

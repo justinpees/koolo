@@ -275,6 +275,8 @@ func (d *Diablo) killSealElite(sealEliteName string) error {
 		sealEliteID = npc.OblivionKnight
 	case "Infector":
 		sealEliteID = npc.VenomLord
+	case "Diablo Clone":
+		sealEliteID = npc.DiabloClone
 	}
 
 	for time.Since(startTime) < timeout {
