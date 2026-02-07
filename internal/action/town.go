@@ -439,5 +439,15 @@ func InRunReturnTownRoutine() error {
 	}
 
 	ctx.Logger.Info("Using portal to exit town...")
-	return UsePortalInTown()
+
+	err := UsePortalInTown() // Try to use the portal
+	if err != nil {
+		return err // If portal fails, return the error
+	}
+
+	// Only now is the town routine fully complete
+	ctx.JustDidTownRoutine = false
+
+	return nil // Success
+
 }

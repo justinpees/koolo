@@ -154,12 +154,13 @@ outer:
 				// FIX: Only continue if an item was actually identified
 				if identified := TryIdentifyInventoryOnSpot(); identified {
 					ctx.RefreshInventory()
+
 					continue
 				}
 			}
 
 			// Original town logic
-			if HasTPsAvailable() {
+			if HasTPsAvailable() && !ctx.JustDidTownRoutine {
 				consecutiveNoFitTownTrips++
 				if consecutiveNoFitTownTrips > 1 {
 					ctx.Logger.Warn("No fitting items after a town cleanup; stopping pickup cycle to avoid loops.")
@@ -169,6 +170,9 @@ outer:
 				if debugPickit {
 					ctx.Logger.Debug("TPs available, returning to town to sell junk and stash items.")
 				}
+
+				// Add a log for starting the town routine
+				ctx.Logger.Warn("Return to town 1")
 				if err := InRunReturnTownRoutine(); err != nil {
 					ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
 				}
@@ -222,13 +226,15 @@ outer:
 					}
 
 					// Fallback to town
-					if HasTPsAvailable() {
+					if HasTPsAvailable() && !ctx.JustDidTownRoutine {
 						townCleanupByUnitID[itemToPickup.UnitID]++
 						if townCleanupByUnitID[itemToPickup.UnitID] <= 1 {
 							ctx.Logger.Debug("Item doesn't fit; returning to town to stash/sell and retry.",
 								slog.String("itemName", string(itemToPickup.Desc().Name)),
 								slog.Int("unitID", int(itemToPickup.UnitID)),
 							)
+							// Add a log for starting the town routine
+							ctx.Logger.Warn("Return to town 2")
 							if err := InRunReturnTownRoutine(); err != nil {
 								ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
 							}
@@ -454,6 +460,8 @@ outer:
 				if HasTPsAvailable() {
 					townCleanupByUnitID[itemToPickup.UnitID]++
 					if townCleanupByUnitID[itemToPickup.UnitID] <= 1 {
+						// Add a log for starting the town routine
+						ctx.Logger.Warn("Return to town 3")
 						if err := InRunReturnTownRoutine(); err != nil {
 							ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
 						}
@@ -2025,6 +2033,7 @@ func onAnniPickedUp(itemToPickup data.Item) {
 // TODO:sjdgbhk
 func TryIdentifyInventoryOnSpot() bool {
 	ctx := context.Get()
+
 	ctx.FieldIdentifying = true
 	defer func() { ctx.FieldIdentifying = false }() // resets it to false at the end
 	//get initial player position
@@ -2072,9 +2081,12 @@ func TryIdentifyInventoryOnSpot() bool {
 			step.CloseAllMenus()
 
 			if !ctx.Data.PlayerUnit.Area.IsTown() {
+				// Add a log for starting the town routine
+				ctx.Logger.Warn("Return to town 4")
 				if err := InRunReturnTownRoutine(); err != nil {
 					ctx.Logger.Error("Town routine failed", "error", err)
 				}
+				ctx.JustDidTownRoutine = true
 			}
 
 			// REFRESH ALL GAME DATA so pickup loop sees town inventory/state
@@ -2130,6 +2142,7 @@ func TryIdentifyInventoryOnSpot() bool {
 	ctx.RefreshInventory()
 	ctx.Logger.Warn("Checking if we need to re-apply buffs after field identification")
 	BuffIfRequired() // re-apply buffs after ID routine
+
 	return true
 }
 

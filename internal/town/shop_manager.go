@@ -113,6 +113,7 @@ func BuyConsumables(forceRefill bool) {
 			if currentQty < 20 { // Only buy if we have fewer than 20
 				if itm, found := ctx.Data.Inventory.Find(item.ScrollOfIdentify, item.LocationVendor); found {
 					ctx.Logger.Warn("Buying Scrolls of Identify to top off Tome...")
+					utils.PingSleep(utils.Light, 400)
 					buyFullStack(itm, -1)
 				}
 			} else {

@@ -75,8 +75,9 @@ type Context struct {
 	MarkedSpecificItemUnitID     data.UnitID
 	MarkedRareSpecificItemUnitID data.UnitID
 
-	IsDyingOnPurpose bool
-	FieldIdentifying bool // flag to signal field identity in progress. using it to disable buff features during the process.
+	IsDyingOnPurpose   bool
+	FieldIdentifying   bool // flag to signal field identity in progress. using it to disable buff features during the process.
+	JustDidTownRoutine bool
 }
 
 type RecentlySeenMonster struct {
