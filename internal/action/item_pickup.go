@@ -148,10 +148,20 @@ outer:
 			if debugPickit {
 				ctx.Logger.Debug("No fitting items found for pickup after filtering.")
 			}
+
+			// --- Field identification if checkbox enabled ---
+			if ctx.CharacterCfg.BackToTown.IdentifyInField {
+				// FIX: Only continue if an item was actually identified
+				if identified := TryIdentifyInventoryOnSpot(); identified {
+					ctx.RefreshInventory()
+					continue
+				}
+			}
+
+			// Original town logic
 			if HasTPsAvailable() {
 				consecutiveNoFitTownTrips++
 				if consecutiveNoFitTownTrips > 1 {
-					// Prevent endless TP-town-TP loops when an item can never fit.
 					ctx.Logger.Warn("No fitting items after a town cleanup; stopping pickup cycle to avoid loops.")
 					return nil
 				}
@@ -181,12 +191,12 @@ outer:
 			))
 		}
 
-		// Try to pick up the item with retries
+		// --- Pickup retries ---
 		var lastError error
 		attempt := 1
-		itemTooFarRetryCount := 0     // Tracks retries specifically for "item too far"
-		totalAttemptCounter := 0      // Overall attempts
-		var consecutiveMoveErrors int // Track consecutive ErrCastingMoving errors
+		itemTooFarRetryCount := 0
+		totalAttemptCounter := 0
+		var consecutiveMoveErrors int
 		pickedUp := false
 
 		for totalAttemptCounter < totalMaxAttempts {
@@ -195,15 +205,27 @@ outer:
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Starting attempt %d (total: %d)", attempt, totalAttemptCounter))
 			}
 
-			// If inventory changed and item no longer fits, do NOT grind attempts and then blacklist.
-			// Instead: go to town (stash/sell), come back and retry.
+			// Check if item fits
 			if itemNeedsInventorySpace(itemToPickup) {
 				ctx.RefreshInventory()
 				if !itemFitsInventory(itemToPickup) {
+
+					// Field identify first if enabled
+					if ctx.CharacterCfg.BackToTown.IdentifyInField {
+						// FIX: Only continue if an item was actually identified
+						if identified := TryIdentifyInventoryOnSpot(); identified {
+							ctx.RefreshInventory()
+							if !itemNeedsInventorySpace(itemToPickup) || itemFitsInventory(itemToPickup) {
+								continue outer
+							}
+						}
+					}
+
+					// Fallback to town
 					if HasTPsAvailable() {
 						townCleanupByUnitID[itemToPickup.UnitID]++
 						if townCleanupByUnitID[itemToPickup.UnitID] <= 1 {
-							ctx.Logger.Debug("Item doesn't fit in inventory right now; returning to town to stash/sell and retry.",
+							ctx.Logger.Debug("Item doesn't fit; returning to town to stash/sell and retry.",
 								slog.String("itemName", string(itemToPickup.Desc().Name)),
 								slog.Int("unitID", int(itemToPickup.UnitID)),
 							)
@@ -212,10 +234,10 @@ outer:
 							}
 							continue outer
 						}
-						// Already tried town once and it still doesn't fit: blacklist this ground instance to stop thrashing.
 						lastError = fmt.Errorf("item does not fit in inventory even after town cleanup")
 						break
 					}
+
 					ctx.Logger.Warn("Inventory full and NO Town Portals found. Skipping further item pickups this cycle.")
 					return nil
 				}
@@ -223,17 +245,18 @@ outer:
 
 			pickupStartTime := time.Now()
 
-			// Clear monsters on each attempt
+			// Clear monsters around item
 			if debugPickit {
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Clearing area around item. Attempt %d", attempt))
 			}
 			ClearAreaAroundPlayer(4, data.MonsterAnyFilter())
 			ClearAreaAroundPosition(itemToPickup.Position, 4, data.MonsterAnyFilter())
+
 			if debugPickit {
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Area cleared in %v. Attempt %d", time.Since(pickupStartTime), attempt))
 			}
 
-			// Calculate position to move to based on attempt number
+			// Move logic
 			pickupPosition := itemToPickup.Position
 			moveDistance := 3
 			if attempt > 1 {
@@ -253,7 +276,8 @@ outer:
 			if distance >= 7 || attempt > 1 {
 				distanceToFinish := max(4-attempt, 2)
 				if debugPickit {
-					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moving to coordinates X:%d Y:%d (distance: %d, distToFinish: %d). Attempt %d", pickupPosition.X, pickupPosition.Y, distance, distanceToFinish, attempt))
+					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moving to coordinates X:%d Y:%d (distance: %d, distToFinish: %d). Attempt %d",
+						pickupPosition.X, pickupPosition.Y, distance, distanceToFinish, attempt))
 				}
 				if err := MoveToCoords(pickupPosition, step.WithDistanceToFinish(distanceToFinish), step.WithIgnoreItems()); err != nil {
 					lastError = err
@@ -264,7 +288,7 @@ outer:
 				}
 			}
 
-			// Try to pick up the item
+			// Pickup action
 			pickupActionStartTime := time.Now()
 			if debugPickit {
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Initiating PickupItem action. Attempt %d", attempt))
@@ -276,17 +300,15 @@ outer:
 				lastError = nil
 
 				if debugPickit {
-					ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
+					ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d",
+						itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 				}
 
 				onAnniPickedUp(itemToPickup)
 
-				// ✅ If we marked the specific item before pickup, identify it now
+				// --- Marked specific item identification ---
 				if ctx.MarkedSpecificItemUnitID != 0 && ctx.MarkedSpecificItemUnitID == itemToPickup.UnitID {
-
-					ctx.RefreshInventory() // make sure item is in inventory
-
-					// Find the item in inventory
+					ctx.RefreshInventory()
 					var specificItemInInv data.Item
 					found := false
 					for _, invItem := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
@@ -296,16 +318,10 @@ outer:
 							break
 						}
 					}
-
-					if !found {
-						ctx.Logger.Error("Picked up Specific Item but cannot find it in inventory", "unitID", ctx.MarkedSpecificItemUnitID)
-					} else {
-						// Find Tome of Identify
+					if found {
 						idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
-						if !found {
-							ctx.Logger.Warn("Tome of Identify not found, skipping identification")
-						} else {
-							step.CloseAllMenus() // make sure nothing is in the way
+						if found {
+							step.CloseAllMenus()
 							for !ctx.Data.OpenMenus.Inventory {
 								ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
 								utils.PingSleep(utils.Critical, 1000)
@@ -314,16 +330,16 @@ outer:
 							step.CloseAllMenus()
 							ctx.RefreshInventory()
 							ctx.Logger.Warn("Specific Item successfully identified, closed all menus")
-
+						} else {
+							ctx.Logger.Warn("Tome of Identify not found, skipping identification")
 						}
+					} else {
+						ctx.Logger.Error("Picked up Specific Item but cannot find it in inventory", "unitID", ctx.MarkedSpecificItemUnitID)
 					}
 				}
 
 				if ctx.MarkedRareSpecificItemUnitID != 0 && ctx.MarkedRareSpecificItemUnitID == itemToPickup.UnitID {
-
-					ctx.RefreshInventory() // make sure item is in inventory
-
-					// Find the item in inventory
+					ctx.RefreshInventory()
 					var specificItemInInv data.Item
 					found := false
 					for _, invItem := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
@@ -333,16 +349,10 @@ outer:
 							break
 						}
 					}
-
-					if !found {
-						ctx.Logger.Error("Picked up Rare Specific Item but cannot find it in inventory", "unitID", ctx.MarkedRareSpecificItemUnitID)
-					} else {
-						// Find Tome of Identify
+					if found {
 						idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
-						if !found {
-							ctx.Logger.Warn("Tome of Identify not found, skipping identification")
-						} else {
-							step.CloseAllMenus() // make sure nothing is in the way
+						if found {
+							step.CloseAllMenus()
 							for !ctx.Data.OpenMenus.Inventory {
 								ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
 								utils.PingSleep(utils.Critical, 1000)
@@ -351,8 +361,11 @@ outer:
 							step.CloseAllMenus()
 							ctx.RefreshInventory()
 							ctx.Logger.Warn("Specific RARE Item successfully identified, closed all menus")
-
+						} else {
+							ctx.Logger.Warn("Tome of Identify not found, skipping identification")
 						}
+					} else {
+						ctx.Logger.Error("Picked up Rare Specific Item but cannot find it in inventory", "unitID", ctx.MarkedRareSpecificItemUnitID)
 					}
 				}
 
@@ -364,32 +377,7 @@ outer:
 				ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Pickup attempt %d failed: %v", attempt, err), slog.String("itemName", string(itemToPickup.Name)))
 			}
 
-			// If the pickup failed and the item doesn't fit *right now*, don't blacklist it.
-			// This is the exact scenario where we should go stash/sell and retry.
-			if itemNeedsInventorySpace(itemToPickup) {
-				ctx.RefreshInventory()
-				if !itemFitsInventory(itemToPickup) {
-					if HasTPsAvailable() {
-						townCleanupByUnitID[itemToPickup.UnitID]++
-						if townCleanupByUnitID[itemToPickup.UnitID] <= 1 {
-							ctx.Logger.Debug("Pickup failed and item no longer fits; returning to town to stash/sell and retry.",
-								slog.String("itemName", string(itemToPickup.Desc().Name)),
-								slog.Int("unitID", int(itemToPickup.UnitID)),
-							)
-							if errTown := InRunReturnTownRoutine(); errTown != nil {
-								ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", errTown)
-							}
-							continue outer
-						}
-						lastError = fmt.Errorf("item does not fit in inventory even after town cleanup: %w", err)
-						break
-					}
-					ctx.Logger.Warn("Inventory full and NO Town Portals found. Skipping further item pickups this cycle.")
-					return nil
-				}
-			}
-
-			// Movement-state handling
+			// Movement state
 			if errors.Is(err, step.ErrCastingMoving) {
 				consecutiveMoveErrors++
 				if consecutiveMoveErrors > 3 {
@@ -400,15 +388,16 @@ outer:
 				continue
 			}
 
+			// Monster around
 			if errors.Is(err, step.ErrMonsterAroundItem) {
 				continue
 			}
 
-			// Item too far retry logic
+			// Item too far
 			if errors.Is(err, step.ErrItemTooFar) {
 				itemTooFarRetryCount++
 				if debugPickit {
-					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Item too far detected. ItemTooFar specific retry %d/%d.", itemTooFarRetryCount, maxItemTooFarAttempts))
+					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Item too far detected. Retry %d/%d.", itemTooFarRetryCount, maxItemTooFarAttempts))
 				}
 				if itemTooFarRetryCount < maxItemTooFarAttempts {
 					ctx.PathFinder.RandomMovement()
@@ -416,6 +405,7 @@ outer:
 				}
 			}
 
+			// LOS fix
 			if errors.Is(err, step.ErrNoLOSToItem) {
 				if debugPickit {
 					ctx.Logger.Debug("Item Pickup: No line of sight to item, moving closer",
@@ -427,11 +417,10 @@ outer:
 					if err == nil {
 						pickedUp = true
 						lastError = nil
-
 						onAnniPickedUp(itemToPickup)
-
 						if debugPickit {
-							ctx.Logger.Info(fmt.Sprintf("Successfully picked up item after LOS correction: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
+							ctx.Logger.Info(fmt.Sprintf("Successfully picked up item after LOS correction: %s [%d] in %v. Total attempts: %d",
+								itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 						}
 						break
 					}
@@ -448,8 +437,18 @@ outer:
 			continue
 		}
 
-		// Final guard: if it doesn't fit at the end, prefer a town cleanup over blacklisting.
+		// --- Final field identify + town fallback ---
 		if lastError != nil && itemNeedsInventorySpace(itemToPickup) {
+			if ctx.CharacterCfg.BackToTown.IdentifyInField {
+				// FIX: Only continue if an item was actually identified
+				if identified := TryIdentifyInventoryOnSpot(); identified {
+					ctx.RefreshInventory()
+					if !itemNeedsInventorySpace(itemToPickup) || itemFitsInventory(itemToPickup) {
+						continue outer
+					}
+				}
+			}
+
 			ctx.RefreshInventory()
 			if !itemFitsInventory(itemToPickup) {
 				if HasTPsAvailable() {
@@ -460,24 +459,25 @@ outer:
 						}
 						continue
 					}
-					// Still doesn't fit after town: fall through to blacklist this UnitID.
 				} else {
 					return nil
 				}
 			}
 		}
 
-		// If all attempts failed, blacklist *this specific ground instance* (UnitID), not the whole base item ID.
+		// --- Blacklist if all attempts failed ---
 		if totalAttemptCounter >= totalMaxAttempts && lastError != nil {
 			if !IsBlacklisted(itemToPickup) {
 				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, itemToPickup)
 			}
 
-			// Screenshot with show items on
 			ctx.HID.KeyDown(ctx.Data.KeyBindings.ShowItems)
 			time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 200)))
 			screenshot := ctx.GameReader.Screenshot()
-			event.Send(event.ItemBlackListed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] BlackListed in Area:%s", itemToPickup.Name, itemToPickup.Quality.ToString(), ctx.Data.PlayerUnit.Area.Area().Name), screenshot), data.Drop{Item: itemToPickup}))
+			event.Send(event.ItemBlackListed(
+				event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] BlackListed in Area:%s", itemToPickup.Name, itemToPickup.Quality.ToString(), ctx.Data.PlayerUnit.Area.Area().Name), screenshot),
+				data.Drop{Item: itemToPickup},
+			))
 			ctx.HID.KeyUp(ctx.Data.KeyBindings.ShowItems)
 
 			ctx.Logger.Warn(
@@ -588,6 +588,19 @@ func GetItemsToPickup(maxDistance int) []data.Item {
 func shouldBePickedUp(i data.Item) bool {
 	ctx := context.Get()
 	ctx.SetLastAction("shouldBePickedUp")
+
+	if ctx.CharacterCfg.BackToTown.IdentifyInField {
+		// --- Always pick up Scroll of Identify if Tome < 20 ---
+		if i.Name == item.ScrollOfIdentify || i.Name == "ScrollOfIdentify" {
+			idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
+			if found {
+				qtyStat, found := idTome.FindStat(stat.Quantity, 0)
+				if found && int(qtyStat.Value) < 20 {
+					return true
+				}
+			}
+		}
+	}
 
 	// Always pick up runewords and Wirt's Leg.
 	if i.IsRuneword || i.Name == "WirtsLeg" {
@@ -2007,6 +2020,149 @@ func onAnniPickedUp(itemToPickup data.Item) {
 			}
 		}
 	}
+}
+
+// TODO:sjdgbhk
+func TryIdentifyInventoryOnSpot() bool {
+	ctx := context.Get()
+
+	ctx.Logger.Warn("CLEARING AREA AROUND FIRST BEFORE ID'ING")
+	ClearAreaAroundPlayer(10, data.MonsterAnyFilter())
+
+	ctx.RefreshInventory()
+
+	items := itemsToIdentify()
+	if len(items) == 0 {
+		return false
+	}
+
+	idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
+	if !found {
+		ctx.Logger.Debug("No Tome of Identify found for field identification")
+		return false
+	}
+
+	qtyStat, found := idTome.FindStat(stat.Quantity, 0)
+	if !found {
+		ctx.Logger.Warn("Tome of Identify has no quantity stat, skipping field identification")
+		return false
+	}
+
+	currentQty := int(qtyStat.Value)
+
+	// Ensure inventory is open
+	for !ctx.Data.OpenMenus.Inventory {
+		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+		utils.PingSleep(utils.Critical, 300)
+	}
+
+	ctx.Logger.Debug("Identifying inventory items on the spot", slog.Int("count", len(items)))
+
+	for _, it := range items {
+		// STOP if using this scroll would bring us to exactly 9
+		if currentQty == 1 || len(items) >= currentQty { // using this scroll would drop Tome to 0 OR amount of items to be picked up exceeds amount of scrolls in tomb
+			ctx.Logger.Warn("Tome would drop to 0 — running town routine")
+			step.CloseAllMenus()
+
+			if !ctx.Data.PlayerUnit.Area.IsTown() {
+				if err := InRunReturnTownRoutine(); err != nil {
+					ctx.Logger.Error("Town routine failed", "error", err)
+				}
+			}
+
+			// REFRESH ALL GAME DATA so pickup loop sees town inventory/state
+			ctx.RefreshGameData()
+			ctx.RefreshInventory()
+
+			return false
+		}
+
+		FieldIdentifyItem(idTome, it)
+		currentQty-- // decrement local counter
+
+		ctx.RefreshInventory()
+
+		var invItem data.Item
+		found := false
+		for _, invIt := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+			if invIt.UnitID == it.UnitID {
+				invItem = invIt
+				found = true
+				break
+			}
+		}
+		if !found {
+			ctx.Logger.Warn("Identified item not found in inventory", "unitID", it.UnitID)
+			continue
+		}
+
+		// Only drop items that fail NIP
+		if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(invItem); result != nip.RuleResultFullMatch {
+			ctx.Logger.Warn(
+				"Dropping item (failed NIP after field identify)",
+				"itemName", invItem.Name,
+				"unitID", invItem.UnitID,
+			)
+
+			ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, invItem)
+			FieldDropItem(invItem)
+			ctx.RefreshInventory()
+			continue
+		}
+
+		ctx.Logger.Debug(
+			"Item passed NIP — leaving in inventory for town stash routine",
+			"itemName", invItem.Name,
+			"unitID", invItem.UnitID,
+		)
+
+	}
+	utils.PingSleep(utils.Medium, 500)
+	step.CloseAllMenus()
+	ctx.RefreshInventory()
+	return true
+}
+
+// drops an item while keeping the inventory open.
+func FieldDropItem(i data.Item) {
+	ctx := context.Get()
+	ctx.SetLastAction("DropItem")
+
+	//utils.PingSleep(utils.Medium, 170) // Medium operation: Prepare for drop
+
+	// Get screen coords for the item
+	screenPos := ui.GetScreenCoordsForItem(i)
+
+	// Move pointer and Ctrl+click to drop
+	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
+	utils.PingSleep(utils.Medium, 170)
+	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
+	//utils.PingSleep(utils.Medium, 500) // Wait for drop
+
+	/* // Refresh inventory to make sure it actually dropped
+	ctx.RefreshInventory()
+	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		if it.UnitID == i.UnitID {
+			ctx.Logger.Warn(fmt.Sprintf("Failed to drop item %s (UnitID: %d), still in inventory.", i.Name, i.UnitID))
+			return
+		}
+	}
+
+	ctx.Logger.Debug(fmt.Sprintf("Successfully dropped item %s (UnitID: %d).", i.Name, i.UnitID)) */
+}
+
+func FieldIdentifyItem(idTome data.Item, i data.Item) {
+	ctx := context.Get()
+	screenPos := ui.GetScreenCoordsForItem(idTome)
+
+	utils.PingSleep(utils.Medium, 500) // Medium operation: Prepare for right-click on tome
+	ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
+	utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for tome activation
+
+	screenPos = ui.GetScreenCoordsForItem(i)
+
+	ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
+	utils.PingSleep(utils.Critical, 350) // Critical operation: Wait for item identification
 }
 
 /* func HandleSmallCharmOnFloor(groundCharm data.Item) error {

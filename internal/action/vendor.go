@@ -158,20 +158,22 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 
 	// ---------- REFILL VENDOR ----------
 	vendorNPC := town.GetTownByArea(currentArea).RefillNPC()
-
-	if vendorNPC == npc.Drognan {
-		_, needsBuy := town.ShouldBuyKeys()
-		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
-			vendorNPC = npc.Lysander
-		}
-	}
-	if vendorNPC == npc.Ormus {
-		_, needsBuy := town.ShouldBuyKeys()
-		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
-			if err := FindHratliEverywhere(); err != nil {
-				return err
+	if !ctx.CharacterCfg.BackToTown.IdentifyInField {
+		if vendorNPC == npc.Drognan {
+			_, needsBuy := town.ShouldBuyKeys()
+			if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
+				vendorNPC = npc.Lysander
 			}
-			vendorNPC = npc.Hratli
+		}
+
+		if vendorNPC == npc.Ormus {
+			_, needsBuy := town.ShouldBuyKeys()
+			if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
+				if err := FindHratliEverywhere(); err != nil {
+					return err
+				}
+				vendorNPC = npc.Hratli
+			}
 		}
 	}
 
@@ -324,6 +326,9 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 			"Shopping completed, stored refill vendor inventory items",
 			slog.Int("itemCount", len(lastVendorInventoryItems)),
 		)
+	} else {
+		ctx.Logger.Warn("Quicky Shop")
+		scanAndPurchaseItems(vendorNPC, NewTownActionShoppingPlan())
 	}
 
 	// Safety close
