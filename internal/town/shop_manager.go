@@ -167,7 +167,7 @@ func BuyConsumables(forceRefill bool) {
 	if ctx.Data.PlayerUnit.Class != data.Assassin && (shouldBuyKeys || forceRefill) {
 		if itm, found := ctx.Data.Inventory.Find(item.Key, item.LocationVendor); found {
 			ctx.Logger.Debug("Vendor with keys detected, provisioning...")
-
+			utils.PingSleep(utils.Light, 400)
 			qtyVendor, _ := itm.FindStat(stat.Quantity, 0)
 			if qtyVendor.Value > 0 && keyQty < 12 {
 				buyFullStack(itm, keyQty)

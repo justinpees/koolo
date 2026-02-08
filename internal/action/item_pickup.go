@@ -2158,7 +2158,7 @@ func FieldDropItem(i data.Item) {
 
 	// Move pointer and Ctrl+click to drop
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
-	utils.PingSleep(utils.Medium, 170)
+	utils.PingSleep(utils.Light, 170)
 	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
 	//utils.PingSleep(utils.Medium, 500) // Wait for drop
 
@@ -2178,9 +2178,9 @@ func FieldIdentifyItem(idTome data.Item, i data.Item) {
 	ctx := context.Get()
 	screenPos := ui.GetScreenCoordsForItem(idTome)
 
-	utils.PingSleep(utils.Medium, 500) // Medium operation: Prepare for right-click on tome
+	utils.PingSleep(utils.Light, 150) // Medium operation: Prepare for right-click on tome
 	ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
-	utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for tome activation
+	utils.PingSleep(utils.Critical, 500) // Critical operation: Wait for tome activation
 
 	screenPos = ui.GetScreenCoordsForItem(i)
 
