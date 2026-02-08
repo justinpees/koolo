@@ -2035,15 +2035,10 @@ func TryIdentifyInventoryOnSpot() bool {
 	ctx := context.Get()
 
 	ctx.FieldIdentifying = true
-	defer func() { ctx.FieldIdentifying = false }() // resets it to false at the end
-	//get initial player position
+	defer func() { ctx.FieldIdentifying = false }()
 
 	ctx.Logger.Warn("CLEARING AREA AROUND FIRST BEFORE ID'ING")
 	ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
-
-	//return to initial player position in case wandered too far to pick up original item that dropped?
-
-	//ClearAreaAroundPosition(itemToPickup.Position, 4, data.MonsterAnyFilter())
 
 	ctx.RefreshInventory()
 
@@ -2060,7 +2055,7 @@ func TryIdentifyInventoryOnSpot() bool {
 
 	qtyStat, found := idTome.FindStat(stat.Quantity, 0)
 	if !found {
-		ctx.Logger.Warn("Tome of Identify has no quantity stat, skipping field identification")
+		ctx.Logger.Warn("Tome of Identify has no quantity stat")
 		return false
 	}
 
@@ -2069,123 +2064,131 @@ func TryIdentifyInventoryOnSpot() bool {
 	// Ensure inventory is open
 	for !ctx.Data.OpenMenus.Inventory {
 		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
-		utils.PingSleep(utils.Critical, 300)
+		utils.PingSleep(utils.Critical, 100)
 	}
 
-	ctx.Logger.Debug("Identifying inventory items on the spot", slog.Int("count", len(items)))
+	ctx.Logger.Debug("Batch identifying inventory items", slog.Int("count", len(items)))
 
+	//-----------------------------------------
+	// STEP 1 — Identify EVERYTHING first
+	//-----------------------------------------
 	for _, it := range items {
-		// STOP if using this scroll would bring us to exactly 9
-		if currentQty == 1 || len(items) >= currentQty { // using this scroll would drop Tome to 0 OR amount of items to be picked up exceeds amount of scrolls in tomb
+
+		if currentQty == 1 || len(items) >= currentQty {
 			ctx.Logger.Warn("Tome would drop to 0 — running town routine")
 			step.CloseAllMenus()
 
 			if !ctx.Data.PlayerUnit.Area.IsTown() {
-				// Add a log for starting the town routine
 				ctx.Logger.Warn("Return to town 4")
+
 				if err := InRunReturnTownRoutine(); err != nil {
 					ctx.Logger.Error("Town routine failed", "error", err)
 				}
+
 				ctx.JustDidTownRoutine = true
 			}
 
-			// REFRESH ALL GAME DATA so pickup loop sees town inventory/state
 			ctx.RefreshGameData()
 			ctx.RefreshInventory()
-
 			return false
 		}
 
 		FieldIdentifyItem(idTome, it)
-		currentQty-- // decrement local counter
+		currentQty--
+	}
 
-		ctx.RefreshInventory()
+	//-----------------------------------------
+	// STEP 2 — Refresh ONCE
+	//-----------------------------------------
+	ctx.RefreshInventory()
 
-		var invItem data.Item
-		found := false
-		for _, invIt := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-			if invIt.UnitID == it.UnitID {
-				invItem = invIt
-				found = true
-				break
-			}
-		}
+	//-----------------------------------------
+	// STEP 3 — Build fast lookup map
+	//-----------------------------------------
+	inventoryMap := make(map[uint32]data.Item)
+
+	for _, invIt := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		inventoryMap[uint32(invIt.UnitID)] = invIt
+	}
+
+	//-----------------------------------------
+	// STEP 4 — Evaluate items
+	//-----------------------------------------
+	var itemsToDrop []data.Item
+
+	for _, it := range items {
+
+		invItem, found := inventoryMap[uint32(it.UnitID)]
 		if !found {
 			ctx.Logger.Warn("Identified item not found in inventory", "unitID", it.UnitID)
 			continue
 		}
 
-		// Only drop items that fail NIP
 		if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(invItem); result != nip.RuleResultFullMatch {
-			ctx.Logger.Warn(
-				"Dropping item (failed NIP after field identify)",
-				"itemName", invItem.Name,
-				"unitID", invItem.UnitID,
-			)
-
-			ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, invItem)
-			FieldDropItem(invItem)
-			ctx.RefreshInventory()
+			itemsToDrop = append(itemsToDrop, invItem)
 			continue
 		}
 
 		ctx.Logger.Debug(
-			"Item passed NIP — leaving in inventory for town stash routine",
+			"Item passed NIP — keeping",
 			"itemName", invItem.Name,
 			"unitID", invItem.UnitID,
 		)
-		//shouldStashIt(invItem, false) // just added, false means: We are doing normal decision logic. True means stash everything even if does not match nip?
-
 	}
-	utils.PingSleep(utils.Medium, 500)
+
+	//-----------------------------------------
+	// STEP 5 — Drop failures
+	//-----------------------------------------
+	for _, dropItem := range itemsToDrop {
+
+		ctx.Logger.Warn(
+			"Dropping item (failed NIP after batch field identify)",
+			"itemName", dropItem.Name,
+			"unitID", dropItem.UnitID,
+		)
+
+		ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, dropItem)
+		FieldDropItem(dropItem)
+	}
+
+	utils.PingSleep(utils.Medium, 150)
+
 	step.CloseAllMenus()
 	ctx.RefreshInventory()
+
 	ctx.Logger.Warn("Checking if we need to re-apply buffs after field identification")
-	BuffIfRequired() // re-apply buffs after ID routine
+	BuffIfRequired()
 
 	return true
 }
 
-// drops an item while keeping the inventory open.
+func FieldIdentifyItem(idTome data.Item, i data.Item) {
+	ctx := context.Get()
+
+	// Activate tome
+	tomePos := ui.GetScreenCoordsForItem(idTome)
+	ctx.HID.Click(game.RightButton, tomePos.X, tomePos.Y)
+
+	utils.PingSleep(utils.Critical, 300)
+
+	// Click item
+	itemPos := ui.GetScreenCoordsForItem(i)
+	ctx.HID.Click(game.LeftButton, itemPos.X, itemPos.Y)
+
+	utils.PingSleep(utils.Critical, 120)
+}
+
 func FieldDropItem(i data.Item) {
 	ctx := context.Get()
 	ctx.SetLastAction("DropItem")
 
-	//utils.PingSleep(utils.Medium, 170) // Medium operation: Prepare for drop
-
-	// Get screen coords for the item
 	screenPos := ui.GetScreenCoordsForItem(i)
 
-	// Move pointer and Ctrl+click to drop
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
-	utils.PingSleep(utils.Light, 170)
+	utils.PingSleep(utils.Light, 120)
+
 	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-	//utils.PingSleep(utils.Medium, 500) // Wait for drop
-
-	/* // Refresh inventory to make sure it actually dropped
-	ctx.RefreshInventory()
-	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-		if it.UnitID == i.UnitID {
-			ctx.Logger.Warn(fmt.Sprintf("Failed to drop item %s (UnitID: %d), still in inventory.", i.Name, i.UnitID))
-			return
-		}
-	}
-
-	ctx.Logger.Debug(fmt.Sprintf("Successfully dropped item %s (UnitID: %d).", i.Name, i.UnitID)) */
-}
-
-func FieldIdentifyItem(idTome data.Item, i data.Item) {
-	ctx := context.Get()
-	screenPos := ui.GetScreenCoordsForItem(idTome)
-
-	utils.PingSleep(utils.Light, 150) // Medium operation: Prepare for right-click on tome
-	ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
-	utils.PingSleep(utils.Critical, 500) // Critical operation: Wait for tome activation
-
-	screenPos = ui.GetScreenCoordsForItem(i)
-
-	ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
-	utils.PingSleep(utils.Critical, 350) // Critical operation: Wait for item identification
+	utils.PingSleep(utils.Light, 120)
 }
 
 /* func HandleSmallCharmOnFloor(groundCharm data.Item) error {
