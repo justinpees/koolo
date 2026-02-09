@@ -604,38 +604,94 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		if distanceToTarget <= finishMoveDist || (adjustMinDist && distanceToTarget <= finishMoveDist*2) {
 			if shrine.ID != 0 && targetPosition == shrine.Position {
 
-				// Your pre-gem-shrine logic here
 				if shrine.Shrine.ShrineType == object.GemShrine && ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
 
-					gemName := ctx.CharacterCfg.Inventory.GemToUpgrade
+					mainGemName := item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade)
 
-					// ----- Check if gem already in inventory -----
-					hasGemInInventory := false
-					for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-						if string(it.Name) == gemName {
-							hasGemInInventory = true
-							ctx.Logger.Warn("GemToUpgrade is in inventory")
-							break
-						}
+					fallbackPriority := []item.Name{
+						item.Name("FlawlessAmethyst"),
+						item.Name("FlawlessRuby"),
+						item.Name("FlawlessSkull"),
+						item.Name("FlawlessSapphire"),
+						item.Name("FlawlessEmerald"),
+						item.Name("FlawlessDiamond"),
+						item.Name("FlawlessTopaz"),
 					}
 
-					// ----- If gem NOT in inventory, look in stash/shared stash -----
-					if !hasGemInInventory {
+					// -------------------------------------------------
+					// Check if ANY shrine gem already exists in inventory
+					// -------------------------------------------------
+					hasShrineGem := false
 
-						gemInStash := false
+					for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 
-						for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
-							if string(it.Name) == gemName {
+						if it.Name == mainGemName {
+							hasShrineGem = true
+							ctx.Logger.Warn("GemToUpgrade already in inventory")
+							break
+						}
 
-								gemInStash = true
+						for _, fallback := range fallbackPriority {
+							if it.Name == fallback {
+								hasShrineGem = true
+								ctx.Logger.Warn("Fallback shrine gem already in inventory", "gem", string(fallback))
 								break
 							}
 						}
 
-						// ----- If gem found in stash -----
-						if gemInStash {
+						if hasShrineGem {
+							break
+						}
+					}
 
-							ctx.Logger.Info("Gem Shrine detected but gem missing in inventory. Retrieving from stash.")
+					// -------------------------------------------------
+					// If no shrine gem in inventory → check stash
+					// -------------------------------------------------
+					if !hasShrineGem {
+
+						var gemFoundInStash bool
+						var gemNameFound item.Name
+
+						stashItems := ctx.Data.Inventory.ByLocation(
+							item.LocationStash,
+							item.LocationSharedStash,
+						)
+
+						// ----- Check main gem first -----
+						for _, it := range stashItems {
+							if it.Name == mainGemName {
+								gemFoundInStash = true
+								gemNameFound = mainGemName
+								break
+							}
+						}
+
+						// ----- If main gem not found → check fallback priority -----
+						if !gemFoundInStash {
+
+							for _, fallback := range fallbackPriority {
+								for _, it := range stashItems {
+									if it.Name == fallback {
+										gemFoundInStash = true
+										gemNameFound = fallback
+										break
+									}
+								}
+								if gemFoundInStash {
+									break
+								}
+							}
+						}
+
+						// -------------------------------------------------
+						// If gem exists in stash → retrieve it
+						// -------------------------------------------------
+						if gemFoundInStash {
+
+							ctx.Logger.Info(
+								"Gem Shrine detected but no shrine gem in inventory. Retrieving from stash.",
+								"gem", string(gemNameFound),
+							)
 
 							// Return to town
 							if err := ReturnTown(); err != nil {
@@ -651,15 +707,15 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 							utils.PingSleep(utils.Critical, 500)
 
-							// Stash other gems / items if needed
+							// Stash inventory + pull gem logic handled inside
 							Stash(false)
 
-							// Return through portal
+							// Return to portal
 							if err := UsePortalInTown(); err != nil {
 								return err
 							}
 
-							// Reset shrine so bot re-paths properly
+							// Force shrine repath
 							shrine = data.Object{}
 							continue
 						}

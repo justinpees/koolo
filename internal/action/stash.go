@@ -153,6 +153,46 @@ func stashGold() {
 	ctx.Logger.Info("All stash tabs are full of gold :D")
 }
 
+func GetGemUnitIDToKeep() uint32 {
+	ctx := context.Get()
+
+	if ctx.CharacterCfg.Inventory.GemToUpgrade == "None" {
+		return 0
+	}
+
+	mainGem := item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade)
+
+	fallbackPriority := []item.Name{
+		item.Name("FlawlessAmethyst"),
+		item.Name("FlawlessRuby"),
+		item.Name("FlawlessSkull"),
+		item.Name("FlawlessSapphire"),
+		item.Name("FlawlessEmerald"),
+		item.Name("FlawlessDiamond"),
+		item.Name("FlawlessTopaz"),
+	}
+
+	invItems := ctx.Data.Inventory.ByLocation(item.LocationInventory)
+
+	// --- Prefer main gem ---
+	for _, it := range invItems {
+		if it.Name == mainGem {
+			return uint32(it.UnitID)
+		}
+	}
+
+	// --- Otherwise fallback priority ---
+	for _, fallback := range fallbackPriority {
+		for _, it := range invItems {
+			if it.Name == fallback {
+				return uint32(it.UnitID)
+			}
+		}
+	}
+
+	return 0
+}
+
 func stashInventory(firstRun bool) {
 	ctx := context.Get()
 	ctx.SetLastAction("stashInventory")
@@ -172,39 +212,32 @@ func stashInventory(firstRun bool) {
 	// ENSURE GEM TO UPGRADE EXISTS IN INVENTORY
 	// ------------------------------------------------------------------
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
+
 		if !ctx.Data.OpenMenus.Stash {
 			ctx.Logger.Warn("Stash not open while trying to pull gem for upgrade")
 		} else {
-			gemName := item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade)
+
 			ctx.RefreshGameData()
 
-			invCount := 0
-			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-				if it.Name == gemName {
-					invCount++
-				}
-			}
+			// If we already have a gem selected to keep → do nothing
+			if GetGemUnitIDToKeep() != 0 {
+				ctx.Logger.Debug("Gem already present in inventory for shrine upgrade")
+			} else {
 
-			if invCount == 0 {
+				gemName := item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade)
 
 				stashedItems := ctx.Data.Inventory.ByLocation(
 					item.LocationSharedStash,
 					item.LocationStash,
 				)
 
-				// ------------------------------------------------
-				// Build stash lookup map (fast access by name)
-				// ------------------------------------------------
+				// Build stash lookup
 				stashLookup := make(map[item.Name]*data.Item)
-
 				for _, it := range stashedItems {
 					tmp := it
 					stashLookup[it.Name] = &tmp
 				}
 
-				// ------------------------------------------------
-				// Preferred fallback order
-				// ------------------------------------------------
 				fallbackPriority := []item.Name{
 					item.Name("FlawlessAmethyst"),
 					item.Name("FlawlessRuby"),
@@ -215,33 +248,27 @@ func stashInventory(firstRun bool) {
 					item.Name("FlawlessTopaz"),
 				}
 
-				var fallbackItem *data.Item
+				var pullItem *data.Item
 
-				// ------------------------------------------------
-				// PRIMARY MATCH → Exact gem
-				// ------------------------------------------------
+				// ---- Try main gem first
 				if it, exists := stashLookup[gemName]; exists {
-					fallbackItem = it
+					pullItem = it
 				} else {
 
-					// ------------------------------------------------
-					// SECONDARY MATCH → Priority flawless fallback
-					// ------------------------------------------------
-					for _, preferredGem := range fallbackPriority {
-						if it, exists := stashLookup[preferredGem]; exists {
-							fallbackItem = it
-							ctx.Logger.Warn("USING FALLBACK GEM: " + string(preferredGem))
+					// ---- Try fallback gems
+					for _, fallback := range fallbackPriority {
+						if it, exists := stashLookup[fallback]; exists {
+							pullItem = it
+							ctx.Logger.Warn("USING FALLBACK GEM: " + string(fallback))
 							break
 						}
 					}
 				}
 
-				// ------------------------------------------------
-				// Move gem from stash → inventory
-				// ------------------------------------------------
-				if fallbackItem != nil {
+				// ---- Move gem from stash → inventory
+				if pullItem != nil {
 
-					tab := fallbackItem.Location.Page + 1
+					tab := pullItem.Location.Page + 1
 					if currentTab != tab {
 						SwitchStashTab(tab)
 						currentTab = tab
@@ -249,16 +276,17 @@ func stashInventory(firstRun bool) {
 
 					utils.PingSleep(utils.Medium, 200)
 
-					screenPos := ui.GetScreenCoordsForItem(*fallbackItem)
+					screenPos := ui.GetScreenCoordsForItem(*pullItem)
 					ctx.HID.MovePointer(screenPos.X, screenPos.Y)
 					ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
 					utils.PingSleep(utils.Medium, 500)
 
 					ctx.RefreshGameData()
 
+					// Validate move
 					found := false
 					for _, it2 := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-						if it2.Name == fallbackItem.Name {
+						if it2.UnitID == pullItem.UnitID {
 							found = true
 							break
 						}
@@ -550,27 +578,17 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	}
 
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-		// Count flawless skulls currently in inventory
-		invCount := 0
 
-		// Loop through all items in the inventory to count the flawless skulls
-		for _, itemInInventory := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-			if itemInInventory.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
-				invCount++
-			}
-		}
+		keepGemUnitID := data.UnitID(GetGemUnitIDToKeep())
 
-		// Check if the current item is a flawless skull
-		if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
-			if invCount <= 1 {
-				// If it's the first flawless skull, KEEP it in inventory
-				ctx.Logger.Debug("KEEPING GEM IN INVENTORY TO UPGRADE WITH SHRINE", "gem", ctx.CharacterCfg.Inventory.GemToUpgrade)
-				return false, false, "", "" // do NOT stash, do NOT drop
-			} else {
-				// If it's an extra flawless skull, STASH it, NEVER drop it
-				ctx.Logger.Debug("EXTRA " + ctx.CharacterCfg.Inventory.GemToUpgrade + " DETECTED, STASHING THIS ONE")
-				return true, false, "", "" // stash=true, drop=false
-			}
+		// Protect the gem chosen for shrine usage
+		if keepGemUnitID != 0 && i.UnitID == keepGemUnitID {
+			ctx.Logger.Debug(
+				"KEEPING GEM IN INVENTORY TO UPGRADE WITH SHRINE",
+				"gem", i.Name,
+				"unitID", i.UnitID,
+			)
+			return false, false, "", ""
 		}
 
 	}
@@ -1190,26 +1208,30 @@ func EnsureUpgradeGemCornerSafe() {
 	ctx := context.Get()
 	ctx.Logger.Debug("EnsureUpgradeGemCornerSafe called")
 
-	gemName := ctx.CharacterCfg.Inventory.GemToUpgrade
-	if gemName == "None" {
-		ctx.Logger.Debug("No gem to upgrade configured, skipping")
+	keepGemUnitID := data.UnitID(GetGemUnitIDToKeep())
+	if keepGemUnitID == 0 {
+		ctx.Logger.Debug("No shrine gem found to protect, skipping")
 		return
 	}
 
 	items := ctx.Data.Inventory.ByLocation(item.LocationInventory)
-	ctx.Logger.Debug("Scanning inventory for upgrade gem", "gem", gemName, "itemCount", len(items))
 
 	var gem *data.Item
 	for i := range items {
-		if items[i].Name == item.Name(gemName) && !IsInLockedInventorySlot(items[i]) {
+		if items[i].UnitID == keepGemUnitID && !IsInLockedInventorySlot(items[i]) {
 			gem = &items[i]
-			ctx.Logger.Debug("Upgrade gem found", "x", gem.Position.X, "y", gem.Position.Y)
+			ctx.Logger.Debug(
+				"Shrine gem found",
+				"name", gem.Name,
+				"x", gem.Position.X,
+				"y", gem.Position.Y,
+			)
 			break
 		}
 	}
 
 	if gem == nil {
-		ctx.Logger.Debug("No upgrade gem found or gem in locked slot")
+		ctx.Logger.Debug("Shrine gem not found or gem in locked slot")
 		return
 	}
 
@@ -1227,19 +1249,20 @@ func EnsureUpgradeGemCornerSafe() {
 
 	// Mark all other items
 	for _, it := range items {
-		if it.ID == gem.ID {
+		if it.UnitID == gem.UnitID {
 			continue
 		}
+
 		w, h := it.Desc().InventoryWidth, it.Desc().InventoryHeight
 		if it.Position.X >= 0 && it.Position.Y >= 0 {
 			inv.Place(it.Position.X, it.Position.Y, w, h)
 		}
 	}
-	ctx.Logger.Debug("Inventory mask populated with existing items (excluding gem)")
+	ctx.Logger.Debug("Inventory mask populated with existing items (excluding shrine gem)")
 
-	// Check if gem is already corner-safe
+	// Already safe?
 	if isCornerSafeInMask(gem.Position.X, gem.Position.Y, inv) {
-		ctx.Logger.Debug("Upgrade gem already corner-safe", "x", gem.Position.X, "y", gem.Position.Y)
+		ctx.Logger.Debug("Shrine gem already corner-safe")
 		return
 	}
 
@@ -1250,29 +1273,33 @@ func EnsureUpgradeGemCornerSafe() {
 	}
 
 	var target *data.Position
-	ctx.Logger.Debug("Searching for available corner for upgrade gem")
+	ctx.Logger.Debug("Searching for available corner for shrine gem")
+
 	for _, c := range corners {
 		if inv.CanPlace(c.X, c.Y, gem.Desc().InventoryWidth, gem.Desc().InventoryHeight) {
-			ctx.Logger.Debug("Found valid corner for gem", "targetX", c.X, "targetY", c.Y)
 			target = &c
+			ctx.Logger.Debug("Corner found", "x", c.X, "y", c.Y)
 			break
 		}
 	}
 
 	if target == nil {
-		ctx.Logger.Debug("No valid corner available for upgrade gem, skipping move")
+		ctx.Logger.Debug("No available corner for shrine gem")
 		return
 	}
 
-	// Move gem
+	// Ensure inventory open
 	if !ctx.Data.OpenMenus.Inventory {
 		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
 		utils.PingSleep(utils.Light, 200)
 	}
 
-	ctx.Logger.Debug("Moving upgrade gem to corner",
-		"fromX", gem.Position.X, "fromY", gem.Position.Y,
-		"toX", target.X, "toY", target.Y,
+	ctx.Logger.Debug(
+		"Moving shrine gem to corner",
+		"fromX", gem.Position.X,
+		"fromY", gem.Position.Y,
+		"toX", target.X,
+		"toY", target.Y,
 	)
 
 	screenPos := ui.GetScreenCoordsForItem(*gem)
@@ -1282,7 +1309,8 @@ func EnsureUpgradeGemCornerSafe() {
 	newPos := ui.GetScreenCoordsForInventoryPosition(*target, item.LocationInventory)
 	ctx.HID.Click(game.LeftButton, newPos.X, newPos.Y)
 	utils.PingSleep(utils.Light, 200)
-	step.CloseAllMenus() //JUST ADDED
+
+	step.CloseAllMenus()
 }
 
 func isCornerSafeInMask(x, y int, inv *InventoryMask) bool {

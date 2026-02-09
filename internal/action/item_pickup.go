@@ -2057,12 +2057,18 @@ func TryIdentifyInventoryOnSpot() bool {
 	ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
 
 	// -----------------------------
-	// STEP 0b — Return to original position after clearing
+	// STEP 0b — Return to safe offset
 	// -----------------------------
-	if err := MoveToCoords(originalPos, step.WithIgnoreItems()); err != nil {
-		ctx.Logger.Warn("Failed to return to original position after clearing", "error", err)
+	safePos, ok := FindSafeOffsetPosition(originalPos, 10)
+	if !ok {
+		ctx.Logger.Warn("Could not find safe offset; returning to original position")
+		safePos = originalPos
+	}
+
+	if err := MoveToCoords(safePos, step.WithIgnoreItems()); err != nil {
+		ctx.Logger.Warn("Failed to move to safe offset after clearing", "error", err)
 	} else {
-		ctx.Logger.Warn("Returned to original position after clearing")
+		ctx.Logger.Warn("Moved to safe offset after clearing")
 	}
 
 	ctx.RefreshInventory()
@@ -2076,7 +2082,7 @@ func TryIdentifyInventoryOnSpot() bool {
 		return false
 	}
 
-	// Build snapshot for only items that need identification
+	// Build snapshot for tracking
 	ctx.IdentifySnapshot = make(map[uint32]bool, len(items))
 	for _, it := range items {
 		ctx.IdentifySnapshot[uint32(it.UnitID)] = true
@@ -2097,35 +2103,36 @@ func TryIdentifyInventoryOnSpot() bool {
 		return false
 	}
 
+	// ✅ FIXED: Pre-check scroll count BEFORE identifying anything
+	if len(items) >= currentQty {
+		ctx.Logger.Warn(
+			"Not enough scrolls to identify all items — skipping batch",
+			"scrolls", currentQty,
+			"itemsToIdentify", len(items),
+		)
+
+		step.CloseAllMenus()
+
+		if !ctx.Data.PlayerUnit.Area.IsTown() {
+			ctx.Logger.Warn("Return to town for refill")
+			if err := InRunReturnTownRoutine(); err != nil {
+				ctx.Logger.Error("Town routine failed", "error", err)
+			}
+			ctx.JustDidTownRoutine = true
+		}
+
+		ctx.RefreshGameData()
+		ctx.RefreshInventory()
+		ctx.IdentifySnapshot = nil
+		return false
+	}
+
 	ctx.Logger.Debug("Batch identifying inventory items", slog.Int("count", len(items)))
 
 	// -----------------------------
 	// STEP 3 — Identify everything safely
 	// -----------------------------
 	for _, it := range items {
-		// Check if enough scrolls remain
-		if len(ctx.IdentifySnapshot) >= currentQty {
-			ctx.Logger.Warn(
-				"Not enough scrolls to identify all items — skipping batch",
-				"scrolls", currentQty,
-				"itemsToIdentify", len(ctx.IdentifySnapshot),
-			)
-
-			step.CloseAllMenus()
-
-			if !ctx.Data.PlayerUnit.Area.IsTown() {
-				ctx.Logger.Warn("Return to town for refill")
-				if err := InRunReturnTownRoutine(); err != nil {
-					ctx.Logger.Error("Town routine failed", "error", err)
-				}
-				ctx.JustDidTownRoutine = true
-			}
-
-			ctx.RefreshGameData()
-			ctx.RefreshInventory()
-			ctx.IdentifySnapshot = nil
-			return false
-		}
 
 		// Open inventory if needed
 		for !ctx.Data.OpenMenus.Inventory {
@@ -2133,7 +2140,6 @@ func TryIdentifyInventoryOnSpot() bool {
 			utils.PingSleep(utils.Critical, 100)
 		}
 
-		// Identify the item safely
 		success := SafeFieldIdentifyItem(idTome, it)
 		if !success {
 			ctx.Logger.Warn("Retrying identify", "unitID", it.UnitID)
@@ -2202,7 +2208,6 @@ func TryIdentifyInventoryOnSpot() bool {
 	ctx.Logger.Warn("Checking if we need to re-apply buffs after field identification")
 	BuffIfRequired()
 
-	// Clear snapshot
 	ctx.IdentifySnapshot = nil
 	return true
 }
@@ -2323,6 +2328,41 @@ func FieldDropItem(i data.Item) {
 
 	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
 	utils.PingSleep(utils.Light, 120)
+}
+
+func FindSafeOffsetPosition(origin data.Position, radius int) (data.Position, bool) {
+	ctx := context.Get()
+
+	offsets := []data.Position{
+		{X: radius, Y: 0},
+		{X: -radius, Y: 0},
+		{X: 0, Y: radius},
+		{X: 0, Y: -radius},
+		{X: radius, Y: radius},
+		{X: -radius, Y: radius},
+		{X: radius, Y: -radius},
+		{X: -radius, Y: -radius},
+	}
+
+	for _, off := range offsets {
+		candidate := data.Position{
+			X: origin.X + off.X,
+			Y: origin.Y + off.Y,
+		}
+
+		// ---- Walkable test ----
+		if !ctx.Data.AreaData.IsWalkable(candidate) {
+			continue
+		}
+
+		// ---- Path existence test ----
+		path, _, ok := ctx.PathFinder.GetPath(candidate)
+		if ok && len(path) > 0 {
+			return candidate, true
+		}
+	}
+
+	return origin, false
 }
 
 /* func HandleSmallCharmOnFloor(groundCharm data.Item) error {
