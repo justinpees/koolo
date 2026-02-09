@@ -186,24 +186,49 @@ func stashInventory(firstRun bool) {
 			}
 
 			if invCount == 0 {
+
 				stashedItems := ctx.Data.Inventory.ByLocation(
 					item.LocationSharedStash,
 					item.LocationStash,
 				)
 
+				var fallbackItem *data.Item
+
 				for _, it := range stashedItems {
-					if it.Name != gemName {
-						continue
+
+					// -----------------------------
+					// PRIMARY MATCH → Exact gem
+					// -----------------------------
+					if it.Name == gemName {
+
+						tmp := it
+						fallbackItem = &tmp
+						break
 					}
 
-					tab := it.Location.Page + 1 // NEW
-					if currentTab != tab {      // NEW
-						SwitchStashTab(tab) // NEW
-						currentTab = tab    // NEW
+					// -----------------------------
+					// SECONDARY MATCH → Any flawless gem
+					// -----------------------------
+					if fallbackItem == nil && strings.Contains(string(it.Name), "Flawless") {
+						tmp := it
+						fallbackItem = &tmp
 					}
+				}
+
+				// -----------------------------
+				// If we found either target gem OR fallback flawless gem
+				// -----------------------------
+				if fallbackItem != nil {
+
+					tab := fallbackItem.Location.Page + 1
+					if currentTab != tab {
+						SwitchStashTab(tab)
+						currentTab = tab
+					}
+
 					utils.PingSleep(utils.Medium, 200)
 
-					screenPos := ui.GetScreenCoordsForItem(it)
+					screenPos := ui.GetScreenCoordsForItem(*fallbackItem)
 					ctx.HID.MovePointer(screenPos.X, screenPos.Y)
 					ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
 					utils.PingSleep(utils.Medium, 500)
@@ -212,18 +237,17 @@ func stashInventory(firstRun bool) {
 
 					found := false
 					for _, it2 := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-						if it2.Name == gemName {
+						if it2.Name == fallbackItem.Name {
 							found = true
 							break
 						}
 					}
 
 					if !found {
-						ctx.Logger.Warn("FAILED TO MOVE " + ctx.CharacterCfg.Inventory.GemToUpgrade)
-						continue
+						ctx.Logger.Warn("FAILED TO MOVE fallback gem")
 					}
-
-					break
+				} else {
+					ctx.Logger.Warn("NO FLAWLESS GEMS TO KEEP IN INVENTORY")
 				}
 			}
 		}

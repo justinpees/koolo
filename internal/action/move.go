@@ -614,6 +614,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 						if string(it.Name) == gemName {
 							hasGemInInventory = true
+							ctx.Logger.Warn("GemToUpgrade is in inventory")
 							break
 						}
 					}
