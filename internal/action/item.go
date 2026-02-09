@@ -3,6 +3,7 @@ package action
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -179,8 +180,8 @@ func DropInventoryItem(i data.Item) error {
 
 	// ---------- ABSOLUTE PROTECTION ----------
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-		if i.Name == item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade) {
-			ctx.Logger.Debug("NOT DROPPING " + ctx.CharacterCfg.Inventory.GemToUpgrade)
+		if strings.Contains(string(i.Name), "Flawless") {
+			ctx.Logger.Warn("NOT DROPPING FLAWLESS GEM IN INVENTORY")
 			return nil
 		}
 	}

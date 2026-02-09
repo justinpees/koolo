@@ -244,7 +244,7 @@ func stashInventory(firstRun bool) {
 					}
 
 					if !found {
-						ctx.Logger.Warn("FAILED TO MOVE fallback gem")
+						ctx.Logger.Warn("FAILED TO MOVE FLAWLESS GEM FROM STASH TO INVENTORY, INVENTORY PROBABLY FULL")
 					}
 				} else {
 					ctx.Logger.Warn("NO FLAWLESS GEMS TO KEEP IN INVENTORY")
