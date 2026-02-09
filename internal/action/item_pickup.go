@@ -2104,7 +2104,7 @@ func TryIdentifyInventoryOnSpot() bool {
 	// -----------------------------
 	for _, it := range items {
 		// Check if enough scrolls remain
-		if currentQty <= 1 || (len(ctx.IdentifySnapshot)+1) >= currentQty {
+		if len(ctx.IdentifySnapshot) >= currentQty {
 			ctx.Logger.Warn(
 				"Not enough scrolls to identify all items — skipping batch",
 				"scrolls", currentQty,
