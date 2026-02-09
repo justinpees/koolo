@@ -192,32 +192,53 @@ func stashInventory(firstRun bool) {
 					item.LocationStash,
 				)
 
-				var fallbackItem *data.Item
+				// ------------------------------------------------
+				// Build stash lookup map (fast access by name)
+				// ------------------------------------------------
+				stashLookup := make(map[item.Name]*data.Item)
 
 				for _, it := range stashedItems {
+					tmp := it
+					stashLookup[it.Name] = &tmp
+				}
 
-					// -----------------------------
-					// PRIMARY MATCH → Exact gem
-					// -----------------------------
-					if it.Name == gemName {
+				// ------------------------------------------------
+				// Preferred fallback order
+				// ------------------------------------------------
+				fallbackPriority := []item.Name{
+					item.Name("FlawlessAmethyst"),
+					item.Name("FlawlessRuby"),
+					item.Name("FlawlessSkull"),
+					item.Name("FlawlessSapphire"),
+					item.Name("FlawlessEmerald"),
+					item.Name("FlawlessDiamond"),
+					item.Name("FlawlessTopaz"),
+				}
 
-						tmp := it
-						fallbackItem = &tmp
-						break
-					}
+				var fallbackItem *data.Item
 
-					// -----------------------------
-					// SECONDARY MATCH → Any flawless gem
-					// -----------------------------
-					if fallbackItem == nil && strings.Contains(string(it.Name), "Flawless") {
-						tmp := it
-						fallbackItem = &tmp
+				// ------------------------------------------------
+				// PRIMARY MATCH → Exact gem
+				// ------------------------------------------------
+				if it, exists := stashLookup[gemName]; exists {
+					fallbackItem = it
+				} else {
+
+					// ------------------------------------------------
+					// SECONDARY MATCH → Priority flawless fallback
+					// ------------------------------------------------
+					for _, preferredGem := range fallbackPriority {
+						if it, exists := stashLookup[preferredGem]; exists {
+							fallbackItem = it
+							ctx.Logger.Warn("USING FALLBACK GEM: " + string(preferredGem))
+							break
+						}
 					}
 				}
 
-				// -----------------------------
-				// If we found either target gem OR fallback flawless gem
-				// -----------------------------
+				// ------------------------------------------------
+				// Move gem from stash → inventory
+				// ------------------------------------------------
 				if fallbackItem != nil {
 
 					tab := fallbackItem.Location.Page + 1
@@ -244,10 +265,11 @@ func stashInventory(firstRun bool) {
 					}
 
 					if !found {
-						ctx.Logger.Warn("FAILED TO MOVE FLAWLESS GEM FROM STASH TO INVENTORY, INVENTORY PROBABLY FULL")
+						ctx.Logger.Warn("FAILED TO MOVE GEM FROM STASH TO INVENTORY, INVENTORY PROBABLY FULL")
 					}
+
 				} else {
-					ctx.Logger.Warn("NO FLAWLESS GEMS TO KEEP IN INVENTORY")
+					ctx.Logger.Warn("NO VALID GEMS FOUND IN STASH FOR UPGRADE")
 				}
 			}
 		}
