@@ -711,7 +711,6 @@ func CubeRecipes() error {
 	ctx.Logger.Debug("Marked RareSpecificItem UnitID", "unitID", ctx.MarkedRareSpecificItemUnitID)
 	ctx.Logger.Debug("Current marked RareSpecificItem fingerprint", "fp",
 		ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint)
-
 	return nil
 }
 
@@ -719,7 +718,6 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 
 	ctx.RefreshGameData()
 	items := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
-
 	if strings.Contains(recipe.Name, "Add Sockets to") {
 		return hasItemsForSocketRecipe(ctx, recipe, items)
 	}

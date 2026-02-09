@@ -17,6 +17,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/data/state"
@@ -491,7 +492,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 						shrine = *closestShrine
 						// Log when a Gem Shrine is found and will be interacted with
 						if shrine.Shrine.ShrineType == object.GemShrine && ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-							ctx.Logger.Debug("GEM SHRINE FOUND AND WILL BE INTERACTED WITH", slog.String("position", fmt.Sprintf("(%d, %d)", shrine.Position.X, shrine.Position.Y)))
+							ctx.Logger.Debug("Get position of gem shrine", slog.String("position", fmt.Sprintf("(%d, %d)", shrine.Position.X, shrine.Position.Y)))
 							utils.Sleep(400) // 300–500 ms works best
 							// FORCE immediate pickup of the new Perfect Gem
 							lootErr := ItemPickup(40)
@@ -602,6 +603,68 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		//We've reached our target destination !
 		if distanceToTarget <= finishMoveDist || (adjustMinDist && distanceToTarget <= finishMoveDist*2) {
 			if shrine.ID != 0 && targetPosition == shrine.Position {
+
+				// Your pre-gem-shrine logic here
+				if shrine.Shrine.ShrineType == object.GemShrine && ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
+
+					gemName := ctx.CharacterCfg.Inventory.GemToUpgrade
+
+					// ----- Check if gem already in inventory -----
+					hasGemInInventory := false
+					for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+						if string(it.Name) == gemName {
+							hasGemInInventory = true
+							break
+						}
+					}
+
+					// ----- If gem NOT in inventory, look in stash/shared stash -----
+					if !hasGemInInventory {
+
+						gemInStash := false
+
+						for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
+							if string(it.Name) == gemName {
+
+								gemInStash = true
+								break
+							}
+						}
+
+						// ----- If gem found in stash -----
+						if gemInStash {
+
+							ctx.Logger.Info("Gem Shrine detected but gem missing in inventory. Retrieving from stash.")
+
+							// Return to town
+							if err := ReturnTown(); err != nil {
+								return err
+							}
+
+							utils.PingSleep(utils.Critical, 500)
+
+							// Open stash
+							if err := OpenStash(); err != nil {
+								return err
+							}
+
+							utils.PingSleep(utils.Critical, 500)
+
+							// Stash other gems / items if needed
+							Stash(false)
+
+							// Return through portal
+							if err := UsePortalInTown(); err != nil {
+								return err
+							}
+
+							// Reset shrine so bot re-paths properly
+							shrine = data.Object{}
+							continue
+						}
+					}
+				}
+
 				//Handle shrine if any
 				if err := InteractObject(shrine, func() bool {
 					obj, found := ctx.Data.Objects.FindByID(shrine.ID)

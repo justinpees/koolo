@@ -2031,93 +2031,138 @@ func onAnniPickedUp(itemToPickup data.Item) {
 }
 
 // TODO:sjdgbhk
+// -----------------------------
+// FIELD IDENTIFICATION BATCH
+// -----------------------------
 func TryIdentifyInventoryOnSpot() bool {
 	ctx := context.Get()
 
-	ctx.FieldIdentifying = true
-	defer func() { ctx.FieldIdentifying = false }()
-
-	ctx.Logger.Warn("CLEARING AREA AROUND FIRST BEFORE ID'ING")
-	ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
-
-	ctx.RefreshInventory()
-
-	items := itemsToIdentify()
-	if len(items) == 0 {
+	// Prevent multiple concurrent identification batches
+	if ctx.FieldIdentifying {
+		ctx.Logger.Warn("Already identifying, skipping new batch")
 		return false
 	}
 
+	ctx.FieldIdentifying = true
+	defer func() {
+		ctx.FieldIdentifying = false
+		ctx.IdentifySnapshot = nil // Clear snapshot after batch completes
+	}()
+
+	// -----------------------------
+	// STEP 0 — Save original player position
+	// -----------------------------
+	originalPos := ctx.Data.PlayerUnit.Position
+	ctx.Logger.Warn("CLEARING AREA AROUND BEFORE IDENTIFICATION")
+	ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
+
+	// -----------------------------
+	// STEP 0b — Return to original position after clearing
+	// -----------------------------
+	if err := MoveToCoords(originalPos, step.WithIgnoreItems()); err != nil {
+		ctx.Logger.Warn("Failed to return to original position after clearing", "error", err)
+	} else {
+		ctx.Logger.Warn("Returned to original position after clearing")
+	}
+
+	ctx.RefreshInventory()
+
+	// -----------------------------
+	// STEP 1 — Get items to identify
+	// -----------------------------
+	items := ItemsToIdentify()
+	if len(items) == 0 {
+		ctx.Logger.Debug("No items to identify on the spot")
+		return false
+	}
+
+	// Build snapshot for only items that need identification
+	ctx.IdentifySnapshot = make(map[uint32]bool, len(items))
+	for _, it := range items {
+		ctx.IdentifySnapshot[uint32(it.UnitID)] = true
+	}
+
+	// -----------------------------
+	// STEP 2 — Find Tome of Identify
+	// -----------------------------
 	idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
 	if !found {
 		ctx.Logger.Debug("No Tome of Identify found for field identification")
 		return false
 	}
 
-	qtyStat, found := idTome.FindStat(stat.Quantity, 0)
-	if !found {
-		ctx.Logger.Warn("Tome of Identify has no quantity stat")
+	currentQty := getTomeQty(idTome)
+	if currentQty <= 0 {
+		ctx.Logger.Warn("Tome of Identify has no scrolls")
 		return false
-	}
-
-	currentQty := int(qtyStat.Value)
-
-	// Ensure inventory is open
-	for !ctx.Data.OpenMenus.Inventory {
-		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
-		utils.PingSleep(utils.Critical, 100)
 	}
 
 	ctx.Logger.Debug("Batch identifying inventory items", slog.Int("count", len(items)))
 
-	//-----------------------------------------
-	// STEP 1 — Identify EVERYTHING first
-	//-----------------------------------------
+	// -----------------------------
+	// STEP 3 — Identify everything safely
+	// -----------------------------
 	for _, it := range items {
+		// Check if enough scrolls remain
+		if currentQty <= 1 || (len(ctx.IdentifySnapshot)+1) >= currentQty {
+			ctx.Logger.Warn(
+				"Not enough scrolls to identify all items — skipping batch",
+				"scrolls", currentQty,
+				"itemsToIdentify", len(ctx.IdentifySnapshot),
+			)
 
-		if currentQty == 1 || len(items) >= currentQty {
-			ctx.Logger.Warn("Tome would drop to 0 — running town routine")
 			step.CloseAllMenus()
 
 			if !ctx.Data.PlayerUnit.Area.IsTown() {
-				ctx.Logger.Warn("Return to town 4")
-
+				ctx.Logger.Warn("Return to town for refill")
 				if err := InRunReturnTownRoutine(); err != nil {
 					ctx.Logger.Error("Town routine failed", "error", err)
 				}
-
 				ctx.JustDidTownRoutine = true
 			}
 
 			ctx.RefreshGameData()
 			ctx.RefreshInventory()
+			ctx.IdentifySnapshot = nil
 			return false
 		}
 
-		FieldIdentifyItem(idTome, it)
+		// Open inventory if needed
+		for !ctx.Data.OpenMenus.Inventory {
+			ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+			utils.PingSleep(utils.Critical, 100)
+		}
+
+		// Identify the item safely
+		success := SafeFieldIdentifyItem(idTome, it)
+		if !success {
+			ctx.Logger.Warn("Retrying identify", "unitID", it.UnitID)
+			success = SafeFieldIdentifyItem(idTome, it)
+			if !success {
+				ctx.Logger.Error("Failed identifying item after retry", "unitID", it.UnitID)
+				continue
+			}
+		}
+
 		currentQty--
+		idTome, _ = ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
 	}
 
-	//-----------------------------------------
-	// STEP 2 — Refresh ONCE
-	//-----------------------------------------
+	// -----------------------------
+	// STEP 4 — Refresh inventory after identification
+	// -----------------------------
 	ctx.RefreshInventory()
 
-	//-----------------------------------------
-	// STEP 3 — Build fast lookup map
-	//-----------------------------------------
+	// -----------------------------
+	// STEP 5 — Evaluate items against NIP
+	// -----------------------------
 	inventoryMap := make(map[uint32]data.Item)
-
 	for _, invIt := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 		inventoryMap[uint32(invIt.UnitID)] = invIt
 	}
 
-	//-----------------------------------------
-	// STEP 4 — Evaluate items
-	//-----------------------------------------
 	var itemsToDrop []data.Item
-
 	for _, it := range items {
-
 		invItem, found := inventoryMap[uint32(it.UnitID)]
 		if !found {
 			ctx.Logger.Warn("Identified item not found in inventory", "unitID", it.UnitID)
@@ -2136,11 +2181,10 @@ func TryIdentifyInventoryOnSpot() bool {
 		)
 	}
 
-	//-----------------------------------------
-	// STEP 5 — Drop failures
-	//-----------------------------------------
+	// -----------------------------
+	// STEP 6 — Drop failures
+	// -----------------------------
 	for _, dropItem := range itemsToDrop {
-
 		ctx.Logger.Warn(
 			"Dropping item (failed NIP after batch field identify)",
 			"itemName", dropItem.Name,
@@ -2152,38 +2196,128 @@ func TryIdentifyInventoryOnSpot() bool {
 	}
 
 	utils.PingSleep(utils.Medium, 150)
-
 	step.CloseAllMenus()
 	ctx.RefreshInventory()
 
 	ctx.Logger.Warn("Checking if we need to re-apply buffs after field identification")
 	BuffIfRequired()
 
+	// Clear snapshot
+	ctx.IdentifySnapshot = nil
 	return true
 }
 
-func FieldIdentifyItem(idTome data.Item, i data.Item) {
+// -----------------------------
+// SAFE IDENTIFY SINGLE ITEM
+// -----------------------------
+func SafeFieldIdentifyItem(idTome data.Item, target data.Item) bool {
 	ctx := context.Get()
 
+	// Only act if snapshot is active
+	if ctx.IdentifySnapshot == nil {
+		ctx.Logger.Warn("IdentifySnapshot not active; skipping item", "unitID", target.UnitID)
+		return false
+	}
+
+	qtyBefore := getTomeQty(idTome)
+	beforeSnapshot := ctx.IdentifySnapshot
+
+	//---------------------------------
 	// Activate tome
+	//---------------------------------
 	tomePos := ui.GetScreenCoordsForItem(idTome)
 	ctx.HID.Click(game.RightButton, tomePos.X, tomePos.Y)
+	utils.PingSleep(utils.Critical, 250)
 
-	utils.PingSleep(utils.Critical, 300)
-
+	//---------------------------------
 	// Click item
-	itemPos := ui.GetScreenCoordsForItem(i)
+	//---------------------------------
+	itemPos := ui.GetScreenCoordsForItem(target)
 	ctx.HID.Click(game.LeftButton, itemPos.X, itemPos.Y)
+	utils.PingSleep(utils.Critical, 250)
 
-	utils.PingSleep(utils.Critical, 120)
+	ctx.RefreshInventory()
+
+	//---------------------------------
+	// Check tome quantity change
+	//---------------------------------
+	idTomeNew, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
+	if !found {
+		return false
+	}
+
+	qtyAfter := getTomeQty(idTomeNew)
+	if qtyAfter < qtyBefore {
+		return true // SUCCESS
+	}
+
+	//---------------------------------
+	// Detect accidental pickup
+	//---------------------------------
+	afterSnapshot := snapshotInventoryUnitIDs()
+	if !afterSnapshot[uint32(target.UnitID)] && beforeSnapshot[uint32(target.UnitID)] {
+		ctx.Logger.Warn("Identify failed — item likely picked up, attempting recovery")
+		return attemptReturnItem(target)
+	}
+
+	return false
 }
 
+// -----------------------------
+// SNAPSHOT INVENTORY
+// -----------------------------
+func snapshotInventoryUnitIDs() map[uint32]bool {
+	ctx := context.Get()
+	result := make(map[uint32]bool)
+
+	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		result[uint32(it.UnitID)] = true
+	}
+
+	return result
+}
+
+// -----------------------------
+// ATTEMPT RECOVERY OF ACCIDENTAL PICKUP
+// -----------------------------
+func attemptReturnItem(original data.Item) bool {
+	ctx := context.Get()
+	pos := ui.GetScreenCoordsForItem(original)
+
+	ctx.HID.Click(game.LeftButton, pos.X, pos.Y)
+	utils.PingSleep(utils.Critical, 200)
+
+	ctx.RefreshInventory()
+
+	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		if it.UnitID == original.UnitID {
+			return true
+		}
+	}
+
+	ctx.Logger.Error("Failed to recover accidentally picked item")
+	return false
+}
+
+// -----------------------------
+// GET TOME QUANTITY
+// -----------------------------
+func getTomeQty(tome data.Item) int {
+	qtyStat, found := tome.FindStat(stat.Quantity, 0)
+	if !found {
+		return 0
+	}
+	return int(qtyStat.Value)
+}
+
+// -----------------------------
+// DROP ITEM
+// -----------------------------
 func FieldDropItem(i data.Item) {
 	ctx := context.Get()
 	ctx.SetLastAction("DropItem")
 
 	screenPos := ui.GetScreenCoordsForItem(i)
-
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
 	utils.PingSleep(utils.Light, 120)
 

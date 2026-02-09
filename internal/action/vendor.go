@@ -145,7 +145,7 @@ func walkToAnya(ctx *context.Status) {
 // Global variable to track vendor inventory fingerprint
 var lastVendorInventoryItems []string = nil
 
-func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err error) {
+func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) error {
 	ctx := botCtx.Get()
 	ctx.SetLastAction("VendorRefill")
 
@@ -157,36 +157,57 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 	ctx.Logger.Info("Visiting vendor...", slog.Any("area", currentArea))
 
 	// ---------- REFILL VENDOR ----------
-	vendorNPC := town.GetTownByArea(currentArea).RefillNPC()
+	refillVendor := town.GetTownByArea(currentArea).RefillNPC()
+	var keyVendor npc.ID
+	buyKeys := false
 
-	if vendorNPC == npc.Drognan {
-		_, needsBuy := town.ShouldBuyKeys()
-		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
-			vendorNPC = npc.Lysander
+	// Determine if we need to buy keys first
+	switch refillVendor {
+	case npc.Drognan:
+		_, buyKeys = town.ShouldBuyKeys()
+		if buyKeys && ctx.Data.PlayerUnit.Class != data.Assassin {
+			keyVendor = npc.Lysander
 		}
-	}
-
-	if vendorNPC == npc.Ormus {
-		_, needsBuy := town.ShouldBuyKeys()
-		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
+	case npc.Ormus:
+		_, buyKeys = town.ShouldBuyKeys()
+		if buyKeys && ctx.Data.PlayerUnit.Class != data.Assassin {
 			if err := FindHratliEverywhere(); err != nil {
 				return err
 			}
-			vendorNPC = npc.Hratli
+			keyVendor = npc.Hratli
 		}
 	}
 
-	if err = InteractNPC(vendorNPC); err != nil {
+	// --- Buy keys first if necessary ---
+	if buyKeys && keyVendor != 0 {
+		ctx.Logger.Info("Buying keys first", slog.Any("vendor", keyVendor))
+		if err := InteractNPC(keyVendor); err != nil {
+			return err
+		}
+
+		// Open vendor menu
+		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+		town.BuyConsumables(true) // buys keys and other consumables if needed
+		step.CloseAllMenus()
+		ctx.RefreshGameData()
+	}
+
+	// --- Interact with main refill vendor ---
+	if err := InteractNPC(refillVendor); err != nil {
 		return err
 	}
 
-	// Open vendor trade
-	if vendorNPC == npc.Jamella || vendorNPC == npc.Halbu {
+	// Open vendor menu appropriately
+	switch refillVendor {
+	case npc.Jamella, npc.Halbu:
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
-	} else {
+	case npc.Asheara:
+		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_DOWN, win.VK_RETURN)
+	default:
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 	}
-	// 🔒 Protect marked specific item from being sold
+
+	// 🔒 Protect marked specific items from being sold
 	if ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
 		for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 			if it.Quality == item.QualityMagic &&
@@ -198,17 +219,12 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 					"unitID", it.UnitID,
 					"fp", ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint,
 				)
-
-				// Lock its inventory position
-				tempLock = append(tempLock, [][]int{
-					{it.Position.X, it.Position.Y},
-				})
+				tempLock = append(tempLock, [][]int{{it.Position.X, it.Position.Y}})
 				break
 			}
 		}
 	}
 
-	// 🔒 Protect marked specific rare item from being sold
 	if ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" {
 		for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 			if it.Quality == item.QualityRare &&
@@ -220,54 +236,36 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 					"unitID", it.UnitID,
 					"fp", ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint,
 				)
-
-				// Lock its inventory position
-				tempLock = append(tempLock, [][]int{
-					{it.Position.X, it.Position.Y},
-				})
+				tempLock = append(tempLock, [][]int{{it.Position.X, it.Position.Y}})
 				break
 			}
 		}
 	}
 
-	// Sell junk
+	// --- Sell junk if requested ---
 	if sellJunk {
 		if len(tempLock) > 0 {
-			ctx.Logger.Warn(
-				"SELLING JUNK WITH LOCKED SLOTS",
-				"locks", tempLock,
-			)
+			ctx.Logger.Warn("SELLING JUNK WITH LOCKED SLOTS", "locks", tempLock)
 			town.SellJunk(tempLock...)
 		} else {
 			town.SellJunk()
 		}
 	}
 
-	// Buy consumables
+	// --- Buy consumables and scrolls ---
 	SwitchVendorTab(4)
 	ctx.RefreshGameData()
-	town.BuyConsumables(true)
+	town.BuyConsumables(forceRefill)
 
+	// --- Shop other vendors if configured ---
 	if ctx.CharacterCfg.Game.ShopVendorsDuringTownVisits {
-		// ---------- SHOP ALL VENDORS ----------
 		shopPlan := NewTownActionShoppingPlan()
-
-		refillVendor := town.GetTownByArea(currentArea).RefillNPC()
 		shopPlan.Vendors = prioritizeVendor(shopPlan.Vendors, refillVendor)
 
-		keepVendorOpen := len(shopPlan.Vendors) > 0 && shopPlan.Vendors[0] == vendorNPC
-
-		if !keepVendorOpen {
-			step.CloseAllMenus()
-			ctx.RefreshGameData()
-		} else {
-			ctx.RefreshGameData()
-		}
+		keepVendorOpen := len(shopPlan.Vendors) > 0 && shopPlan.Vendors[0] == refillVendor
 
 		currentItems := getVendorInventoryItems(ctx)
-		shouldShop := !allItemsStillExist(lastVendorInventoryItems, currentItems)
-
-		if !shouldShop {
+		if allItemsStillExist(lastVendorInventoryItems, currentItems) {
 			ctx.Logger.Info("Skipping shopping - refill vendor inventory unchanged")
 			return nil
 		}
@@ -278,18 +276,16 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 				continue
 			}
 
-			// Open vendor unless reusing refill vendor
-			if !(idx == 0 && keepVendorOpen && vendor == vendorNPC) {
+			if !(idx == 0 && keepVendorOpen && vendor == refillVendor) {
 				step.CloseAllMenus()
 				ctx.RefreshGameData()
 
-				if vendor == npc.Hratli {
+				switch vendor {
+				case npc.Hratli:
 					walkToHratli(ctx)
-				}
-				if vendor == npc.Larzuk {
+				case npc.Larzuk:
 					walkToLarzuk(ctx)
-				}
-				if vendor == npc.Drehya {
+				case npc.Drehya:
 					walkToAnya(ctx)
 				}
 
@@ -312,22 +308,18 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 
 			scanAndPurchaseItems(vendor, shopPlan)
 
-			// Close vendor unless explicitly kept open
-			if !(idx == 0 && keepVendorOpen && vendor == vendorNPC) {
+			if !(idx == 0 && keepVendorOpen && vendor == refillVendor) {
 				step.CloseAllMenus()
 				ctx.RefreshGameData()
 			}
 		}
 
-		// ✅ Store fingerprint AFTER all vendors
 		lastVendorInventoryItems = currentItems
-		ctx.Logger.Debug(
-			"Shopping completed, stored refill vendor inventory items",
-			slog.Int("itemCount", len(lastVendorInventoryItems)),
-		)
+		ctx.Logger.Debug("Shopping completed, stored refill vendor inventory items",
+			slog.Int("itemCount", len(lastVendorInventoryItems)))
 	} else {
 		ctx.Logger.Debug("Checking items in shop...")
-		scanAndPurchaseItems(vendorNPC, NewTownActionShoppingPlan())
+		scanAndPurchaseItems(refillVendor, NewTownActionShoppingPlan())
 	}
 
 	// Safety close

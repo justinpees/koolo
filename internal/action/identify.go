@@ -22,7 +22,7 @@ func IdentifyAll(skipIdentify bool) error {
 	ctx := context.Get()
 	ctx.SetLastAction("IdentifyAll")
 
-	items := itemsToIdentify()
+	items := ItemsToIdentify()
 
 	ctx.Logger.Debug("Checking for items to identify...")
 	if len(items) == 0 || skipIdentify {
@@ -130,7 +130,7 @@ func CainIdentify() error {
 	return nil
 }
 
-func itemsToIdentify() (items []data.Item) {
+func ItemsToIdentify() (items []data.Item) {
 	ctx := context.Get()
 	ctx.SetLastAction("itemsToIdentify")
 
