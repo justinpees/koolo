@@ -212,7 +212,7 @@ func (s *Baal) Run(parameters *RunParameters) error {
 				s.ctx.Logger.Warn("Failed to move to Baal", "error", moveErr)
 			}
 		}
-
+		s.TreatDiabloCloneAsBaal() // <- new line
 		if err := s.ctx.Char.KillBaal(); err != nil {
 			return err
 		}
@@ -223,6 +223,19 @@ func (s *Baal) Run(parameters *RunParameters) error {
 	}
 
 	return nil
+}
+
+func (s *Baal) TreatDiabloCloneAsBaal() {
+	// Scan all monsters to see if Diablo Clone exists
+	for _, m := range s.ctx.Data.Monsters.Enemies(s.ctx.Data.MonsterFilterAnyReachable()) {
+		if m.Name == npc.DiabloClone {
+			s.ctx.Logger.Info("Diablo Clone detected — treating as Baal")
+			// Override its ID so KillDiablo() sees it as normal Diablo
+			m.Name = npc.BaalCrab
+			// Optionally break here if you only care about one clone
+			break
+		}
+	}
 }
 
 // hasBaalLeftThrone checks if Baal has left the throne and entered the Worldstone Chamber

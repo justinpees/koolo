@@ -239,6 +239,7 @@ func (d *Diablo) Run(parameters *RunParameters) error {
 			d.ctx.DisableItemPickup()
 		}
 
+		d.TreatDiabloCloneAsDiablo() // <- new line
 		if err := d.ctx.Char.KillDiablo(); err != nil {
 			return err
 		}
@@ -522,5 +523,18 @@ func (d Diablo) trySkipCinematic() {
 		utils.Sleep(2000)
 		action.HoldKey(win.VK_SPACE, 2000)
 		utils.Sleep(2000)
+	}
+}
+
+func (d *Diablo) TreatDiabloCloneAsDiablo() {
+	// Scan all monsters to see if Diablo Clone exists
+	for _, m := range d.ctx.Data.Monsters.Enemies(d.ctx.Data.MonsterFilterAnyReachable()) {
+		if m.Name == npc.DiabloClone {
+			d.ctx.Logger.Info("Diablo Clone detected — treating as Diablo")
+			// Override its ID so KillDiablo() sees it as normal Diablo
+			m.Name = npc.Diablo
+			// Optionally break here if you only care about one clone
+			break
+		}
 	}
 }

@@ -2127,7 +2127,7 @@ func TryIdentifyInventoryOnSpot() bool {
 		return false
 	}
 
-	ctx.Logger.Debug("Batch identifying inventory items", slog.Int("count", len(items)))
+	ctx.Logger.Debug("Batch identifying inventory items", slog.Int("count", len(items)), slog.Int("scrolls", currentQty))
 
 	// -----------------------------
 	// STEP 3 — Identify everything safely
