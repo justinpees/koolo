@@ -41,13 +41,24 @@ func PickupItem(it data.Item, itemPickupAttempt int) error {
 		ctx.Logger.Debug("Attempting item pickup via packet method")
 		return PickupItemPacket(it, itemPickupAttempt)
 	}
-
-	// Use mouse-based pickup (original implementation)
-	return PickupItemMouse(it, itemPickupAttempt)
+	if ctx.CharacterCfg.BackToTown.ItemPickupMode == "Normal" {
+		// Use mouse-based pickup (original implementation)
+		return PickupItemMouse(it, itemPickupAttempt, false)
+	} else {
+		// ignore check for monsters nearby for fast mode
+		return PickupItemMouse(it, itemPickupAttempt, true)
+	}
 }
 
-func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
+func PickupItemMouse(it data.Item, itemPickupAttempt int, ignoreMonsters bool) error {
 	ctx := context.Get()
+
+	// ------------------------------------
+	// INITIAL MONSTER CHECK (RESPECT ignoreMonsters)
+	// ------------------------------------
+	if !ignoreMonsters && hasHostileMonstersNearby(it.Position) {
+		return ErrMonsterAroundItem
+	}
 
 	// ------------------------------------
 	// WAIT FOR CHARACTER TO BE IDLE
@@ -90,9 +101,9 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 		ctx.PathFinder.GameCoordsToScreenCords(baseX, baseY)
 
 	// ------------------------------------
-	// SAFETY CHECKS
+	// SAFETY CHECKS (RESPECT ignoreMonsters)
 	// ------------------------------------
-	if hasHostileMonstersNearby(it.Position) {
+	if !ignoreMonsters && hasHostileMonstersNearby(it.Position) {
 		return ErrMonsterAroundItem
 	}
 
@@ -104,10 +115,6 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 	if distance >= 7 {
 		return fmt.Errorf("%w (%d): %s", ErrItemTooFar, distance, it.Desc().Name)
 	}
-
-	/* ctx.Logger.Debug(
-		fmt.Sprintf("Picking up: %s [%s]", it.Desc().Name, it.Quality.ToString()),
-	) */
 
 	// ------------------------------------
 	// PRE-CALCULATE NIP RULE (LOGGING ONLY)
@@ -128,9 +135,9 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 		ctx.PauseIfNotPriority()
 		ctx.RefreshGameData()
 
-		// Periodic monster check
+		// Periodic monster check (RESPECT ignoreMonsters)
 		if time.Since(lastMonsterCheck) > monsterCheckInterval {
-			if hasHostileMonstersNearby(it.Position) {
+			if !ignoreMonsters && hasHostileMonstersNearby(it.Position) {
 				return ErrMonsterAroundItem
 			}
 			lastMonsterCheck = time.Now()
@@ -146,7 +153,7 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 
 		currentItem, exists := findItemOnGround(targetItem.UnitID)
 		if !exists {
-			// Determine logging text based on rule result
+			// Logging
 			switch ruleResult {
 			case nip.RuleResultFullMatch, nip.RuleResultPartial:
 				ctx.Logger.Info(fmt.Sprintf(
@@ -159,7 +166,6 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 					spiralAttempt,
 				))
 			default:
-				// Items without any NIP match (Wirt's Leg, quest items, gold, heuristics)
 				ctx.Logger.Info(fmt.Sprintf(
 					"Picked up: %s [%s] | Line:<none> | Item Pickup Attempt:%d | Spiral Attempt:%d",
 					targetItem.Desc().Name,
@@ -169,7 +175,6 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
 				))
 			}
 
-			// Mark item as picked up in game state
 			ctx.CurrentGame.PickedUpItems[int(targetItem.UnitID)] =
 				int(ctx.Data.PlayerUnit.Area.Area().ID)
 

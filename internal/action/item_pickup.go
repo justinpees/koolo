@@ -88,6 +88,13 @@ func ItemPickup(maxDistance int) error {
 	ctx := context.Get()
 	ctx.SetLastAction("ItemPickup")
 
+	if ctx.CharacterCfg.BackToTown.ItemPickupMode == "Fast" {
+		// 🔹 Instant safe pickup check
+		if QuickPickup(maxDistance) {
+			return nil // picked up something safely, skip full loop this cycle
+		}
+	}
+
 	if ctx.FieldIdentifying {
 		//ctx.Logger.Debug("Skipping item pickup because field identification in progress")
 		return nil
@@ -508,6 +515,62 @@ outer:
 			)
 		}
 	}
+}
+
+func QuickPickup(maxDistance int) bool {
+	ctx := context.Get()
+	pickedAny := false
+
+	// --- Refresh inventory before starting ---
+	ctx.RefreshInventory()
+
+	// --- Get all items within range ---
+	items := GetItemsToPickup(maxDistance)
+	for _, item := range items {
+		// --- Stop immediately if inventory is full ---
+		ctx.RefreshInventory()
+		if !itemFitsInventory(item) {
+			ctx.Logger.Warn("[QuickPickup] Inventory full, stopping quick pickup.")
+			break
+		}
+
+		// --- Log attempt for each item ---
+		ctx.Logger.Info(fmt.Sprintf(
+			"[QuickPickup] Attempting to pickup: %s [%d] at X:%d Y:%d",
+			item.Name, item.Quality, item.Position.X, item.Position.Y,
+		))
+
+		// --- Move to the item's position if needed ---
+		distance := ctx.PathFinder.DistanceFromMe(item.Position)
+		if distance > 1 { // only move if more than 1 unit away
+			if mvErr := MoveToCoords(item.Position, step.WithIgnoreItems()); mvErr != nil {
+				ctx.Logger.Warn(fmt.Sprintf(
+					"[QuickPickup] Failed to move to item %s [%d]",
+					item.Name, item.Quality,
+				), "error", mvErr)
+				continue // skip pickup if movement failed
+			}
+			time.Sleep(50 * time.Millisecond) // small delay after moving
+		}
+
+		// --- Attempt to pick up the item (ignoring monsters) ---
+		err := step.PickupItemMouse(item, 1, true)
+		if err == nil {
+			onAnniPickedUp(item)
+			ctx.Logger.Warn(fmt.Sprintf(
+				"[QuickPickup] Successfully picked up %s [%d]",
+				item.Name, item.Quality,
+			))
+			pickedAny = true
+		} else {
+			ctx.Logger.Debug(fmt.Sprintf(
+				"[QuickPickup] Failed to pick up item %s [%d]",
+				item.Name, item.Quality,
+			), "error", err)
+		}
+	}
+
+	return pickedAny
 }
 
 func GetItemsToPickup(maxDistance int) []data.Item {
