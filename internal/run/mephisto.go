@@ -120,6 +120,8 @@ func (m Mephisto) Run(parameters *RunParameters) error {
 	// Disable item pickup while fighting Mephisto (prevent picking up items if nearby monsters die)
 	m.ctx.DisableItemPickup()
 
+	m.TreatDiabloCloneAsMephisto() // <- new line
+
 	// Kill Mephisto
 	err = m.ctx.Char.KillMephisto()
 
@@ -179,6 +181,19 @@ func (m Mephisto) Run(parameters *RunParameters) error {
 	}
 
 	return nil
+}
+
+func (m *Mephisto) TreatDiabloCloneAsMephisto() {
+	// Scan all monsters to see if Diablo Clone exists
+	for _, mm := range m.ctx.Data.Monsters.Enemies(m.ctx.Data.MonsterFilterAnyReachable()) {
+		if mm.Name == npc.DiabloClone {
+			m.ctx.Logger.Info("Diablo Clone detected — treating as Mephisto")
+			// Override its ID so KillMephisto() sees it as normal Mephisto
+			mm.Name = npc.Mephisto
+			// Optionally break here if you only care about one clone
+			break
+		}
+	}
 }
 
 func (m Mephisto) CouncilMemberFilter() data.MonsterFilter {

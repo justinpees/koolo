@@ -475,13 +475,26 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					return filteredMonsters
 				})
 				_ = ClearAreaAroundPosition(ctx.Data.PlayerUnit.Position, clearPathDist, filters...)
+
 				if !opts.IgnoreItems() {
 					// After clearing, immediately try to pick up items
 					lootErr := ItemPickup(lootAfterCombatRadius)
+
 					if lootErr != nil {
 						ctx.Logger.Warn("Error picking up items after combat", slog.String("error", lootErr.Error()))
 					}
+
+					if ctx.CharacterCfg.BackToTown.IdentifyInField && ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Aggressive" {
+						ctx.RefreshInventory()
+						items := ItemsToIdentify()
+						if len(items) >= 1 {
+							if identified := TryIdentifyInventoryOnSpot(); identified {
+								ctx.RefreshInventory()
+							}
+						}
+					}
 				}
+
 			}
 
 			//Check shrine nearby
@@ -533,6 +546,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			//Check if we're safe to do some stuff on the field
 			if enemyFound, _ := IsAnyEnemyAroundPlayer(max(clearPathDist*2, 30)); !enemyFound {
 				onSafeNavigation()
+				//ctx.Logger.Warn("Good time to identify, no monsters nearby")
+
 			} else {
 				isSafe = false
 			}

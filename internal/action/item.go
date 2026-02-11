@@ -181,7 +181,7 @@ func DropInventoryItem(i data.Item) error {
 	// ---------- ABSOLUTE PROTECTION ----------
 	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
 		if strings.Contains(string(i.Name), "Flawless") {
-			ctx.Logger.Warn("NOT DROPPING FLAWLESS GEM IN INVENTORY")
+			ctx.Logger.Debug("NOT DROPPING FLAWLESS GEM IN INVENTORY")
 			return nil
 		}
 	}

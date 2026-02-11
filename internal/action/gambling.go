@@ -319,7 +319,7 @@ func processBoughtItem(itemBought *data.Item) {
 	}
 
 	// 🔎 DEBUG: confirm final gamble state
-	ctx.Logger.Warn(
+	ctx.Logger.Debug(
 		"GAMBLED ITEM FINAL STATE",
 		"name", itemBought.Name,
 		"quality", itemBought.Quality,

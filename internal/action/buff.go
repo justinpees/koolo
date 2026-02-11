@@ -23,7 +23,7 @@ func BuffIfRequired() {
 	ctx := context.Get()
 
 	if ctx.FieldIdentifying { // skip buffs during ID
-		ctx.Logger.Warn("Skipping buffs during field identification")
+		//ctx.Logger.Warn("Skipping buffs during field identification")
 		return
 	}
 

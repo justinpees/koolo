@@ -77,6 +77,7 @@ func (p Pindleskin) Run(parameters *RunParameters) error {
 	}
 
 	_ = action.MoveToCoords(pindleSafePosition)
+	p.TreatDiabloCloneAsPindleskin() // <- new line
 
 	if err := p.ctx.Char.KillPindle(); err != nil {
 		return err
@@ -85,4 +86,18 @@ func (p Pindleskin) Run(parameters *RunParameters) error {
 	action.ItemPickup(30)
 
 	return nil
+}
+func (p *Pindleskin) TreatDiabloCloneAsPindleskin() {
+	// Scan all monsters to see if Diablo Clone exists
+	for _, m := range p.ctx.Data.Monsters.Enemies(p.ctx.Data.MonsterFilterAnyReachable()) {
+		if m.Name == npc.DiabloClone {
+			p.ctx.Logger.Info("Diablo Clone detected — treating as Pindleskin")
+			// Override its ID so KillPindleskin() sees it as normal Pindleskin
+			if m.Type == data.MonsterTypeSuperUnique {
+				m.Name = npc.DefiledWarrior
+			}
+			// Optionally break here if you only care about one clone
+			break
+		}
+	}
 }

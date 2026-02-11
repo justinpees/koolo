@@ -2176,6 +2176,17 @@
                 <label>
                     <input id="identify_in_field" type="checkbox" name="identifyInField" {{ if .Config.BackToTown.IdentifyInField }}checked{{ end }}/>
                     Identify In Field
+                <br>
+                <select id="identifyInFieldMode" name="identifyInFieldMode" title="Passive Mode: identies items in the field but does not prevent town portal. Aggressive Mode: identifies items and prevents town portal until identification is complete.">
+                     <option value="Passive" {{if eq .Config.BackToTown.IdentifyInFieldMode "Passive"}}selected{{end}}>Passive Mode</option>
+                     <option value="Aggressive" {{if eq .Config.BackToTown.IdentifyInFieldMode "Aggressive"}}selected{{end}}>Aggressive Mode</option>
+                   
+                 </select>
+                 <br>
+                <select id="itemPickupMode" name="itemPickupMode" title="Normal Pickup: pick up items after clearing around player. Fast Pickup: pickup items immediately after they drop.">
+                     <option value="Normal" {{if eq .Config.BackToTown.ItemPickupMode "Normal"}}selected{{end}}>Normal Pickup</option>
+                     <option value="Fast" {{if eq .Config.BackToTown.ItemPickupMode "Fast"}}selected{{end}}>Fast Pickup</option>
+                 </select>
                 </label>
             </fieldset>
             <fieldset class="grid sticky-bottom">
@@ -2217,6 +2228,20 @@ function validateCharacterName(input) {
     input.value = cleaned;
     input.dataset.lastValid = input.value;
 }
+
+function toggleIdentifyDropdown() {
+    const checkbox = document.getElementById("identify_in_field");
+    const dropdown = document.getElementById("identifyInFieldMode");
+
+    dropdown.style.display = checkbox.checked ? "block" : "none";
+}
+
+// Run on page load
+toggleIdentifyDropdown();
+
+// Run when checkbox changes
+document.getElementById("identify_in_field")
+    .addEventListener("change", toggleIdentifyDropdown);
 </script>
 </body>
 </html>

@@ -140,6 +140,11 @@ func (d *Diablo) Run(parameters *RunParameters) error {
 	for _, bossName := range []string{"Vizier", "Lord De Seis", "Infector"} {
 		d.ctx.Logger.Debug(fmt.Sprint("Heading to ", bossName))
 
+		// ✅ Field identify BEFORE interacting with seals
+		if d.ctx.CharacterCfg.BackToTown.IdentifyInField && d.ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Aggressive" {
+			action.TryIdentifyInventoryOnSpot()
+		}
+
 		for _, sealID := range sealGroups[bossName] {
 			seal, found := d.ctx.Data.Objects.FindOne(sealID)
 			if !found {
@@ -232,6 +237,9 @@ func (d *Diablo) Run(parameters *RunParameters) error {
 			step.MoveTo(diabloFightPosition, step.WithIgnoreMonsters())
 		} else {
 			action.MoveToCoords(diabloSpawnPosition)
+			if d.ctx.CharacterCfg.BackToTown.IdentifyInField && d.ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Aggressive" {
+				action.TryIdentifyInventoryOnSpot()
+			}
 		}
 
 		// Check if we should disable item pickup for Diablo

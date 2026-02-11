@@ -79,6 +79,7 @@ type Context struct {
 	FieldIdentifying   bool // flag to signal field identity in progress. using it to disable buff features during the process.
 	JustDidTownRoutine bool
 	IdentifySnapshot   map[uint32]bool // maps UnitID -> true if it existed before batch
+	//JustDidFieldIdentify bool
 }
 
 type RecentlySeenMonster struct {

@@ -531,11 +531,13 @@ type CharacterCfg struct {
 		MarkedRareSpecificItemFingerprint string `yaml:"markedRareSpecificItemFingerprint"` //new field to track reroll specific item fingerprint across restarts
 	} `yaml:"cubing"`
 	BackToTown struct {
-		NoHpPotions     bool `yaml:"noHpPotions"`
-		NoMpPotions     bool `yaml:"noMpPotions"`
-		MercDied        bool `yaml:"mercDied"`
-		EquipmentBroken bool `yaml:"equipmentBroken"`
-		IdentifyInField bool `yaml:"identifyInField"`
+		NoHpPotions         bool   `yaml:"noHpPotions"`
+		NoMpPotions         bool   `yaml:"noMpPotions"`
+		MercDied            bool   `yaml:"mercDied"`
+		EquipmentBroken     bool   `yaml:"equipmentBroken"`
+		IdentifyInField     bool   `yaml:"identifyInField"`
+		IdentifyInFieldMode string `yaml:"identifyInFieldMode"`
+		ItemPickupMode      string `yaml:"itemPickupMode"`
 	} `yaml:"backtotown"`
 	Shopping ShoppingConfig `yaml:"shopping"`
 	Runtime  struct {

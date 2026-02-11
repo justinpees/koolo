@@ -1768,6 +1768,8 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 			cfg.BackToTown.MercDied = values.Has("mercDied")
 			cfg.BackToTown.EquipmentBroken = values.Has("equipmentBroken")
 			cfg.BackToTown.IdentifyInField = values.Has("identifyInField")
+			cfg.BackToTown.IdentifyInFieldMode = values.Get("identifyInFieldMode")
+			cfg.BackToTown.ItemPickupMode = values.Get("itemPickupMode")
 
 			// Companion
 			cfg.Companion.Enabled = values.Has("companionEnabled")
@@ -2753,6 +2755,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.BackToTown.MercDied = r.Form.Has("mercDied")
 		cfg.BackToTown.EquipmentBroken = r.Form.Has("equipmentBroken")
 		cfg.BackToTown.IdentifyInField = r.Form.Has("identifyInField")
+		cfg.BackToTown.IdentifyInFieldMode = r.Form.Get("identifyInFieldMode")
+		cfg.BackToTown.ItemPickupMode = r.Form.Get("itemPickupMode")
 
 		// Scheduler
 		cfg.Scheduler.Enabled = r.Form.Has("schedulerEnabled")

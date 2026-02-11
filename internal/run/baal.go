@@ -146,6 +146,7 @@ func (s *Baal) Run(parameters *RunParameters) error {
 			if !isWaitingForPortal {
 				s.ctx.Logger.Info("Waves cleared, moving to portal position to wait...")
 				action.MoveToCoords(data.Position{X: 15090, Y: 5008})
+
 				isWaitingForPortal = true
 			}
 
@@ -198,6 +199,9 @@ func (s *Baal) Run(parameters *RunParameters) error {
 		// Verify entry
 		if s.ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber {
 			s.ctx.Logger.Info("Successfully entered Worldstone Chamber")
+			if s.ctx.CharacterCfg.BackToTown.IdentifyInField && s.ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Aggressive" {
+				action.TryIdentifyInventoryOnSpot()
+			}
 		} else if err != nil {
 			return fmt.Errorf("failed to enter baal portal: %w", err)
 		}

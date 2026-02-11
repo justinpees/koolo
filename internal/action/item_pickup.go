@@ -88,6 +88,11 @@ func ItemPickup(maxDistance int) error {
 	ctx := context.Get()
 	ctx.SetLastAction("ItemPickup")
 
+	if ctx.FieldIdentifying {
+		ctx.Logger.Debug("Skipping item pickup because field identification in progress")
+		return nil
+	}
+
 	const maxRetries = 5                                        // Base retries for various issues
 	const maxItemTooFarAttempts = 5                             // Additional retries specifically for "item too far"
 	const totalMaxAttempts = maxRetries + maxItemTooFarAttempts // Combined total attempts
@@ -111,6 +116,8 @@ func ItemPickup(maxDistance int) error {
 
 outer:
 	for {
+		// ✅ Step 3: reset field-identify flag for this iteration
+		//ctx.JustDidFieldIdentify = false
 		ctx.PauseIfNotPriority()
 
 		// 🔄 Refresh full game state (monsters, corpses, objects)
@@ -150,7 +157,7 @@ outer:
 			}
 
 			// --- Field identification if checkbox enabled ---
-			if ctx.CharacterCfg.BackToTown.IdentifyInField {
+			if ctx.CharacterCfg.BackToTown.IdentifyInField && ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Passive" {
 				// FIX: Only continue if an item was actually identified
 				if identified := TryIdentifyInventoryOnSpot(); identified {
 					ctx.RefreshInventory()
@@ -160,6 +167,7 @@ outer:
 			}
 
 			// Original town logic
+			//if HasTPsAvailable() && !ctx.JustDidTownRoutine && !ctx.JustDidFieldIdentify {
 			if HasTPsAvailable() && !ctx.JustDidTownRoutine {
 				consecutiveNoFitTownTrips++
 				if consecutiveNoFitTownTrips > 1 {
@@ -2037,6 +2045,12 @@ func onAnniPickedUp(itemToPickup data.Item) {
 func TryIdentifyInventoryOnSpot() bool {
 	ctx := context.Get()
 
+	items := ItemsToIdentify()
+	if len(items) == 0 {
+		ctx.Logger.Debug("No items to identify on the spot")
+		return false
+	}
+
 	// Prevent multiple concurrent identification batches
 	if ctx.FieldIdentifying {
 		ctx.Logger.Warn("Already identifying, skipping new batch")
@@ -2044,7 +2058,9 @@ func TryIdentifyInventoryOnSpot() bool {
 	}
 
 	ctx.FieldIdentifying = true
+	ctx.Logger.Warn("Skipping buffs during field identification")
 	defer func() {
+
 		ctx.FieldIdentifying = false
 		ctx.IdentifySnapshot = nil // Clear snapshot after batch completes
 	}()
@@ -2056,31 +2072,11 @@ func TryIdentifyInventoryOnSpot() bool {
 	ctx.Logger.Warn("CLEARING AREA AROUND BEFORE IDENTIFICATION")
 	ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
 
-	// -----------------------------
-	// STEP 0b — Return to safe offset
-	// -----------------------------
-	safePos, ok := FindSafeOffsetPosition(originalPos, 10)
-	if !ok {
-		ctx.Logger.Warn("Could not find safe offset; returning to original position")
-		safePos = originalPos
-	}
-
-	if err := MoveToCoords(safePos, step.WithIgnoreItems()); err != nil {
-		ctx.Logger.Warn("Failed to move to safe offset after clearing", "error", err)
-	} else {
-		ctx.Logger.Warn("Moved to safe offset after clearing")
-	}
-
 	ctx.RefreshInventory()
 
 	// -----------------------------
 	// STEP 1 — Get items to identify
 	// -----------------------------
-	items := ItemsToIdentify()
-	if len(items) == 0 {
-		ctx.Logger.Debug("No items to identify on the spot")
-		return false
-	}
 
 	// Build snapshot for tracking
 	ctx.IdentifySnapshot = make(map[uint32]bool, len(items))
@@ -2126,7 +2122,21 @@ func TryIdentifyInventoryOnSpot() bool {
 		ctx.IdentifySnapshot = nil
 		return false
 	}
+	// -----------------------------
+	// STEP 0b — Return to safe offset
+	// -----------------------------
+	safePos, ok := FindSafeOffsetPosition(originalPos, 10)
+	if !ok {
+		ctx.Logger.Warn("Could not find safe offset; returning to original position")
+		safePos = originalPos
+	}
 
+	if err := MoveToCoords(safePos, step.WithIgnoreItems()); err != nil {
+		ctx.Logger.Warn("Failed to move to safe offset after clearing", "error", err)
+	} else {
+		ctx.Logger.Warn("Moved to safe offset after clearing")
+	}
+	utils.PingSleep(utils.Critical, 100)
 	ctx.Logger.Debug("Batch identifying inventory items", slog.Int("count", len(items)), slog.Int("scrolls", currentQty))
 
 	// -----------------------------
@@ -2285,17 +2295,49 @@ func snapshotInventoryUnitIDs() map[uint32]bool {
 // -----------------------------
 // ATTEMPT RECOVERY OF ACCIDENTAL PICKUP
 // -----------------------------
-func attemptReturnItem(original data.Item) bool {
+/* func attemptReturnItem(original data.Item) bool {
 	ctx := context.Get()
-	pos := ui.GetScreenCoordsForItem(original)
 
-	ctx.HID.Click(game.LeftButton, pos.X, pos.Y)
+	for !ctx.Data.OpenMenus.Inventory {
+		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+		utils.PingSleep(utils.Critical, 100)
+	}
+
+	posInInv := ui.GetScreenCoordsForInventoryPosition(
+		original.Position,
+		original.Location.LocationType,
+	)
+
+	ctx.HID.Click(game.LeftButton, posInInv.X, posInInv.Y)
 	utils.PingSleep(utils.Critical, 200)
 
 	ctx.RefreshInventory()
 
 	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 		if it.UnitID == original.UnitID {
+			ctx.Logger.Warn("RETURNED ITEM TO INVENTORY SUCCESSFULLY")
+			return true
+		}
+	}
+
+	ctx.Logger.Error("Failed to recover accidentally picked item")
+	return false
+} */
+
+func attemptReturnItem(original data.Item) bool {
+	ctx := context.Get()
+
+	pos := ui.GetScreenCoordsForItem(original)
+
+	ctx.HID.Click(game.LeftButton, pos.X, pos.Y)
+
+	utils.PingSleep(utils.Critical, 200)
+
+	ctx.RefreshInventory()
+
+	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		if it.UnitID == original.UnitID {
+			ctx.Logger.Warn("RETURNED ITEM TO INVENTORY SUCCESSFULLY")
 			return true
 		}
 	}
