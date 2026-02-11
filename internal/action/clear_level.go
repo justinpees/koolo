@@ -59,6 +59,9 @@ func ClearCurrentLevelEx(openChests bool, filter data.MonsterFilter, shouldInter
 		if err != nil {
 			ctx.Logger.Warn("Failed to pickup items", slog.Any("error", err))
 		}
+		if ctx.CharacterCfg.BackToTown.IdentifyInField && ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Aggressive" {
+			TryIdentifyInventoryOnSpot()
+		}
 
 		// Iterate through objects in the current room
 		for _, o := range ctx.Data.Objects {

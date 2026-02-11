@@ -65,12 +65,13 @@ func ClearAreaAroundPosition(pos data.Position, radius int, filters ...data.Mons
 	ctx := context.Get()
 	ctx.SetLastAction("ClearAreaAroundPosition")
 
-	// Disable item pickup at the beginning of the function
-	ctx.DisableItemPickup()
+	if ctx.CharacterCfg.BackToTown.ItemPickupMode == "Normal" {
+		// Normal mode: disable item pickup while clearing
+		ctx.DisableItemPickup()
+		defer ctx.EnableItemPickup()
+	}
 
-	// Defer the re-enabling of item pickup to ensure it happens regardless of how the function exits
-	defer ctx.EnableItemPickup()
-
+	// Kill monsters in the area
 	return ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
 		enemies := d.Monsters.Enemies(filters...)
 
@@ -109,10 +110,10 @@ func ClearAreaAroundPosition(pos data.Position, radius int, filters ...data.Mons
 			}
 		}
 
+		// Early return if no monsters in range
 		return data.UnitID(0), false
 	}, nil)
 }
-
 func ClearThroughPath(pos data.Position, radius int, filter data.MonsterFilter) error {
 	ctx := context.Get()
 

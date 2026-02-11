@@ -761,6 +761,16 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					if lootErr != nil {
 						ctx.Logger.Warn("Error picking up items after chest opening", slog.String("error", lootErr.Error()))
 					}
+					//Fast item pickup after chest interaction. We will try to identify on the spot if aggressive mode
+					if ctx.CharacterCfg.BackToTown.IdentifyInField && ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Aggressive" {
+						ctx.RefreshInventory()
+						items := ItemsToIdentify()
+						if len(items) >= 1 {
+							if identified := TryIdentifyInventoryOnSpot(); identified {
+								ctx.RefreshInventory()
+							}
+						}
+					}
 				}
 				chest = data.Object{}
 				continue

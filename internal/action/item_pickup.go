@@ -89,7 +89,7 @@ func ItemPickup(maxDistance int) error {
 	ctx.SetLastAction("ItemPickup")
 
 	if ctx.FieldIdentifying {
-		ctx.Logger.Debug("Skipping item pickup because field identification in progress")
+		//ctx.Logger.Debug("Skipping item pickup because field identification in progress")
 		return nil
 	}
 
@@ -157,7 +157,8 @@ outer:
 			}
 
 			// --- Field identification if checkbox enabled ---
-			if ctx.CharacterCfg.BackToTown.IdentifyInField && ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Passive" {
+			//if ctx.CharacterCfg.BackToTown.IdentifyInField && ctx.CharacterCfg.BackToTown.IdentifyInFieldMode == "Passive" {
+			if ctx.CharacterCfg.BackToTown.IdentifyInField {
 				// FIX: Only continue if an item was actually identified
 				if identified := TryIdentifyInventoryOnSpot(); identified {
 					ctx.RefreshInventory()
@@ -262,7 +263,9 @@ outer:
 			// Clear monsters around item
 			if debugPickit {
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Clearing area around item. Attempt %d", attempt))
+				ctx.Logger.Warn("Clearing area around item")
 			}
+
 			ClearAreaAroundPlayer(4, data.MonsterAnyFilter())
 			ClearAreaAroundPosition(itemToPickup.Position, 4, data.MonsterAnyFilter())
 
@@ -2047,7 +2050,7 @@ func TryIdentifyInventoryOnSpot() bool {
 
 	items := ItemsToIdentify()
 	if len(items) == 0 {
-		ctx.Logger.Debug("No items to identify on the spot")
+		//ctx.Logger.Debug("No items to identify on the spot")
 		return false
 	}
 
