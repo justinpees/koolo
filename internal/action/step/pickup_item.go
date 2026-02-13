@@ -3,7 +3,7 @@ package step
 import (
 	"errors"
 	"fmt"
-
+	"math/rand" // <-- ADD THIS
 	"strings"
 	"time"
 
@@ -204,14 +204,15 @@ func PickupItemMouse(it data.Item, itemPickupAttempt int, ignoreMonsters bool) e
 		cursorY := baseScreenY + offsetY
 
 		ctx.HID.MovePointer(cursorX, cursorY)
-		time.Sleep(spiralDelay)
+		//time.Sleep(spiralDelay)
+		time.Sleep(spiralDelay + time.Duration(rand.Intn(15))*time.Millisecond)
 
 		// Click if hovering item
 		if currentItem.UnitID ==
 			ctx.GameReader.GameReader.GetData().HoverData.UnitID {
 
 			ctx.HID.Click(game.LeftButton, cursorX, cursorY)
-			utils.PingSleep(utils.Light, 150)
+			utils.PingSleep(utils.Light, 120+rand.Intn(80)) //  was static 150ms delay, added randomization
 
 			if waitingForInteraction.IsZero() {
 				waitingForInteraction = time.Now()

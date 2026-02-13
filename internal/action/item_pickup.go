@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -527,11 +528,21 @@ func QuickPickup(maxDistance int) bool {
 	// --- Get all items within range ---
 	items := GetItemsToPickup(maxDistance)
 	for _, item := range items {
+
 		// --- Stop immediately if inventory is full ---
 		ctx.RefreshInventory()
 		if !itemFitsInventory(item) {
 			ctx.Logger.Warn("[QuickPickup] Inventory full, stopping quick pickup.")
 			break
+		}
+
+		// --- Skip unnecessary items from quickpickup ---
+		if item.Name == "ScrollOfIdentify" || item.Name == "ScrollOfTownPortal" || strings.Contains(string(item.Name), "Mana") || strings.Contains(string(item.Name), "Health") || item.Name == "Key" {
+			continue
+		}
+
+		if strings.Contains(string(item.Name), "Chipped") || strings.Contains(string(item.Name), "Flawed") || strings.Contains(string(item.Name), "Flawless") || item.Name == "Skull" || item.Name == "Amethyst" || item.Name == "Ruby" || item.Name == "Sapphire" || item.Name == "Topaz" || item.Name == "Emerald" || item.Name == "Diamond" {
+			continue
 		}
 
 		// --- Log attempt for each item ---
