@@ -121,6 +121,31 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 
 	b.updateActivityAndPosition() // Initial update for activity and position
 	ctx1 := botCtx.Get()
+
+	// if spawned in act 3 talk to meshif to go to act 2
+	if ctx1.Data.PlayerUnit.Area == area.KurastDocks {
+		if err := talkToMeshif(ctx1); err != nil {
+			return err
+		}
+
+		// Now it's safe
+		ctx1.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+
+		//refresh game data to update the area after talking to Meshif
+		b.ctx.RefreshGameData()
+
+		/* // talk to warriv to bring us to act 1
+		if ctx1.Data.PlayerUnit.Area == area.LutGholein {
+			if err := talkToWarriv(ctx1); err != nil {
+				return err
+			}
+
+			// Now it's safe
+			ctx1.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+		} */
+
+	}
+
 	if ctx1.Data.PlayerUnit.Area == area.LutGholein {
 		if err := talkToWarriv(ctx1); err != nil {
 			return err
@@ -559,4 +584,46 @@ func talkToWarriv(ctx *botCtx.Status) error {
 	}
 
 	return fmt.Errorf("failed to interact with Warriv after %d attempts", maxAttempts)
+}
+
+func talkToMeshif(ctx *botCtx.Status) error {
+	ctx.Logger.Debug("Attempting to talk to Meshif")
+
+	const maxAttempts = 10
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		ctx.Logger.Debug("Trying to click Meshif", "attempt", attempt)
+
+		// 1. Find Meshif in the current game data
+		meshif, found := ctx.Data.Monsters.FindOne(npc.Meshif, data.MonsterTypeNone)
+		if !found {
+			ctx.Logger.Warn("Meshif not found in game data, retrying...")
+			utils.PingSleep(utils.Medium, 300)
+			continue
+		}
+
+		// 2. Convert game coordinates to screen coordinates
+		screenX, screenY := ui.GameCoordsToScreenCords(meshif.Position.X, meshif.Position.Y)
+
+		// 3. Move mouse and click
+		ctx.HID.MovePointer(screenX, screenY)
+		ctx.HID.Click(game.LeftButton, screenX, screenY)
+
+		// 4. Wait a bit for dialog to open
+		utils.PingSleep(utils.Medium, 400)
+		ctx.RefreshGameData()
+
+		// 5. Check if NPC dialog opened
+		if ctx.Data.OpenMenus.NPCInteract {
+			ctx.Logger.Debug("Successfully interacted with Meshif")
+			return nil
+		}
+
+		// 6. Slight random offset for next attempt in case click missed
+		meshif.Position.X += attempt % 2 // tiny variation
+		meshif.Position.Y += attempt % 2
+		utils.PingSleep(utils.Light, 100)
+	}
+
+	return fmt.Errorf("failed to interact with Meshif after %d attempts", maxAttempts)
 }
