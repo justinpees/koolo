@@ -46,7 +46,10 @@ func BuyConsumables(forceRefill bool) {
 		if _, found := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory); !found && ctx.Data.PlayerUnit.TotalPlayerGold() > 450 {
 			ctx.Logger.Info("TP Tome not found, buying one...")
 			if itm, itmFound := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationVendor); itmFound {
-				BuyItem(itm, 1)
+				// Abort the vendor shopping sequence on the first failed purchase to avoid gold spam.
+				if !buyItemOrAbortOnNoGold(itm, 1) {
+					return
+				}
 			}
 		}
 	}
@@ -148,7 +151,9 @@ func BuyConsumables(forceRefill bool) {
 		if _, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory); !found && ctx.Data.PlayerUnit.TotalPlayerGold() > 360 {
 			ctx.Logger.Info("ID Tome not found, buying one...")
 			if itm, itmFound := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationVendor); itmFound {
-				BuyItem(itm, 1)
+				if !buyItemOrAbortOnNoGold(itm, 1) {
+					return
+				}
 			}
 		}
 
@@ -157,7 +162,9 @@ func BuyConsumables(forceRefill bool) {
 			if ctx.Data.PlayerUnit.TotalPlayerGold() > 16000 {
 				buyFullStack(itm, -1)
 			} else {
-				BuyItem(itm, 1)
+				if !buyItemOrAbortOnNoGold(itm, 1) {
+					return
+				}
 			}
 		}
 	}
@@ -462,9 +469,39 @@ func BuyItem(i data.Item, quantity int) {
 	}
 }
 
+func buyItemOrAbortOnNoGold(i data.Item, quantity int) bool {
+	ctx := context.Get()
+	screenPos := ui.GetScreenCoordsForItem(i)
+
+	utils.PingSleep(utils.Medium, 250) // Medium operation: Pre-buy delay
+	for k := 0; k < quantity; k++ {
+		goldBefore := ctx.Data.PlayerUnit.TotalPlayerGold()
+		ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
+		utils.PingSleep(utils.Medium, 600) // Medium operation: Wait for purchase to process
+		ctx.RefreshGameData()
+		if shouldAbortVendorPurchase(ctx, i, goldBefore) {
+			return false
+		}
+		ctx.Logger.Debug(fmt.Sprintf("Purchased %s [X:%d Y:%d]", i.Desc().Name, i.Position.X, i.Position.Y))
+	}
+	return true
+}
+
+// Centralize "no gold" detection so the log message and abort logic stay consistent.
+func shouldAbortVendorPurchase(ctx *context.Status, i data.Item, goldBefore int) bool {
+	if ctx.Data.PlayerUnit.TotalPlayerGold() >= goldBefore {
+		ctx.Logger.Info("Not enough gold to continue vendor purchases, aborting",
+			"item", i.Desc().Name,
+			"gold", goldBefore,
+		)
+		return true
+	}
+	return false
+}
+
 // buyFullStack is for buying full stacks of items from a vendor (e.g., potions, scrolls, keys)
 // For keys, currentKeysInInventory determines if a special double-click behavior is needed.
-func buyFullStack(i data.Item, currentKeysInInventory int) {
+func buyFullStack(i data.Item, currentKeysInInventory int) bool {
 	ctx := context.Get()
 	screenPos := ui.GetScreenCoordsForItem(i)
 
@@ -474,16 +511,26 @@ func buyFullStack(i data.Item, currentKeysInInventory int) {
 	// As per user's observation:
 	// - If 0 keys: this buys 1 key.
 	// - If >0 keys: this fills the current stack.
+	goldBefore := ctx.Data.PlayerUnit.TotalPlayerGold()
 	ctx.HID.ClickWithModifier(game.RightButton, screenPos.X, screenPos.Y, game.ShiftKey)
 	utils.PingSleep(utils.Light, 200) // Light operation: Wait for first purchase
+	ctx.RefreshGameData()
+	if shouldAbortVendorPurchase(ctx, i, goldBefore) {
+		return false
+	}
 
 	// Special handling for keys: only perform a second click if starting from 0 keys.
 	if i.Name == item.Key {
 		if currentKeysInInventory == 0 {
 			// As per user: if 0 keys, first click buys 1, second click fills the stack.
 			ctx.Logger.Debug("Initial keys were 0. Performing second Shift+Right Click to fill key stack.")
+			goldBefore = ctx.Data.PlayerUnit.TotalPlayerGold()
 			ctx.HID.ClickWithModifier(game.RightButton, screenPos.X, screenPos.Y, game.ShiftKey)
 			utils.PingSleep(utils.Light, 200) // Light operation: Wait for second purchase
+			ctx.RefreshGameData()
+			if shouldAbortVendorPurchase(ctx, i, goldBefore) {
+				return false
+			}
 		} else {
 			// As per user: if > 0 keys, the first click should have already filled the stack.
 			// No second click is needed to avoid buying an unnecessary extra key/stack.
@@ -492,6 +539,7 @@ func buyFullStack(i data.Item, currentKeysInInventory int) {
 	}
 
 	ctx.Logger.Debug(fmt.Sprintf("Finished full stack purchase attempt for %s", i.Desc().Name))
+	return true
 }
 
 func ItemsToBeSold(lockConfig ...[][]int) (items []data.Item) {

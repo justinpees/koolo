@@ -32,6 +32,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/bot"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -41,6 +42,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/remote/droplog"
 	terrorzones "github.com/hectorgimenez/koolo/internal/terrorzone"
+	"github.com/hectorgimenez/koolo/internal/updater"
 	"github.com/hectorgimenez/koolo/internal/utils"
 	"github.com/hectorgimenez/koolo/internal/utils/winproc"
 	"github.com/lxn/win"
@@ -57,6 +59,7 @@ type HttpServer struct {
 	wsServer            *WebSocketServer
 	pickitAPI           *PickitAPI
 	sequenceAPI         *SequenceAPI
+	updater             *updater.Updater
 	DropHistory         []DropHistoryEntry
 	RunewordHistory     []RunewordHistoryEntry
 	DropFilters         map[string]drop.Filters
@@ -249,6 +252,17 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager, scheduler *bot.Sch
 		},
 		"upper": strings.ToUpper,
 		"trim":  strings.TrimSpace,
+		"isLevelingBuild": func(build string) bool {
+			if strings.HasSuffix(build, "_leveling") {
+				return true
+			}
+			switch build {
+			case "paladin", "necromancer", "assassin", "barb_leveling":
+				return true
+			default:
+				return false
+			}
+		},
 		"toJSON": func(v interface{}) template.JS {
 			b, err := json.Marshal(v)
 			if err != nil {
@@ -294,9 +308,15 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager, scheduler *bot.Sch
 		templates:    templates,
 		pickitAPI:    NewPickitAPI(),
 		sequenceAPI:  NewSequenceAPI(logger),
+		updater:      updater.NewUpdater(logger),
 		DropFilters:  make(map[string]drop.Filters),
 		DropCardInfo: make(map[string]dropCardInfo),
 	}
+
+	server.updater.SetPreRestartCallback(func() error {
+		server.logger.Info("Stopping HTTP server before restart")
+		return server.Stop()
+	})
 
 	server.initDropCallbacks()
 	return server, nil
@@ -459,6 +479,170 @@ func containss(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func formatCommitDate(t time.Time) string {
+	if t.IsZero() {
+		return "unknown"
+	}
+	return t.Format("2006-01-02 15:04:05")
+}
+
+func resolveSkillClassFromBuild(build string) string {
+	switch build {
+	case "amazon_leveling", "javazon":
+		return "ama"
+	case "sorceress", "nova", "hydraorb", "lightsorc", "fireballsorc", "sorceress_leveling":
+		return "sor"
+	case "necromancer":
+		return "nec"
+	case "paladin", "hammerdin", "foh", "dragondin", "smiter":
+		return "pal"
+	case "barb_leveling", "berserker", "warcry_barb":
+		return "bar"
+	case "druid_leveling", "winddruid":
+		return "dru"
+	case "assassin", "trapsin", "mosaic":
+		return "ass"
+	default:
+		return ""
+	}
+}
+
+func buildSkillOptionsForBuild(build string) []SkillOption {
+	classKey := resolveSkillClassFromBuild(build)
+	options := make([]SkillOption, 0)
+	for id, sk := range skill.Skills {
+		if sk.Class == "" {
+			continue
+		}
+		if classKey != "" && sk.Class != classKey {
+			continue
+		}
+		key := skill.SkillNames[id]
+		name := sk.Name
+		if name == "" {
+			name = key
+		}
+		options = append(options, SkillOption{Key: key, Name: name})
+	}
+	sort.Slice(options, func(i, j int) bool {
+		return options[i].Name < options[j].Name
+	})
+	return options
+}
+
+func buildSkillPrereqsForBuild(build string) map[string][]string {
+	classKey := resolveSkillClassFromBuild(build)
+	nameToKey := make(map[string]string)
+	for id, sk := range skill.Skills {
+		key := skill.SkillNames[id]
+		if key == "" {
+			continue
+		}
+		nameToKey[strings.ToLower(key)] = key
+		if sk.Name != "" {
+			nameToKey[strings.ToLower(sk.Name)] = key
+		}
+	}
+
+	prereqs := make(map[string][]string)
+	for id, sk := range skill.Skills {
+		if sk.Class == "" {
+			continue
+		}
+		if classKey != "" && sk.Class != classKey {
+			continue
+		}
+		key := skill.SkillNames[id]
+		if key == "" {
+			continue
+		}
+		reqs := make([]string, 0, 2)
+		for _, reqName := range []string{sk.ReqSkill1, sk.ReqSkill2} {
+			if reqName == "" {
+				continue
+			}
+			if reqKey, ok := nameToKey[strings.ToLower(reqName)]; ok {
+				reqs = append(reqs, reqKey)
+			}
+		}
+		if len(reqs) > 0 {
+			prereqs[key] = reqs
+		}
+	}
+
+	return prereqs
+}
+
+func (s *HttpServer) updateAutoStatSkillFromForm(values url.Values, cfg *config.CharacterCfg) {
+	oldRespec := cfg.Character.AutoStatSkill.Respec
+
+	cfg.Character.AutoStatSkill.Enabled = values.Has("autoStatSkillEnabled")
+	cfg.Character.AutoStatSkill.ExcludeQuestStats = values.Has("autoStatSkillExcludeQuestStats")
+	cfg.Character.AutoStatSkill.ExcludeQuestSkills = values.Has("autoStatSkillExcludeQuestSkills")
+
+	statKeys := values["autoStatSkillStat[]"]
+	statTargets := values["autoStatSkillStatTarget[]"]
+	stats := make([]config.AutoStatSkillStat, 0, len(statKeys))
+	for i, statKey := range statKeys {
+		if i >= len(statTargets) {
+			break
+		}
+		statKey = strings.TrimSpace(statKey)
+		if statKey == "" {
+			continue
+		}
+		target, err := strconv.Atoi(strings.TrimSpace(statTargets[i]))
+		if err != nil || target <= 0 {
+			continue
+		}
+		stats = append(stats, config.AutoStatSkillStat{Stat: statKey, Target: target})
+	}
+	cfg.Character.AutoStatSkill.Stats = stats
+
+	skillKeys := values["autoStatSkillSkill[]"]
+	skillTargets := values["autoStatSkillSkillTarget[]"]
+	skills := make([]config.AutoStatSkillSkill, 0, len(skillKeys))
+	for i, skillKey := range skillKeys {
+		if i >= len(skillTargets) {
+			break
+		}
+		skillKey = strings.TrimSpace(skillKey)
+		if skillKey == "" {
+			continue
+		}
+		target, err := strconv.Atoi(strings.TrimSpace(skillTargets[i]))
+		if err != nil || target <= 0 {
+			continue
+		}
+		skills = append(skills, config.AutoStatSkillSkill{Skill: skillKey, Target: target})
+	}
+	cfg.Character.AutoStatSkill.Skills = skills
+
+	respecEnabled := values.Has("autoRespecEnabled") && cfg.Character.AutoStatSkill.Enabled
+	targetLevel := 0
+	if raw := strings.TrimSpace(values.Get("autoRespecTargetLevel")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil {
+			if n < 0 {
+				n = 0
+			} else if n > 0 && n < 2 {
+				n = 2
+			} else if n > 99 {
+				n = 99
+			}
+			targetLevel = n
+		}
+	}
+	cfg.Character.AutoStatSkill.Respec.Enabled = respecEnabled
+	cfg.Character.AutoStatSkill.Respec.TokenFirst = values.Has("autoRespecTokenFirst") && respecEnabled
+	cfg.Character.AutoStatSkill.Respec.TargetLevel = targetLevel
+
+	if !respecEnabled {
+		cfg.Character.AutoStatSkill.Respec.Applied = false
+	} else if !oldRespec.Enabled || oldRespec.TargetLevel != targetLevel {
+		cfg.Character.AutoStatSkill.Respec.Applied = false
+	}
 }
 
 func (s *HttpServer) initialData(w http.ResponseWriter, r *http.Request) {
@@ -748,6 +932,18 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/generate-battlenet-token", s.generateBattleNetToken) // Battle.net token generation
 	http.HandleFunc("/reset-muling", s.resetMuling)
 
+	// Updater routes
+	http.HandleFunc("/api/updater/version", s.getVersion)
+	http.HandleFunc("/api/updater/check", s.checkUpdates)
+	http.HandleFunc("/api/updater/current-commits", s.getCurrentCommits)
+	http.HandleFunc("/api/updater/update", s.performUpdate)
+	http.HandleFunc("/api/updater/status", s.getUpdaterStatus)
+	http.HandleFunc("/api/updater/backups", s.getBackups)
+	http.HandleFunc("/api/updater/rollback", s.performRollback)
+	http.HandleFunc("/api/updater/prs", s.getUpstreamPRs)
+	http.HandleFunc("/api/updater/cherry-pick", s.cherryPickPRs)
+	http.HandleFunc("/api/updater/prs/revert", s.revertPR)
+
 	// Pickit Editor routes
 	http.HandleFunc("/pickit-editor", s.pickitEditorPage)
 	http.HandleFunc("/sequence-editor", s.sequenceEditorPage)
@@ -777,6 +973,7 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/sequence-editor/save", s.sequenceAPI.handleSaveSequence)
 	http.HandleFunc("/api/sequence-editor/delete", s.sequenceAPI.handleDeleteSequence)
 	http.HandleFunc("/api/sequence-editor/files", s.sequenceAPI.handleListSequenceFiles)
+	http.HandleFunc("/api/skill-options", s.skillOptionsAPI)
 
 	http.HandleFunc("/api/supervisors/bulk-apply", s.bulkApplyCharacterSettings)
 	http.HandleFunc("/api/scheduler-history", s.schedulerHistory)
@@ -1358,11 +1555,28 @@ func validateSchedulerData(cfg *config.CharacterCfg) error {
 	return nil
 }
 
+func (s *HttpServer) getVersionData() *VersionData {
+	versionInfo, _ := updater.GetCurrentVersionNoClone()
+	if versionInfo != nil {
+		return &VersionData{
+			CommitHash: versionInfo.CommitHash,
+			CommitDate: formatCommitDate(versionInfo.CommitDate),
+			CommitMsg:  versionInfo.CommitMsg,
+			Branch:     versionInfo.Branch,
+		}
+	}
+	return nil
+}
+
 func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		err := r.ParseForm()
 		if err != nil {
-			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: config.Koolo, ErrorMessage: "Error parsing form"})
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{
+				KooloCfg:       config.Koolo,
+				ErrorMessage:   "Error parsing form",
+				CurrentVersion: s.getVersionData(),
+			})
 			return
 		}
 
@@ -1376,6 +1590,7 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		// Debug
 		newConfig.Debug.Log = r.Form.Get("debug_log") == "true"
 		newConfig.Debug.Screenshots = r.Form.Get("debug_screenshots") == "true"
+		newConfig.Debug.OpenOverlayMapOnGameStart = r.Form.Get("debug_open_overlay_map") == "true"
 		// Discord
 		newConfig.Discord.Enabled = r.Form.Get("discord_enabled") == "true"
 		newConfig.Discord.EnableGameCreatedMessages = r.Form.Has("enable_game_created_messages")
@@ -1429,7 +1644,11 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Telegram.Token = r.Form.Get("telegram_token")
 		telegramChatId, err := strconv.ParseInt(r.Form.Get("telegram_chat_id"), 10, 64)
 		if err != nil {
-			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: &newConfig, ErrorMessage: "Invalid Telegram Chat ID"})
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{
+				KooloCfg:       &newConfig,
+				ErrorMessage:   "Invalid Telegram Chat ID",
+				CurrentVersion: s.getVersionData(),
+			})
 			return
 		}
 		newConfig.Telegram.ChatID = telegramChatId
@@ -1442,15 +1661,27 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Ngrok.BasicAuthUser = strings.TrimSpace(r.Form.Get("ngrok_basic_auth_user"))
 		newConfig.Ngrok.BasicAuthPass = strings.TrimSpace(r.Form.Get("ngrok_basic_auth_pass"))
 		if newConfig.Ngrok.BasicAuthUser != "" && newConfig.Ngrok.BasicAuthPass == "" {
-			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: &newConfig, ErrorMessage: "ngrok basic auth password is required when a username is set"})
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{
+				KooloCfg:       &newConfig,
+				ErrorMessage:   "ngrok basic auth password is required when a username is set",
+				CurrentVersion: s.getVersionData(),
+			})
 			return
 		}
 		if newConfig.Ngrok.BasicAuthPass != "" && newConfig.Ngrok.BasicAuthUser == "" {
-			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: &newConfig, ErrorMessage: "ngrok basic auth username is required when a password is set"})
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{
+				KooloCfg:       &newConfig,
+				ErrorMessage:   "ngrok basic auth username is required when a password is set",
+				CurrentVersion: s.getVersionData(),
+			})
 			return
 		}
 		if newConfig.Ngrok.BasicAuthPass != "" && len(newConfig.Ngrok.BasicAuthPass) < 8 {
-			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: &newConfig, ErrorMessage: "ngrok basic auth password must be at least 8 characters"})
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{
+				KooloCfg:       &newConfig,
+				ErrorMessage:   "ngrok basic auth password must be at least 8 characters",
+				CurrentVersion: s.getVersionData(),
+			})
 			return
 		}
 
@@ -1478,7 +1709,11 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 
 		err = config.ValidateAndSaveConfig(newConfig)
 		if err != nil {
-			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: &newConfig, ErrorMessage: err.Error()})
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{
+				KooloCfg:       &newConfig,
+				ErrorMessage:   err.Error(),
+				CurrentVersion: s.getVersionData(),
+			})
 			return
 		}
 
@@ -1486,7 +1721,23 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: config.Koolo, ErrorMessage: ""})
+	// Get current version info
+	versionInfo, _ := updater.GetCurrentVersionNoClone()
+	var versionData *VersionData
+	if versionInfo != nil {
+		versionData = &VersionData{
+			CommitHash: versionInfo.CommitHash,
+			CommitDate: formatCommitDate(versionInfo.CommitDate),
+			CommitMsg:  versionInfo.CommitMsg,
+			Branch:     versionInfo.Branch,
+		}
+	}
+
+	s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{
+		KooloCfg:       config.Koolo,
+		ErrorMessage:   "",
+		CurrentVersion: versionData,
+	})
 }
 
 // ConfigUpdateOptions defines which sections of the configuration should be updated
@@ -1505,6 +1756,7 @@ type ConfigUpdateOptions struct {
 	Scheduler           bool `json:"scheduler"`
 	Muling              bool `json:"muling"`
 	Shopping            bool `json:"shopping"`
+	CharacterCreation   bool `json:"characterCreation"` // Auto-create character setting
 	UpdateAllRunDetails bool `json:"updateAllRunDetails"`
 }
 
@@ -1523,6 +1775,11 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		cfg.Realm = values.Get("realm")
 		cfg.AuthMethod = values.Get("authmethod")
 		cfg.AuthToken = values.Get("AuthToken")
+	}
+
+	// Character Creation Settings
+	if sections.CharacterCreation {
+		cfg.AutoCreateCharacter = values.Has("autoCreateCharacter")
 	}
 
 	// Client Settings
@@ -1691,6 +1948,7 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		cfg.Character.StashToShared = values.Has("characterStashToShared")
 		cfg.Character.UseTeleport = values.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = values.Has("characterUseExtraBuffs")
+		s.updateAutoStatSkillFromForm(values, cfg)
 
 		// Game Settings (General)
 		if v := values.Get("gameMinGoldPickupThreshold"); v != "" {
@@ -1758,6 +2016,7 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 			cfg.Inventory.GemToUpgrade = values.Get("upgradeGemUsingShrine")
 			cfg.Game.CreateLobbyGames = values.Has("createLobbyGames")
 			cfg.Game.IsNonLadderChar = values.Has("isNonLadderChar")
+			cfg.Game.IsHardCoreChar = values.Has("isHardCoreChar")
 			cfg.Game.Difficulty = difficulty.Difficulty(values.Get("gameDifficulty"))
 			cfg.Game.RandomizeRuns = values.Has("gameRandomizeRuns")
 			cfg.Game.ShopVendorsDuringTownVisits = values.Has("shopVendorsDuringTownVisits")
@@ -2177,6 +2436,7 @@ func applyRunewordSettings(dst *config.CharacterCfg, src *config.CharacterCfg) {
 
 func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	sequenceFiles := s.listLevelingSequenceFiles()
+	defaultSkillOptions := buildSkillOptionsForBuild("")
 	var err error
 	if r.Method == http.MethodPost {
 		err = r.ParseForm()
@@ -2184,6 +2444,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
 				Version:               config.Version,
 				ErrorMessage:          err.Error(),
+				SkillOptions:          defaultSkillOptions,
 				LevelingSequenceFiles: sequenceFiles,
 				RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 			})
@@ -2200,6 +2461,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 					Version:               config.Version,
 					ErrorMessage:          err.Error(),
 					Supervisor:            supervisorName,
+					SkillOptions:          defaultSkillOptions,
 					LevelingSequenceFiles: sequenceFiles,
 					RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 				})
@@ -2211,6 +2473,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 					Version:               config.Version,
 					ErrorMessage:          "failed to load newly created configuration",
 					Supervisor:            supervisorName,
+					SkillOptions:          defaultSkillOptions,
 					LevelingSequenceFiles: sequenceFiles,
 					RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 				})
@@ -2283,6 +2546,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Character.UseSwapForBuffs = r.Form.Has("useSwapForBuffs")
 		cfg.Character.BuffOnNewArea = r.Form.Has("characterBuffOnNewArea")
 		cfg.Character.BuffAfterWP = r.Form.Has("characterBuffAfterWP")
+		s.updateAutoStatSkillFromForm(r.Form, cfg)
 
 		// Process ClearPathDist - only relevant when teleport is disabled
 		if !cfg.Character.UseTeleport {
@@ -2538,6 +2802,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.InteractWithChests = r.Form.Has("interactWithChests")
 		cfg.Game.StopLevelingAt, _ = strconv.Atoi(r.Form.Get("stopLevelingAt"))
 		cfg.Game.IsNonLadderChar = r.Form.Has("isNonLadderChar")
+		cfg.Game.IsHardCoreChar = r.Form.Has("isHardCoreChar")
 
 		if v := r.Form.Get("maxGameLength"); v != "" {
 			cfg.MaxGameLength, _ = strconv.Atoi(v)
@@ -2572,7 +2837,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Pit.OnlyClearLevel2 = r.Form.Has("gamePitOnlyClearLevel2")
 
 		cfg.Game.Andariel.ClearRoom = r.Form.Has("gameAndarielClearRoom")
-		cfg.Game.Andariel.UseAntidoes = r.Form.Has("gameAndarielUseAntidoes")
+		cfg.Game.Andariel.UseAntidotes = r.Form.Has("gameAndarielUseAntidotes")
 
 		cfg.Game.Countess.ClearFloors = r.Form.Has("gameCountessClearFloors")
 
@@ -2892,6 +3157,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cloneSource = cloneParam
 		}
 	}
+	skillOptions := buildSkillOptionsForBuild(cfg.Character.Class)
 
 	enabledRuns := make([]string, 0)
 	for _, run := range cfg.Game.Runs {
@@ -2956,6 +3222,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		Supervisor:            supervisor,
 		CloneSource:           cloneSource,
 		Config:                cfg,
+		SkillOptions:          skillOptions,
+		SkillPrereqs:          buildSkillPrereqsForBuild(cfg.Character.Class),
 		DayNames:              dayNames,
 		EnabledRuns:           enabledRuns,
 		DisabledRuns:          disabledRuns,
@@ -3070,7 +3338,7 @@ func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg
 		switch runID {
 		case "andariel":
 			cfg.Game.Andariel.ClearRoom = values.Has("gameAndarielClearRoom")
-			cfg.Game.Andariel.UseAntidoes = values.Has("gameAndarielUseAntidoes")
+			cfg.Game.Andariel.UseAntidotes = values.Has("gameAndarielUseAntidotes")
 		case "countess":
 			cfg.Game.Countess.ClearFloors = values.Has("gameCountessClearFloors")
 		case "duriel":
@@ -3377,6 +3645,21 @@ func (s *HttpServer) resetMuling(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (s *HttpServer) skillOptionsAPI(w http.ResponseWriter, r *http.Request) {
+	build := r.URL.Query().Get("build")
+	payload := struct {
+		Options  []SkillOption       `json:"options"`
+		Prereqs  map[string][]string `json:"prereqs"`
+		Resolved string              `json:"resolvedBuild"`
+	}{
+		Options:  buildSkillOptionsForBuild(build),
+		Prereqs:  buildSkillPrereqsForBuild(build),
+		Resolved: build,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
 // openDroplogs opens the droplogs directory in Windows Explorer.
 func (s *HttpServer) openDroplogs(w http.ResponseWriter, r *http.Request) {
 	base := config.Koolo.LogSaveDirectory
@@ -3483,6 +3766,458 @@ func buildTZGroups() []TZGroup {
 	})
 
 	return result
+}
+
+// Updater handlers
+
+func (s *HttpServer) getVersion(w http.ResponseWriter, r *http.Request) {
+	version, err := updater.GetCurrentVersionNoClone()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get version: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"commitHash": version.CommitHash,
+		"commitDate": formatCommitDate(version.CommitDate),
+		"commitMsg":  version.CommitMsg,
+		"branch":     version.Branch,
+	})
+}
+
+func (s *HttpServer) checkUpdates(w http.ResponseWriter, r *http.Request) {
+	result, err := updater.CheckForUpdates()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": fmt.Sprintf("Failed to check for updates: %v", err),
+		})
+		return
+	}
+
+	commits := make([]map[string]string, 0)
+	for _, c := range result.NewCommits {
+		commits = append(commits, map[string]string{
+			"hash":    c.Hash,
+			"date":    c.Date.Format("2006-01-02 15:04:05"),
+			"message": c.Message,
+		})
+	}
+
+	aheadCommits := make([]map[string]string, 0)
+	for _, c := range result.AheadCommits {
+		aheadCommits = append(aheadCommits, map[string]string{
+			"hash":    c.Hash,
+			"date":    c.Date.Format("2006-01-02 15:04:05"),
+			"message": c.Message,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"hasUpdates":    result.HasUpdates,
+		"commitsAhead":  result.CommitsAhead,
+		"commitsBehind": result.CommitsBehind,
+		"aheadCommits":  aheadCommits,
+		"newCommits":    commits,
+		"currentVersion": map[string]interface{}{
+			"commitHash": result.CurrentVersion.CommitHash,
+			"commitDate": formatCommitDate(result.CurrentVersion.CommitDate),
+			"commitMsg":  result.CurrentVersion.CommitMsg,
+			"branch":     result.CurrentVersion.Branch,
+		},
+	})
+}
+
+func (s *HttpServer) getCurrentCommits(w http.ResponseWriter, r *http.Request) {
+	limit := 10
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 50 {
+			limit = l
+		}
+	}
+
+	commits, err := updater.GetCurrentCommits(limit)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get current commits: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	payload := make([]map[string]string, 0, len(commits))
+	for _, c := range commits {
+		payload = append(payload, map[string]string{
+			"hash":    c.Hash,
+			"date":    c.Date.Format("2006-01-02 15:04:05"),
+			"message": c.Message,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(payload)
+}
+
+func (s *HttpServer) performUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check if any bots are running
+	runningCount := 0
+	for _, supervisorName := range s.manager.AvailableSupervisors() {
+		stats := s.manager.Status(supervisorName)
+		// Consider bot running if in Starting, InGame, or Paused state
+		if stats.SupervisorStatus == bot.Starting ||
+			stats.SupervisorStatus == bot.InGame ||
+			stats.SupervisorStatus == bot.Paused {
+			runningCount++
+		}
+	}
+
+	if runningCount > 0 {
+		http.Error(w, fmt.Sprintf("Cannot update while %d bot(s) are running. Please stop all bots first.", runningCount), http.StatusConflict)
+		return
+	}
+
+	if !s.updater.TryStartOperation("update") {
+		http.Error(w, "Updater is already running another operation", http.StatusConflict)
+		return
+	}
+
+	// Parse auto-restart flag
+	autoRestart := r.URL.Query().Get("restart") == "true"
+	mode := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("mode")))
+	source := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("source")))
+
+	// Set log callback to broadcast via WebSocket
+	s.updater.SetLogCallback(func(message string) {
+		s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"updater_log","message":%q}`, message))
+	})
+
+	// Start update in background
+	go func() {
+		defer s.updater.EndOperation()
+		var err error
+		if mode == "build" {
+			backupTag := "build"
+			if source == "pr" {
+				backupTag = "pr"
+			}
+			err = s.updater.ExecuteBuild(autoRestart, backupTag)
+		} else {
+			err = s.updater.ExecuteUpdate(autoRestart)
+		}
+		if err != nil {
+			s.logger.Error("Update failed", slog.Any("error", err))
+			s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"updater_error","error":%q}`, err.Error()))
+		} else {
+			s.wsServer.broadcast <- []byte(`{"type":"updater_complete"}`)
+		}
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "update started",
+	})
+}
+
+func (s *HttpServer) getUpdaterStatus(w http.ResponseWriter, r *http.Request) {
+	status := s.updater.GetStatus()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+func (s *HttpServer) getBackups(w http.ResponseWriter, r *http.Request) {
+	// Get backup versions (limit to 5 most recent)
+	backups, err := updater.GetBackupVersions(5)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get backup versions: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Get current executable info
+	currentExe, _ := updater.GetCurrentExecutable()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"backups": backups,
+		"current": currentExe,
+	})
+}
+
+func (s *HttpServer) performRollback(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check if any bots are running
+	runningCount := 0
+	for _, supervisorName := range s.manager.AvailableSupervisors() {
+		stats := s.manager.Status(supervisorName)
+		if stats.SupervisorStatus == bot.Starting ||
+			stats.SupervisorStatus == bot.InGame ||
+			stats.SupervisorStatus == bot.Paused {
+			runningCount++
+		}
+	}
+
+	if runningCount > 0 {
+		http.Error(w, fmt.Sprintf("Cannot rollback while %d bot(s) are running. Please stop all bots first.", runningCount), http.StatusConflict)
+		return
+	}
+
+	// Get backup file path from request
+	var request struct {
+		BackupPath string `json:"backupPath"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if request.BackupPath == "" {
+		http.Error(w, "backupPath is required", http.StatusBadRequest)
+		return
+	}
+
+	// Confirm the file exists
+	if _, err := os.Stat(request.BackupPath); os.IsNotExist(err) {
+		http.Error(w, "Backup file not found", http.StatusNotFound)
+		return
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		http.Error(w, "Failed to resolve install directory", http.StatusInternalServerError)
+		return
+	}
+	absExe, err := filepath.Abs(exePath)
+	if err != nil {
+		http.Error(w, "Failed to resolve install directory", http.StatusInternalServerError)
+		return
+	}
+	installDir := filepath.Dir(absExe)
+	oldVersionsDir := filepath.Join(installDir, "old_versions")
+	absOldVersions, err := filepath.Abs(oldVersionsDir)
+	if err != nil {
+		http.Error(w, "Failed to resolve backup directory", http.StatusInternalServerError)
+		return
+	}
+	absBackup, err := filepath.Abs(request.BackupPath)
+	if err != nil {
+		http.Error(w, "Invalid backupPath", http.StatusBadRequest)
+		return
+	}
+	base := strings.TrimRight(absOldVersions, string(os.PathSeparator)) + string(os.PathSeparator)
+	if !strings.HasPrefix(strings.ToLower(absBackup), strings.ToLower(base)) {
+		http.Error(w, "backupPath must be inside old_versions", http.StatusBadRequest)
+		return
+	}
+
+	if !s.updater.TryStartOperation("rollback") {
+		http.Error(w, "Updater is already running another operation", http.StatusConflict)
+		return
+	}
+
+	// Set log callback to broadcast via WebSocket
+	s.updater.SetLogCallback(func(message string) {
+		s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"rollback_log","message":%q}`, message))
+	})
+
+	// Perform rollback in background
+	go func() {
+		defer s.updater.EndOperation()
+		err := s.updater.RollbackToVersion(request.BackupPath)
+		if err != nil {
+			s.logger.Error("Rollback failed", slog.Any("error", err))
+			s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"rollback_error","error":%q}`, err.Error()))
+		}
+		// Note: If successful, the application will restart, so no completion message is sent
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "rollback started",
+	})
+}
+
+func (s *HttpServer) getUpstreamPRs(w http.ResponseWriter, r *http.Request) {
+	// Get query parameters
+	state := r.URL.Query().Get("state")
+	if state == "" {
+		state = "open"
+	}
+
+	limit := 30
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	prs, err := updater.GetUpstreamPRs(state, limit)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch PRs: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	applied, err := updater.LoadAppliedPRs()
+	if err != nil {
+		s.logger.Warn("Failed to load applied PRs", slog.Any("error", err))
+	} else {
+		for i := range prs {
+			if info, ok := applied[prs[i].Number]; ok {
+				prs[i].Applied = true
+				prs[i].CanRevert = len(info.Commits) > 0
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(prs)
+}
+
+func (s *HttpServer) cherryPickPRs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check if any bots are running
+	runningCount := 0
+	for _, supervisorName := range s.manager.AvailableSupervisors() {
+		stats := s.manager.Status(supervisorName)
+		if stats.SupervisorStatus == bot.Starting ||
+			stats.SupervisorStatus == bot.InGame ||
+			stats.SupervisorStatus == bot.Paused {
+			runningCount++
+		}
+	}
+
+	if runningCount > 0 {
+		http.Error(w, fmt.Sprintf("Cannot cherry-pick while %d bot(s) are running. Please stop all bots first.", runningCount), http.StatusConflict)
+		return
+	}
+
+	// Parse request body
+	var request struct {
+		PRNumbers []int `json:"prNumbers"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if len(request.PRNumbers) == 0 {
+		http.Error(w, "prNumbers is required", http.StatusBadRequest)
+		return
+	}
+
+	if !s.updater.TryStartOperation("cherry-pick") {
+		http.Error(w, "Updater is already running another operation", http.StatusConflict)
+		return
+	}
+
+	// Set log callback to broadcast via WebSocket
+	s.updater.SetLogCallback(func(message string) {
+		s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"cherrypick_log","message":%q}`, message))
+	})
+
+	// Perform cherry-pick in background
+	go func() {
+		defer s.updater.EndOperation()
+		results, err := s.updater.CherryPickMultiplePRs(request.PRNumbers, func(message string) {
+			s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"cherrypick_log","message":%q}`, message))
+		})
+
+		if err != nil {
+			s.logger.Error("Cherry-pick failed", slog.Any("error", err))
+			s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"cherrypick_error","error":%q}`, err.Error()))
+			return
+		}
+
+		// Send results
+		resultsJSON, _ := json.Marshal(results)
+		s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"cherrypick_complete","results":%s}`, resultsJSON))
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "cherry-pick started",
+	})
+}
+
+func (s *HttpServer) revertPR(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check if any bots are running
+	runningCount := 0
+	for _, supervisorName := range s.manager.AvailableSupervisors() {
+		stats := s.manager.Status(supervisorName)
+		if stats.SupervisorStatus == bot.Starting ||
+			stats.SupervisorStatus == bot.InGame ||
+			stats.SupervisorStatus == bot.Paused {
+			runningCount++
+		}
+	}
+
+	if runningCount > 0 {
+		http.Error(w, fmt.Sprintf("Cannot revert while %d bot(s) are running. Please stop all bots first.", runningCount), http.StatusConflict)
+		return
+	}
+
+	var request struct {
+		PRNumber int `json:"prNumber"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if request.PRNumber <= 0 {
+		http.Error(w, "prNumber is required", http.StatusBadRequest)
+		return
+	}
+
+	if !s.updater.TryStartOperation("revert") {
+		http.Error(w, "Updater is already running another operation", http.StatusConflict)
+		return
+	}
+
+	progressCallback := func(message string) {
+		s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"revert_log","message":%q}`, message))
+	}
+
+	go func(prNumber int) {
+		defer s.updater.EndOperation()
+		result, err := s.updater.RevertPR(prNumber, progressCallback)
+		if err != nil {
+			s.logger.Error("Revert failed", slog.Any("error", err))
+			s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"revert_error","error":%q}`, err.Error()))
+			return
+		}
+		if result != nil && !result.Success {
+			errMsg := result.Error
+			if errMsg == "" {
+				errMsg = fmt.Sprintf("Revert failed for PR #%d", prNumber)
+			}
+			s.logger.Error("Revert failed", slog.String("reason", errMsg))
+			s.wsServer.broadcast <- []byte(fmt.Sprintf(`{"type":"revert_error","error":%q}`, errMsg))
+			return
+		}
+		s.wsServer.broadcast <- []byte(`{"type":"revert_complete"}`)
+	}(request.PRNumber)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "revert started",
+	})
 }
 
 func (s *HttpServer) generateBattleNetToken(w http.ResponseWriter, r *http.Request) {

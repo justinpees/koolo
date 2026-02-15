@@ -16,6 +16,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	ct "github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/drop"
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/health"
@@ -123,6 +124,27 @@ func (s *SinglePlayerSupervisor) changeDifficulty(d difficulty.Difficulty) {
 
 }
 
+func (s *SinglePlayerSupervisor) shouldSkipKeybindingsForRespec() bool {
+	ctx := s.bot.ctx
+	if ctx == nil || ctx.CharacterCfg == nil {
+		return false
+	}
+	if _, isLevelingChar := ctx.Char.(ct.LevelingCharacter); isLevelingChar {
+		return false
+	}
+
+	autoCfg := ctx.CharacterCfg.Character.AutoStatSkill
+	if !autoCfg.Enabled || !autoCfg.Respec.Enabled || autoCfg.Respec.Applied {
+		return false
+	}
+	if autoCfg.Respec.TargetLevel == 0 {
+		return true
+	}
+
+	level, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+	return ok && level.Value == autoCfg.Respec.TargetLevel
+}
+
 // Start will return error if it can be started, otherwise will always return nil
 func (s *SinglePlayerSupervisor) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -199,6 +221,7 @@ func (s *SinglePlayerSupervisor) Start() error {
 			if err := DropRun.Run(nil); err != nil {
 				s.bot.ctx.Logger.Error("Drop run failed", "error", err)
 			}
+			timeSpentNotInGameStart = time.Now()
 			continue
 		}
 
@@ -300,6 +323,16 @@ func (s *SinglePlayerSupervisor) Start() error {
 			s.bot.ctx.Logger.Warn("Failed to dump armory data", slog.Any("error", err))
 		}
 
+		if config.Koolo.Debug.OpenOverlayMapOnGameStart {
+			automapKB := s.bot.ctx.Data.KeyBindings.Automap
+			if automapKB.Key1[0] != 0 || automapKB.Key2[0] != 0 {
+				s.bot.ctx.HID.PressKeyBinding(automapKB)
+				utils.PingSleep(utils.Light, 50)
+			} else {
+				s.bot.ctx.Logger.Debug("Open overlay map on game start is enabled, but no automap key binding is set")
+			}
+		}
+
 		if s.bot.ctx.Data.IsLevelingCharacter && s.bot.ctx.Data.ActiveWeaponSlot != 0 {
 			for attempt := 0; attempt < 3 && s.bot.ctx.Data.ActiveWeaponSlot != 0; attempt++ {
 				s.bot.ctx.HID.PressKeyBinding(s.bot.ctx.Data.KeyBindings.SwapWeapons)
@@ -316,18 +349,24 @@ func (s *SinglePlayerSupervisor) Start() error {
 		}
 
 		if firstRun {
-			missingKeybindings := s.bot.ctx.Char.CheckKeyBindings()
-			if len(missingKeybindings) > 0 {
-				var missingKeybindingsText = "Missing key binding for skill(s):"
-				for _, v := range missingKeybindings {
-					missingKeybindingsText += fmt.Sprintf("\n%s", skill.SkillNames[v])
-				}
-				missingKeybindingsText += "\nPlease bind the skills. Pausing bot..."
+			if s.shouldSkipKeybindingsForRespec() {
+				s.bot.ctx.Logger.Info("Auto respec pending; skipping keybinding check for this run")
+			} else {
+				missingKeybindings := s.bot.ctx.Char.CheckKeyBindings()
+				if len(missingKeybindings) > 0 {
+					var missingKeybindingsText = "Missing key binding for skill(s):"
+					for _, v := range missingKeybindings {
+						missingKeybindingsText += fmt.Sprintf("\n%s", skill.SkillNames[v])
+					}
+					missingKeybindingsText += "\nPlease bind the skills. Pausing bot..."
 
-				utils.ShowDialog("Missing keybindings for "+s.name, missingKeybindingsText)
-				s.TogglePause()
+					utils.ShowDialog("Missing keybindings for "+s.name, missingKeybindingsText)
+					s.TogglePause()
+				}
 			}
 		}
+
+		action.EnsureRunMode()
 
 		// Context with a timeout for the game itself
 		runCtx := ctx
@@ -414,8 +453,6 @@ func (s *SinglePlayerSupervisor) Start() error {
 
 					currentPos := s.bot.ctx.Data.PlayerUnit.Position
 					lastAction := s.bot.ctx.ContextDebug[s.bot.ctx.ExecutionPriority].LastAction
-
-					// Check for stat/skill allocation activities
 					isAllocating := lastAction == "AutoRespecIfNeeded" ||
 						lastAction == "EnsureStatPoints" ||
 						lastAction == "EnsureSkillPoints" ||
@@ -457,7 +494,6 @@ func (s *SinglePlayerSupervisor) Start() error {
 						lastPosition = currentPos
 						continue
 					}
-
 					if currentPos.X == lastPosition.X && currentPos.Y == lastPosition.Y {
 						if stuckSince.IsZero() {
 							stuckSince = time.Now()
@@ -497,6 +533,13 @@ func (s *SinglePlayerSupervisor) Start() error {
 		firstRun = false
 
 		if err != nil {
+			if errors.Is(err, drop.ErrInterrupt) {
+				s.bot.ctx.Logger.Info("Drop interrupt received. Exiting game and restarting loop.")
+				s.bot.ctx.Manager.ExitGame()
+				utils.Sleep(2000)
+				timeSpentNotInGameStart = time.Now()
+				continue
+			}
 			if errors.Is(err, context.DeadlineExceeded) {
 				// We don't log the generic "Bot run finished with error" message if it was a planned timeout
 			} else {

@@ -35,9 +35,10 @@ var (
 
 type KooloCfg struct {
 	Debug struct {
-		Log         bool `yaml:"log"`
-		Screenshots bool `yaml:"screenshots"`
-		RenderMap   bool `yaml:"renderMap"`
+		Log                       bool `yaml:"log"`
+		Screenshots               bool `yaml:"screenshots"`
+		RenderMap                 bool `yaml:"renderMap"`
+		OpenOverlayMapOnGameStart bool `yaml:"openOverlayMapOnGameStart"`
 	} `yaml:"debug"`
 	FirstRun              bool   `yaml:"firstRun"`
 	UseCustomSettings     bool   `yaml:"useCustomSettings"`
@@ -172,6 +173,32 @@ type TimeRange struct {
 	EndVarianceMin   int       `yaml:"endVarianceMin,omitempty"`   // +/- minutes for end time
 }
 
+type AutoStatSkillConfig struct {
+	Enabled            bool                 `yaml:"enabled"`
+	Stats              []AutoStatSkillStat  `yaml:"stats,omitempty"`
+	Skills             []AutoStatSkillSkill `yaml:"skills,omitempty"`
+	Respec             AutoRespecConfig     `yaml:"autoRespec,omitempty"`
+	ExcludeQuestStats  bool                 `yaml:"excludeQuestStats,omitempty"`
+	ExcludeQuestSkills bool                 `yaml:"excludeQuestSkills,omitempty"`
+}
+
+type AutoStatSkillStat struct {
+	Stat   string `yaml:"stat"`
+	Target int    `yaml:"target"`
+}
+
+type AutoStatSkillSkill struct {
+	Skill  string `yaml:"skill"`
+	Target int    `yaml:"target"`
+}
+
+type AutoRespecConfig struct {
+	Enabled     bool `yaml:"enabled"`
+	TokenFirst  bool `yaml:"tokenFirst,omitempty"`
+	TargetLevel int  `yaml:"targetLevel,omitempty"`
+	Applied     bool `yaml:"applied,omitempty"`
+}
+
 type CharacterCfg struct {
 	MaxGameLength        int    `yaml:"maxGameLength"`
 	Username             string `yaml:"username"`
@@ -238,16 +265,17 @@ type CharacterCfg struct {
 		AllowAnniPickup    bool        `yaml:"allowAnniPickup"`
 	} `yaml:"inventory"`
 	Character struct {
-		Class                        string `yaml:"class"`
-		UseMerc                      bool   `yaml:"useMerc"`
-		StashToShared                bool   `yaml:"stashToShared"`
-		UseTeleport                  bool   `yaml:"useTeleport"`
-		ClearPathDist                int    `yaml:"clearPathDist"`
-		ShouldHireAct2MercFrozenAura bool   `yaml:"shouldHireAct2MercFrozenAura"`
-		UseExtraBuffs                bool   `yaml:"useExtraBuffs"`
-		UseSwapForBuffs              bool   `yaml:"use_swap_for_buffs"`
-		BuffOnNewArea                bool   `yaml:"buffOnNewArea"`
-		BuffAfterWP                  bool   `yaml:"buffAfterWP"`
+		Class                        string              `yaml:"class"`
+		UseMerc                      bool                `yaml:"useMerc"`
+		StashToShared                bool                `yaml:"stashToShared"`
+		UseTeleport                  bool                `yaml:"useTeleport"`
+		ClearPathDist                int                 `yaml:"clearPathDist"`
+		ShouldHireAct2MercFrozenAura bool                `yaml:"shouldHireAct2MercFrozenAura"`
+		UseExtraBuffs                bool                `yaml:"useExtraBuffs"`
+		UseSwapForBuffs              bool                `yaml:"use_swap_for_buffs"`
+		BuffOnNewArea                bool                `yaml:"buffOnNewArea"`
+		BuffAfterWP                  bool                `yaml:"buffAfterWP"`
+		AutoStatSkill                AutoStatSkillConfig `yaml:"autoStatSkill"`
 		BerserkerBarb                struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
@@ -343,6 +371,7 @@ type CharacterCfg struct {
 		InteractWithSuperChests     bool                  `yaml:"interactWithSuperChests"`
 		StopLevelingAt              int                   `yaml:"stopLevelingAt"`
 		IsNonLadderChar             bool                  `yaml:"isNonLadderChar"`
+		IsHardCoreChar              bool                  `yaml:"isHardCoreChar"`
 		ClearTPArea                 bool                  `yaml:"clearTPArea"`
 		Difficulty                  difficulty.Difficulty `yaml:"difficulty"`
 		RandomizeRuns               bool                  `yaml:"randomizeRuns"`
@@ -374,8 +403,10 @@ type CharacterCfg struct {
 			ClearFloors bool `yaml:"clearFloors"`
 		}
 		Andariel struct {
-			ClearRoom   bool `yaml:"clearRoom"`
-			UseAntidoes bool `yaml:"useAntidoes"`
+			ClearRoom bool `yaml:"clearRoom"`
+			// Deprecated: kept for backwards compatibility with older configs; can be removed in the future.
+			UseAntidoesDeprecated bool `yaml:"useAntidoes,omitempty"`
+			UseAntidotes          bool `yaml:"useAntidotes"`
 		}
 		Duriel struct {
 			UseThawing bool `yaml:"useThawing"`
@@ -637,6 +668,12 @@ func Load() error {
 			return fmt.Errorf("error reading %s character config: %w", charConfigPath, err)
 		}
 		_ = r.Close()
+
+		// Deprecated: kept for backwards compatibility with older configs; can be removed in the future.
+		if !charCfg.Game.Andariel.UseAntidotes && charCfg.Game.Andariel.UseAntidoesDeprecated {
+			charCfg.Game.Andariel.UseAntidotes = true
+		}
+		charCfg.Game.Andariel.UseAntidoesDeprecated = false
 
 		charCfg.ConfigFolderName = entry.Name()
 
