@@ -1113,7 +1113,14 @@ func isSocketableItemMultiType(itm data.Item, targetTypes []string) bool {
 				(itm.Name == "PerfectSapphire" && countSapphire <= 3) {
 				continue
 			}
-			perfectGems = append(perfectGems, itm)
+			// DLC stacked gems: one entry can fill multiple perfect gem slots
+			needed := 3 - len(perfectGems)
+			availableQty := isDLCStackedQuantity(itm)
+			satisfies := min(availableQty, needed)
+
+			for i := 0; i < satisfies; i++ {
+				perfectGems = append(perfectGems, itm)
+			}
 		}
 	}
 
@@ -1295,7 +1302,6 @@ func isDLCStackedQuantity(itm data.Item) int {
 		return 0 // ghost entry, should have been filtered
 	}
 	return 1
-
 }
 
 func isPerfectGem(item data.Item) bool {

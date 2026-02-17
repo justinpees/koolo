@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -584,6 +585,45 @@ func QuickPickup(maxDistance int) bool {
 	return pickedAny
 }
 
+func pickupPriority(itm data.Item) int {
+	// 0) Shards, Latents, Renewed, Uber Ancients Jewels (absolute top priority)
+	if itm.Name == "WesternWorldstoneShard" || itm.Name == "EasternWorldstoneShard" || itm.Name == "SouthernWorldstoneShard" || itm.Name == "NorthernWorldstoneShard" || itm.Name == "DeepWorldstoneShard" || itm.Name == "LatentBlackCleft" || itm.Name == "LatentBoneBreak" || itm.Name == "LatentColdRupture" || itm.Name == "LatentRottingFissure" || itm.Name == "LatentFlameRift" || itm.Name == "LatentCrackOfTheHeavens" || itm.Name == "TalicsAnguish" || itm.Name == "KorlicsPain" || itm.Name == "MadawcsIre" || itm.Name == "Bul-kathosNightmare" || itm.Name == "WorusksEnd" || itm.Name == "DefendersFire" || itm.Name == "DefendersBile" || itm.Name == "ProtectorsFrost" || itm.Name == "ProtectorsStone" || itm.Name == "GuardiansThunder" || itm.Name == "GuardiansLight" || itm.Name == "RenewedBlackCleft" || itm.Name == "RenewedBoneBreak" || itm.Name == "RenewedColdRupture" || itm.Name == "RenewedRottingFissure" || itm.Name == "RenewedFlameRift" || itm.Name == "RenewedCrackOfTheHeavens" {
+		return 0
+	}
+
+	// 1) Quest items
+	if itm.IsFromQuest() {
+		return 1
+	}
+
+	switch itm.Quality {
+
+	// 2) Crafted
+	case item.QualityCrafted:
+		return 2
+
+	// 3) Unique
+	case item.QualityUnique:
+		return 3
+
+	// 4) Rare
+	case item.QualityRare:
+		return 4
+
+	// 5) Magic
+	case item.QualityMagic:
+		return 5
+
+	// 6) Set
+	case item.QualitySet:
+		return 6
+
+	// 7) Everything else
+	default:
+		return 7
+	}
+}
+
 func GetItemsToPickup(maxDistance int) []data.Item {
 	ctx := context.Get()
 	ctx.SetLastAction("GetItemsToPickup")
@@ -673,6 +713,14 @@ func GetItemsToPickup(maxDistance int) []data.Item {
 		if !isBlacklisted {
 			filteredItems = append(filteredItems, itm)
 		}
+	}
+
+	//prioritize picking up higher quality items first when fast pickup is enabled
+	if ctx.CharacterCfg.BackToTown.ItemPickupMode == "Fast" {
+		sort.SliceStable(filteredItems, func(i, j int) bool {
+			return pickupPriority(filteredItems[i]) < pickupPriority(filteredItems[j])
+		})
+
 	}
 
 	return filteredItems
