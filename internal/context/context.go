@@ -159,9 +159,9 @@ func NewContext(name string) *Status {
 
 func NewGameHelper() *CurrentGameHelper {
 	return &CurrentGameHelper{
-		PickupItems:                true,
-		PickedUpItems:              make(map[int]int),
-		PickedUpItemsVendor:        make(map[int]string),
+		PickupItems:   true,
+		PickedUpItems: make(map[int]int),
+		//PickedUpItemsVendor:        make(map[int]string),
 		BlacklistedItems:           []data.Item{},
 		FailedToCreateGameAttempts: 0,
 	}
