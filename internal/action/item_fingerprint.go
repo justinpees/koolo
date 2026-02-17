@@ -24,14 +24,6 @@ func SpecificFingerprint(it data.Item) string {
 	// Base identity: include actual item name for uniqueness
 	parts = append(parts, string(it.Name))
 
-	//snowy prefix became snowflake for some reason
-	// Identified name (normalized, best-effort)
-	/* if it.IdentifiedName != "" {
-		name := it.IdentifiedName
-		name = strings.ReplaceAll(name, "Snowflake", "Snowy")
-		parts = append(parts, name)
-	} */
-
 	// Magic affixes (prefixes & suffixes)
 	for _, p := range it.Affixes.Magic.Prefixes {
 		if p != 0 {
