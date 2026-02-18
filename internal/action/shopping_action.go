@@ -36,7 +36,7 @@ type ActionShoppingPlan struct {
 
 func NewActionShoppingPlanFromConfig(cfg config.ShoppingConfig) ActionShoppingPlan {
 	//PUT ACT 5 CONDITION HERE
-	
+
 	return ActionShoppingPlan{
 		Enabled:         cfg.Enabled,
 		RefreshesPerRun: cfg.RefreshesPerRun,
@@ -292,9 +292,9 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 				continue
 			}
 			// EXCLUDE SuperManaPotion and SuperHealthPotion by name
-if it.Desc().Name == "Super Mana Potion" || it.Desc().Name == "Super Healing Potion" {
-	continue
-}
+			if it.Desc().Name == "Super Mana Potion" || it.Desc().Name == "Super Healing Potion" {
+				continue
+			}
 
 			coords := ui.GetScreenCoordsForItem(it)
 			perTab[tab] = append(perTab[tab], vendorSpot{SX: coords.X, SY: coords.Y})
@@ -355,29 +355,29 @@ if it.Desc().Name == "Super Mana Potion" || it.Desc().Name == "Super Healing Pot
 				continue
 			}
 			// EXCLUDE SuperManaPotion and SuperHealthPotion by name
-if it.Desc().Name == "Super Mana Potion" || it.Desc().Name == "Super Healing Potion" {
-	continue
-}
+			if it.Desc().Name == "Super Mana Potion" || it.Desc().Name == "Super Healing Potion" {
+				continue
+			}
 
 			prevGold := ctx.Data.PlayerUnit.TotalPlayerGold()
 
 			// Buy using town helper (consistent with gambling)
 			town.BuyItem(it, 1) // just call it
 
-utils.Sleep(40)
-ctx.RefreshGameData()
+			utils.Sleep(40)
+			ctx.RefreshGameData()
 
-itemsPurchased++
-goldSpent += prevGold - ctx.Data.PlayerUnit.TotalPlayerGold()
+			itemsPurchased++
+			goldSpent += prevGold - ctx.Data.PlayerUnit.TotalPlayerGold()
 
-// --- VENDOR LOGGING START ---
-areaName := ctx.Data.PlayerUnit.Area.Area().Name
-ctx.CurrentGame.PickedUpItems[int(it.UnitID)] = int(ctx.Data.PlayerUnit.Area.Area().ID) // keep original area ID
-ctx.CurrentGame.PickedUpItemsVendor[int(it.UnitID)] = fmt.Sprintf("%s (Vendor %d)", areaName, int(vendorID)) // append vendor
-ctx.Logger.Debug("Bought item",
-    "item", it.Desc().Name,
-    "vendor", int(vendorID))
-// --- VENDOR LOGGING END ---
+			// --- VENDOR LOGGING START ---
+			areaName := ctx.Data.PlayerUnit.Area.Area().Name
+			ctx.CurrentGame.PickedUpItems[int(it.UnitID)] = int(ctx.Data.PlayerUnit.Area.Area().ID)                      // keep original area ID
+			ctx.CurrentGame.PickedUpItemsVendor[int(it.UnitID)] = fmt.Sprintf("%s (Vendor %d)", areaName, int(vendorID)) // append vendor
+			ctx.Logger.Debug("Bought item",
+				"item", it.Desc().Name,
+				"vendor", int(vendorID))
+			// --- VENDOR LOGGING END ---
 
 			// If space tight now, stash and resume same tab
 			if !hasTwoFreeColumns() {
@@ -522,7 +522,7 @@ func moveToVendor(vendorID npc.ID) error {
 func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 	ctx := context.Get()
 	if town == area.Harrogath && onlyAnya {
-    // Save original merc state
+		// Save original merc state
 		origMercDied := ctx.CharacterCfg.BackToTown.MercDied
 		// Temporarily override it
 		ctx.CharacterCfg.BackToTown.MercDied = false
@@ -541,7 +541,7 @@ func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 			}); err == nil {
 				utils.Sleep(120)
 				ctx.RefreshGameData()
-				
+
 				if err2 := returnToTownViaAnyaRedPortalFromTemple(); err2 == nil {
 					return nil
 				}

@@ -537,7 +537,7 @@ func QuickPickup(maxDistance int) bool {
 		}
 
 		// --- Skip unnecessary items from quickpickup ---
-		if item.Name == "ScrollOfIdentify" || item.Name == "ScrollOfTownPortal" || strings.Contains(string(item.Name), "Mana") || strings.Contains(string(item.Name), "Health") || item.Name == "Key" {
+		if item.Name == "ScrollOfIdentify" || item.Name == "ScrollOfTownPortal" || strings.Contains(string(item.Name), "Mana") || strings.Contains(string(item.Name), "Healing") || item.Name == "Key" {
 			continue
 		}
 

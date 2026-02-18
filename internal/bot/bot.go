@@ -112,8 +112,8 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 
 	// Cleanup the current game helper structure
 	b.ctx.Cleanup()
-	b.ctx.Logger.Debug("5 second sleep")
-	time.Sleep(5000 * time.Millisecond)
+	//b.ctx.Logger.Debug("5 second sleep")
+	//time.Sleep(5000 * time.Millisecond)
 
 	// Switch to legacy mode if configured
 	action.SwitchToLegacyMode()
@@ -590,7 +590,7 @@ func talkToMeshif(ctx *botCtx.Status) error {
 		ctx.Logger.Debug("Trying to click Meshif", "attempt", attempt)
 
 		// 1. Find Meshif in the current game data
-		meshif, found := ctx.Data.Monsters.FindOne(npc.Meshif, data.MonsterTypeNone)
+		meshif, found := ctx.Data.Monsters.FindOne(npc.Meshif2, data.MonsterTypeNone)
 		if !found {
 			ctx.Logger.Warn("Meshif not found in game data, retrying...")
 			utils.PingSleep(utils.Medium, 300)

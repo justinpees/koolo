@@ -95,10 +95,11 @@ type Debug struct {
 }
 
 type CurrentGameHelper struct {
-	BlacklistedItems []data.Item
-	PickedUpItems    map[int]int
-	CurrentStashTab  int // Tracks which stash tab/page the UI is showing (0 = unknown/closed)
-	AreaCorrection   struct {
+	BlacklistedItems    []data.Item
+	PickedUpItems       map[int]int
+	PickedUpItemsVendor map[int]string // <-- ADD THIS
+	CurrentStashTab     int            // Tracks which stash tab/page the UI is showing (0 = unknown/closed)
+	AreaCorrection      struct {
 		Enabled      bool
 		ExpectedArea area.ID
 	}
@@ -159,9 +160,9 @@ func NewContext(name string) *Status {
 
 func NewGameHelper() *CurrentGameHelper {
 	return &CurrentGameHelper{
-		PickupItems:   true,
-		PickedUpItems: make(map[int]int),
-		//PickedUpItemsVendor:        make(map[int]string),
+		PickupItems:                true,
+		PickedUpItems:              make(map[int]int),
+		PickedUpItemsVendor:        make(map[int]string),
 		BlacklistedItems:           []data.Item{},
 		FailedToCreateGameAttempts: 0,
 	}
