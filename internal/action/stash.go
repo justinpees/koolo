@@ -343,95 +343,28 @@ func stashInventory(firstRun bool) {
 		if i.Name == "WirtsLeg" {
 			targetStartTab = 1
 		}
+		if !ctx.Data.IsDLC() {
+			itemStashed := false
+			maxTab := 4
+			name := i.Desc().Name
+			lowerName := strings.ToLower(name)
 
-		itemStashed := false
-		maxTab := 4
-		name := i.Desc().Name
-		lowerName := strings.ToLower(name)
+			isPriorityItem :=
+				strings.Contains(lowerName, "rune") ||
+					strings.Contains(lowerName, "jewel") ||
+					strings.Contains(lowerName, "ring") ||
+					strings.Contains(lowerName, "amulet") ||
+					strings.Contains(lowerName, "token of absolution") ||
+					strings.Contains(lowerName, "essence") ||
+					strings.Contains(lowerName, "amethyst") ||
+					strings.Contains(lowerName, "ruby") ||
+					strings.Contains(lowerName, "sapphire") ||
+					strings.Contains(lowerName, "topaz") ||
+					strings.Contains(lowerName, "emerald") ||
+					strings.Contains(lowerName, "diamond")
 
-		isPriorityItem :=
-			strings.Contains(lowerName, "rune") ||
-				strings.Contains(lowerName, "jewel") ||
-				strings.Contains(lowerName, "ring") ||
-				strings.Contains(lowerName, "amulet") ||
-				strings.Contains(lowerName, "token of absolution") ||
-				strings.Contains(lowerName, "essence") ||
-				strings.Contains(lowerName, "amethyst") ||
-				strings.Contains(lowerName, "ruby") ||
-				strings.Contains(lowerName, "sapphire") ||
-				strings.Contains(lowerName, "topaz") ||
-				strings.Contains(lowerName, "emerald") ||
-				strings.Contains(lowerName, "diamond")
-
-		// 1. Priority items → try tab 2 first
-		if isPriorityItem && !fullTabs[2] {
-			if currentTab != 2 { // NEW
-				SwitchStashTab(2)
-				currentTab = 2 // NEW
-			}
-
-			if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-				lastSuccessfulStashTab = 2
-				itemStashed = true
-			} else {
-				fullTabs[2] = true
-			}
-		}
-
-		// 2. Try last successful stash tab
-		if !itemStashed && lastSuccessfulStashTab != -1 && !fullTabs[lastSuccessfulStashTab] {
-			if !isPriorityItem && lastSuccessfulStashTab == 2 {
-				// skip
-			} else {
-				if currentTab != lastSuccessfulStashTab { // NEW
-					SwitchStashTab(lastSuccessfulStashTab)
-					currentTab = lastSuccessfulStashTab // NEW
-				}
-
-				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-					itemStashed = true
-				} else {
-					fullTabs[lastSuccessfulStashTab] = true
-				}
-			}
-		}
-
-		// 3. Normal stash rotation
-		if !itemStashed {
-			fallbackToTab2 := false
-
-			for tabAttempt := targetStartTab; tabAttempt <= maxTab; tabAttempt++ {
-
-				if fullTabs[tabAttempt] {
-					continue
-				}
-
-				if !isPriorityItem && tabAttempt == 2 {
-					fallbackToTab2 = true
-					continue
-				}
-
-				if tabAttempt == lastSuccessfulStashTab {
-					continue
-				}
-
-				if currentTab != tabAttempt { // NEW
-					SwitchStashTab(tabAttempt)
-					currentTab = tabAttempt // NEW
-				}
-
-				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-					if tabAttempt > 1 {
-						lastSuccessfulStashTab = tabAttempt
-					}
-					itemStashed = true
-					break
-				} else {
-					fullTabs[tabAttempt] = true
-				}
-			}
-
-			if !itemStashed && fallbackToTab2 && !fullTabs[2] {
+			// 1. Priority items → try tab 2 first
+			if isPriorityItem && !fullTabs[2] {
 				if currentTab != 2 { // NEW
 					SwitchStashTab(2)
 					currentTab = 2 // NEW
@@ -444,30 +377,99 @@ func stashInventory(firstRun bool) {
 					fullTabs[2] = true
 				}
 			}
-		}
 
-		// 4. Fallback to personal stash
-		if !itemStashed && !fullTabs[1] {
-			if currentTab != 1 { // NEW
-				SwitchStashTab(1)
-				currentTab = 1 // NEW
+			// 2. Try last successful stash tab
+			if !itemStashed && lastSuccessfulStashTab != -1 && !fullTabs[lastSuccessfulStashTab] {
+				if !isPriorityItem && lastSuccessfulStashTab == 2 {
+					// skip
+				} else {
+					if currentTab != lastSuccessfulStashTab { // NEW
+						SwitchStashTab(lastSuccessfulStashTab)
+						currentTab = lastSuccessfulStashTab // NEW
+					}
+
+					if stashItemAction(i, matchedRule, ruleFile, firstRun) {
+						itemStashed = true
+					} else {
+						fullTabs[lastSuccessfulStashTab] = true
+					}
+				}
 			}
 
-			if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-				itemStashed = true
-			} else {
-				fullTabs[1] = true
-			}
-		}
+			// 3. Normal stash rotation
+			if !itemStashed {
+				fallbackToTab2 := false
 
-		// 5. Final brute-force fallback (ignore fullTabs)
-		if !itemStashed {
-			stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
-			if !stashed {
-				ctx.Logger.Warn(fmt.Sprintf(
-					"ERROR: Item %s [%s] could not be stashed into any tab.",
-					i.Desc().Name, i.Quality.ToString(),
-				))
+				for tabAttempt := targetStartTab; tabAttempt <= maxTab; tabAttempt++ {
+
+					if fullTabs[tabAttempt] {
+						continue
+					}
+
+					if !isPriorityItem && tabAttempt == 2 {
+						fallbackToTab2 = true
+						continue
+					}
+
+					if tabAttempt == lastSuccessfulStashTab {
+						continue
+					}
+
+					if currentTab != tabAttempt { // NEW
+						SwitchStashTab(tabAttempt)
+						currentTab = tabAttempt // NEW
+					}
+
+					if stashItemAction(i, matchedRule, ruleFile, firstRun) {
+						if tabAttempt > 1 {
+							lastSuccessfulStashTab = tabAttempt
+						}
+						itemStashed = true
+						break
+					} else {
+						fullTabs[tabAttempt] = true
+					}
+				}
+
+				if !itemStashed && fallbackToTab2 && !fullTabs[2] {
+					if currentTab != 2 { // NEW
+						SwitchStashTab(2)
+						currentTab = 2 // NEW
+					}
+
+					if stashItemAction(i, matchedRule, ruleFile, firstRun) {
+						lastSuccessfulStashTab = 2
+						itemStashed = true
+					} else {
+						fullTabs[2] = true
+					}
+				}
+			}
+
+			// 4. Fallback to personal stash
+			if !itemStashed && !fullTabs[1] {
+				if currentTab != 1 { // NEW
+					SwitchStashTab(1)
+					currentTab = 1 // NEW
+				}
+
+				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
+					itemStashed = true
+				} else {
+					fullTabs[1] = true
+				}
+
+			}
+
+			// 5. Final brute-force fallback (ignore fullTabs)
+			if !itemStashed {
+				stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
+				if !stashed {
+					ctx.Logger.Warn(fmt.Sprintf(
+						"ERROR: Item %s [%s] could not be stashed into any tab.",
+						i.Desc().Name, i.Quality.ToString(),
+					))
+				}
 			}
 		}
 	}
