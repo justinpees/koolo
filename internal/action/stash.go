@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/action/step"
-	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
@@ -38,8 +36,6 @@ const (
 	StashTabMaterials = 101
 	StashTabRunes     = 102
 )
-
-var lastSuccessfulStashTab = -1
 
 func Stash(forceStash bool) error {
 	ctx := context.Get()
@@ -89,8 +85,7 @@ func isStashingRequired(firstRun bool) bool {
 		}
 
 		stashIt, dropIt, _, _ := shouldStashIt(i, firstRun)
-
-		if stashIt || dropIt {
+		if stashIt || dropIt { // Check for dropIt as well
 			return true
 		}
 	}
@@ -161,161 +156,26 @@ func stashGold() {
 	ctx.Logger.Info("All stash tabs are full of gold :D")
 }
 
-func GetGemUnitIDToKeep() uint32 {
-	ctx := context.Get()
-
-	if ctx.CharacterCfg.Inventory.GemToUpgrade == "None" {
-		return 0
-	}
-
-	mainGem := item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade)
-
-	fallbackPriority := []item.Name{
-		item.Name("FlawlessAmethyst"),
-		item.Name("FlawlessRuby"),
-		item.Name("FlawlessSkull"),
-		item.Name("FlawlessSapphire"),
-		item.Name("FlawlessEmerald"),
-		item.Name("FlawlessDiamond"),
-		item.Name("FlawlessTopaz"),
-	}
-
-	invItems := ctx.Data.Inventory.ByLocation(item.LocationInventory)
-
-	// --- Prefer main gem ---
-	for _, it := range invItems {
-		if it.Name == mainGem {
-			return uint32(it.UnitID)
-		}
-	}
-
-	// --- Otherwise fallback priority ---
-	for _, fallback := range fallbackPriority {
-		for _, it := range invItems {
-			if it.Name == fallback {
-				return uint32(it.UnitID)
-			}
-		}
-	}
-
-	return 0
-}
-
 func stashInventory(firstRun bool) {
 	ctx := context.Get()
 	ctx.SetLastAction("stashInventory")
 
-	fullTabs := make(map[int]bool) // NEW: remember full tabs across items
-
 	// Determine starting tab based on configuration
-	startTab := 1
+	startTab := 1 // Personal stash by default (tab 1)
 	if ctx.CharacterCfg.Character.StashToShared {
-		startTab = 2
+		startTab = 2 // Start with first shared stash tab if configured (tabs 2-4 are shared)
 	}
 
 	currentTab := startTab
 	SwitchStashTab(currentTab)
 
-	// ------------------------------------------------------------------
-	// ENSURE GEM TO UPGRADE EXISTS IN INVENTORY
-	// ------------------------------------------------------------------
-	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-
-		if !ctx.Data.OpenMenus.Stash {
-			ctx.Logger.Warn("Stash not open while trying to pull gem for upgrade")
-		} else {
-
-			ctx.RefreshGameData()
-
-			// If we already have a gem selected to keep → do nothing
-			if GetGemUnitIDToKeep() != 0 {
-				ctx.Logger.Debug("Gem already present in inventory for shrine upgrade")
-			} else {
-
-				gemName := item.Name(ctx.CharacterCfg.Inventory.GemToUpgrade)
-
-				stashedItems := ctx.Data.Inventory.ByLocation(
-					item.LocationSharedStash,
-					item.LocationStash,
-				)
-
-				// Build stash lookup
-				stashLookup := make(map[item.Name]*data.Item)
-				for _, it := range stashedItems {
-					tmp := it
-					stashLookup[it.Name] = &tmp
-				}
-
-				fallbackPriority := []item.Name{
-					item.Name("FlawlessAmethyst"),
-					item.Name("FlawlessRuby"),
-					item.Name("FlawlessSkull"),
-					item.Name("FlawlessSapphire"),
-					item.Name("FlawlessEmerald"),
-					item.Name("FlawlessDiamond"),
-					item.Name("FlawlessTopaz"),
-				}
-
-				var pullItem *data.Item
-
-				// ---- Try main gem first
-				if it, exists := stashLookup[gemName]; exists {
-					pullItem = it
-				} else {
-
-					// ---- Try fallback gems
-					for _, fallback := range fallbackPriority {
-						if it, exists := stashLookup[fallback]; exists {
-							pullItem = it
-							ctx.Logger.Warn("USING FALLBACK GEM: " + string(fallback))
-							break
-						}
-					}
-				}
-
-				// ---- Move gem from stash → inventory
-				if pullItem != nil {
-
-					tab := pullItem.Location.Page + 1
-					if currentTab != tab {
-						SwitchStashTab(tab)
-						currentTab = tab
-					}
-
-					utils.PingSleep(utils.Medium, 200)
-
-					screenPos := ui.GetScreenCoordsForItem(*pullItem)
-					ctx.HID.MovePointer(screenPos.X, screenPos.Y)
-					ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-					utils.PingSleep(utils.Medium, 500)
-
-					ctx.RefreshGameData()
-
-					// Validate move
-					found := false
-					for _, it2 := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-						if it2.UnitID == pullItem.UnitID {
-							found = true
-							break
-						}
-					}
-
-					if !found {
-						ctx.Logger.Warn("FAILED TO MOVE GEM FROM STASH TO INVENTORY, INVENTORY PROBABLY FULL")
-					}
-
-				} else {
-					ctx.Logger.Warn("NO VALID GEMS FOUND IN STASH FOR UPGRADE")
-				}
-			}
-		}
-	}
-
+	// Make a copy of inventory items to avoid issues if the slice changes during iteration
 	itemsToProcess := make([]data.Item, 0)
 	for _, i := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 		if i.IsPotion() {
 			continue
 		}
+
 		itemsToProcess = append(itemsToProcess, i)
 	}
 
@@ -323,10 +183,11 @@ func stashInventory(firstRun bool) {
 		stashIt, dropIt, matchedRule, ruleFile := shouldStashIt(i, firstRun)
 
 		if dropIt {
+			ctx.Logger.Info(fmt.Sprintf("Dropping item %s [%s] due to MaxQuantity rule.", i.Desc().Name, i.Quality.ToString()))
 			blacklistItem(i)
-			utils.PingSleep(utils.Medium, 500)
+			utils.PingSleep(utils.Medium, 500) // Medium operation: Prepare for item drop
 			DropItem(i)
-			utils.PingSleep(utils.Medium, 500)
+			utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for drop to complete
 			step.CloseAllMenus()
 			continue
 		}
@@ -335,145 +196,11 @@ func stashInventory(firstRun bool) {
 			continue
 		}
 
-		targetStartTab := startTab
-
-		if (i.Name == "grandcharm" || i.Name == "smallcharm" || i.Name == "largecharm") && i.Quality == item.QualityUnique {
-			targetStartTab = 2
-		}
-		if i.Name == "WirtsLeg" {
-			targetStartTab = 1
-		}
-		if !ctx.Data.IsDLC() {
-			itemStashed := false
-			maxTab := 4
-			name := i.Desc().Name
-			lowerName := strings.ToLower(name)
-
-			isPriorityItem :=
-				strings.Contains(lowerName, "rune") ||
-					strings.Contains(lowerName, "jewel") ||
-					strings.Contains(lowerName, "ring") ||
-					strings.Contains(lowerName, "amulet") ||
-					strings.Contains(lowerName, "token of absolution") ||
-					strings.Contains(lowerName, "essence") ||
-					strings.Contains(lowerName, "amethyst") ||
-					strings.Contains(lowerName, "ruby") ||
-					strings.Contains(lowerName, "sapphire") ||
-					strings.Contains(lowerName, "topaz") ||
-					strings.Contains(lowerName, "emerald") ||
-					strings.Contains(lowerName, "diamond")
-
-			// 1. Priority items → try tab 2 first
-			if isPriorityItem && !fullTabs[2] {
-				if currentTab != 2 { // NEW
-					SwitchStashTab(2)
-					currentTab = 2 // NEW
-				}
-
-				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-					lastSuccessfulStashTab = 2
-					itemStashed = true
-				} else {
-					fullTabs[2] = true
-				}
-			}
-
-			// 2. Try last successful stash tab
-			if !itemStashed && lastSuccessfulStashTab != -1 && !fullTabs[lastSuccessfulStashTab] {
-				if !isPriorityItem && lastSuccessfulStashTab == 2 {
-					// skip
-				} else {
-					if currentTab != lastSuccessfulStashTab { // NEW
-						SwitchStashTab(lastSuccessfulStashTab)
-						currentTab = lastSuccessfulStashTab // NEW
-					}
-
-					if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-						itemStashed = true
-					} else {
-						fullTabs[lastSuccessfulStashTab] = true
-					}
-				}
-			}
-
-			// 3. Normal stash rotation
-			if !itemStashed {
-				fallbackToTab2 := false
-
-				for tabAttempt := targetStartTab; tabAttempt <= maxTab; tabAttempt++ {
-
-					if fullTabs[tabAttempt] {
-						continue
-					}
-
-					if !isPriorityItem && tabAttempt == 2 {
-						fallbackToTab2 = true
-						continue
-					}
-
-					if tabAttempt == lastSuccessfulStashTab {
-						continue
-					}
-
-					if currentTab != tabAttempt { // NEW
-						SwitchStashTab(tabAttempt)
-						currentTab = tabAttempt // NEW
-					}
-
-					if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-						if tabAttempt > 1 {
-							lastSuccessfulStashTab = tabAttempt
-						}
-						itemStashed = true
-						break
-					} else {
-						fullTabs[tabAttempt] = true
-					}
-				}
-
-				if !itemStashed && fallbackToTab2 && !fullTabs[2] {
-					if currentTab != 2 { // NEW
-						SwitchStashTab(2)
-						currentTab = 2 // NEW
-					}
-
-					if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-						lastSuccessfulStashTab = 2
-						itemStashed = true
-					} else {
-						fullTabs[2] = true
-					}
-				}
-			}
-
-			// 4. Fallback to personal stash
-			if !itemStashed && !fullTabs[1] {
-				if currentTab != 1 { // NEW
-					SwitchStashTab(1)
-					currentTab = 1 // NEW
-				}
-
-				if stashItemAction(i, matchedRule, ruleFile, firstRun) {
-					itemStashed = true
-				} else {
-					fullTabs[1] = true
-				}
-
-			}
-
-			// 5. Final brute-force fallback (ignore fullTabs)
-			if !itemStashed {
-				stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
-				if !stashed {
-					ctx.Logger.Warn(fmt.Sprintf(
-						"ERROR: Item %s [%s] could not be stashed into any tab.",
-						i.Desc().Name, i.Quality.ToString(),
-					))
-				}
-			}
+		stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
+		if !stashed {
+			ctx.Logger.Warn(fmt.Sprintf("ERROR: Item %s [%s] could not be stashed into any tab. All stash tabs might be full.", i.Desc().Name, i.Quality.ToString()))
 		}
 	}
-
 	step.CloseAllMenus()
 }
 
@@ -556,62 +283,7 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		return false, false, "", "" // Explicitly do NOT stash the Horadric Staff
 	}
 
-	if slices.Contains(ctx.CharacterCfg.Game.Runs, "Cows") {
-
-		if i.Name == "WirtsLeg" { // This is the simplest way given your logs
-			ctx.Logger.Warn("stashing all wirts legs since cows enabled")
-			return true, false, "", "" // Explicitly stash the wirts leg
-		}
-	} else {
-
-		if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "MagicWirtsLegStep1") || slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "MagicWirtsLegStep2") {
-			if i.Name == "WirtsLeg" && i.Quality == item.QualityMagic { // This is the simplest way given your logs
-				ctx.Logger.Debug("stashing magic wirts leg, cows disabled")
-				return true, false, "", "" // Explicitly stash the wirts leg
-			}
-			if i.Name == "WirtsLeg" && i.Quality == item.QualityCrafted {
-				if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i); res != nip.RuleResultFullMatch {
-					ctx.Logger.Debug("dropping crafted wirts leg, cows disabled and doesnt match nip")
-					ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, i) // blacklist it so bot never tries to pick it back up
-					return false, true, "", ""                                                     // Explicitly drop the crafted wirts leg that doesnt match nip
-
-				} else {
-					ctx.Logger.Warn("KEEPING GODLY CRAFTED WIRTS LEG")
-					return true, false, "", "" // Explicitly keep the crafted wirts leg that matches nip
-				}
-
-			}
-			if i.Name == "WirtsLeg" && i.Quality == item.QualityNormal && i.HasSockets {
-				ctx.Logger.Debug("stashing wirts leg that has sockets, cows disabled")
-				return true, false, "", "" // Explicitly keep the normal socketed wirts leg
-			}
-
-			if i.Name == "WirtsLeg" && i.Quality == item.QualityNormal && !i.HasSockets && ctx.Data.PlayerUnit.Area != area.Tristram {
-				ctx.Logger.Debug("not stashing wirts leg that has 0 sockets, cows disabled")
-				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, i) // blacklist it so bot never tries to pick it back up
-				return false, false, "", ""                                                    // do not stash and do not drop yet... only drop in town routine
-			}
-		}
-
-	}
-
-	if ctx.CharacterCfg.Inventory.GemToUpgrade != "None" {
-
-		keepGemUnitID := data.UnitID(GetGemUnitIDToKeep())
-
-		// Protect the gem chosen for shrine usage
-		if keepGemUnitID != 0 && i.UnitID == keepGemUnitID {
-			ctx.Logger.Debug(
-				"KEEPING GEM IN INVENTORY TO UPGRADE WITH SHRINE",
-				"gem", i.Name,
-				"unitID", i.UnitID,
-			)
-			return false, false, "", ""
-		}
-
-	}
-
-	if i.Name == "TomeOfTownPortal" || i.Name == "TomeOfIdentify" || i.Name == "Key" {
+	if i.Name == "TomeOfTownPortal" || i.Name == "TomeOfIdentify" || i.Name == "Key" || i.Name == "WirtsLeg" {
 		fmt.Printf("DEBUG: ABSOLUTELY PREVENTING stash for '%s' (Quest/Special item exclusion).\n", i.Name)
 		return false, false, "", ""
 	}
@@ -624,120 +296,6 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		fmt.Printf("DEBUG: Allowing stash for '%s' (first run).\n", i.Name)
 		return true, false, "FirstRun", ""
 	}
-
-	// NEED TO IMPLEMENT SAME LOGIC FOR SPECIFIC ITEM
-	if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") &&
-		i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
-		i.Quality == item.QualityMagic &&
-		ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint != "" {
-
-		// 🔐 Absolute UnitID match (strongest signal)
-		if ctx.MarkedRareSpecificItemUnitID != 0 && i.UnitID == ctx.MarkedRareSpecificItemUnitID {
-			ctx.Logger.Warn(
-				"FORCING STASH OF MARKED SPECIFIC RARE ITEM (UnitID match)",
-				"unitID", i.UnitID,
-			)
-			return true, false, "", ""
-		}
-
-		fp := SpecificFingerprint(i)
-
-		if fp == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
-
-			// 🔍 Check shared stash for an existing GC with same fingerprint
-			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
-				if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) &&
-					it.Quality == item.QualityMagic &&
-					SpecificFingerprint(it) == fp {
-
-					ctx.Logger.Warn(
-						"Marked Specific Item already exists in shared stash, skipping force stash",
-						"fp", fp,
-					)
-					return false, false, "", ""
-				}
-			}
-
-			// ✅ No duplicate found → safe to stash
-			ctx.Logger.Warn("FORCING STASH OF MARKED SPECIFIC ITEM", "fp", fp)
-			return true, false, "", ""
-		}
-	}
-
-	// NEED TO IMPLEMENT SAME LOGIC FOR SPECIFIC ITEM
-	if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") &&
-		i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
-		i.Quality == item.QualityRare &&
-		ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint != "" {
-
-		fp := SpecificRareFingerprint(i)
-
-		if fp == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
-
-			// 🔍 Check shared stash for an existing GC with same fingerprint
-			for _, it := range ctx.Data.Inventory.ByLocation(item.LocationSharedStash) {
-				if it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) &&
-					it.Quality == item.QualityRare &&
-					SpecificRareFingerprint(it) == fp {
-
-					ctx.Logger.Warn(
-						"Marked Specific Rare Item already exists in shared stash, skipping force stash",
-						"fp", fp,
-					)
-					return false, false, "", ""
-				}
-			}
-
-			// ✅ No duplicate found → safe to stash
-			ctx.Logger.Warn("FORCING STASH OF MARKED SPECIFIC RARE ITEM", "fp", fp)
-			return true, false, "", ""
-		}
-	}
-
-	/* // 🔒 Grand Charm handling when rerolling marked GCs
-	if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
-		i.Name == "GrandCharm" &&
-		i.Quality == item.QualityMagic {
-
-		markedFP := ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint
-		if markedFP != "" {
-
-			fp := utils.GrandCharmFingerprint(i)
-
-			// 🎯 MARKED GRAND CHARM
-			if fp == markedFP {
-				// ✅ Check for godly roll: +1 Skill Tab AND MaxHP ≥ 41
-				skillTabStat, _ := i.FindStat(stat.AddSkillTab, 0)
-				maxHPStat, _ := i.FindStat(stat.MaxLife, 0)
-
-				if skillTabStat.Value == 1 && maxHPStat.Value >= 41 {
-					// Godly roll — stop rerolling and stash
-					ctx.Logger.Warn("GODLY GRAND CHARM FOUND — STOPPING REROLL")
-					// Clear fingerprint to indicate reroll is complete
-					ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
-					if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
-						ctx.Logger.Error("FAILED TO SAVE CONFIG AFTER GODLY GC", "err", err)
-					}
-					return true, false, "GodlyGrandCharm", ""
-				}
-
-				// Not godly — keep rerolling
-				ctx.Logger.Warn("MARKED GRAND CHARM NOT GODLY — KEEP REROLLING")
-				return true, false, "MarkedGrandCharm", ""
-			}
-
-			// 🚫 UNMARKED GC — do NOT touch fingerprint here
-			if fp != markedFP {
-				if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i); res != nip.RuleResultFullMatch {
-					ctx.Logger.Warn("DROPPING UNMARKED NON-NIP GRAND CHARM (only reroll >= ilvl91 mode)")
-					return false, false, "", ""
-				}
-
-				ctx.Logger.Warn("STASHING UNMARKED GRAND CHARM BECAUSE IT MATCHES NIP")
-				return true, false, "", ""
-			}
-		}
-	} */
 
 	// Stash items that are part of a recipe which are not covered by the NIP rules
 	if shouldKeepRecipeItem(i) {
@@ -767,43 +325,6 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	rule, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAllIgnoreTiers(i)
 
 	if res == nip.RuleResultFullMatch {
-
-		if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Magic Item") {
-			// 🔑 CHECK IF THIS IS THE MARKED GRAND CHARM
-			if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) && i.Quality == item.QualityMagic {
-				fp := SpecificFingerprint(i)
-
-				if fp == ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint {
-					ctx.Logger.Error("REROLLED SPECIFIC ITEM MATCHES NIP — CLEARING MARK")
-
-					// ✅ RESET STATE
-					ctx.CharacterCfg.CubeRecipes.MarkedSpecificItemFingerprint = ""
-					ctx.MarkedSpecificItemUnitID = 0
-
-					// Persist config so restart is safe
-					config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg)
-				}
-			}
-		}
-
-		if slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, "Reroll Specific Rare Item") {
-			// 🔑 CHECK IF THIS IS THE MARKED GRAND CHARM
-			if i.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) && i.Quality == item.QualityRare {
-				fp := SpecificRareFingerprint(i)
-
-				if fp == ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint {
-					ctx.Logger.Error("REROLLED SPECIFIC ITEM MATCHES NIP — CLEARING MARK")
-
-					// ✅ RESET STATE
-					ctx.CharacterCfg.CubeRecipes.MarkedRareSpecificItemFingerprint = ""
-					ctx.MarkedRareSpecificItemUnitID = 0
-
-					// Persist config so restart is safe
-					config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg)
-				}
-			}
-		}
-
 		if doesExceedQuantity(rule) {
 			// If it matches a rule but exceeds quantity, we want to drop it, not stash.
 			fmt.Printf("DEBUG: Dropping '%s' because MaxQuantity is exceeded.\n", i.Name)
@@ -873,14 +394,6 @@ func shouldKeepRecipeItem(i data.Item) bool {
 
 	// Check if the item is part of an enabled recipe
 	for _, recipe := range Recipes {
-
-		/* // 🔒 Special case: ignore GrandCharm as a recipe ingredient when rerolling marked GCs
-		if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms &&
-			recipe.Name == "Reroll GrandCharms" &&
-			i.Name == "GrandCharm" {
-			continue
-		} */
-
 		if slices.Contains(recipe.Items, string(i.Name)) &&
 			slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, recipe.Name) {
 			recipeMatch = true
@@ -911,6 +424,7 @@ func shouldKeepRecipeItem(i data.Item) bool {
 func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool) bool {
 	ctx := context.Get()
 	ctx.SetLastAction("stashItemAction")
+	displayName := formatItemName(i)
 
 	screenPos := ui.GetScreenCoordsForItem(i)
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
@@ -931,67 +445,27 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 
 	dropLocation := "unknown"
 
-	// Check if the item was picked up in-game
-	if areaId, found := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]; found {
-		dropLocation = area.ID(areaId).Area().Name
+	// log the contents of picked up items
+	ctx.Logger.Debug(fmt.Sprintf("Checking PickedUpItems for %s (UnitID: %d)", displayName, i.UnitID)) // Changed to Debug as this is internal state
+	if _, found := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]; found {
+		areaId := ctx.CurrentGame.PickedUpItems[int(i.UnitID)]
+		dropLocation = area.ID(areaId).Area().Name // Corrected to use areaId variable
+
 		if slices.Contains(ctx.Data.TerrorZones, area.ID(areaId)) {
 			dropLocation += " (terrorized)"
 		}
-	} else if vendorName, found := ctx.CurrentGame.PickedUpItemsVendor[int(i.UnitID)]; found {
-		// Item was bought from a vendor
-		dropLocation = vendorName
 	}
 
 	// Don't log items that we already have in inventory during first run or that we don't want to notify about (gems, low runes .. etc)
 	if !skipLogging && shouldNotifyAboutStashing(i) && ruleFile != "" {
-		var message string
-		mentions := []string{}
-		if config.Koolo != nil {
-			for _, id := range config.Koolo.Discord.MentionID {
-				if strings.TrimSpace(id) != "" {
-					mentions = append(mentions, "<@"+id+">")
-				}
-			}
-		}
-
-		if len(mentions) > 0 {
-			// Include Discord mentions
-			mentions := []string{}
-			for _, id := range config.Koolo.Discord.MentionID {
-				if id != "" {
-					mentions = append(mentions, "<@"+id+">")
-				}
-			}
-			message = fmt.Sprintf("%s %s [%s] found in \"%s\" (%s)",
-				strings.Join(mentions, " "),
-				i.Name,
-				i.Quality.ToString(),
-				dropLocation,
-				filepath.Base(ruleFile),
-			)
-		} else {
-			// No Discord mentions
-			message = fmt.Sprintf("%s [%s] found in \"%s\" (%s)",
-				i.Name,
-				i.Quality.ToString(),
-				dropLocation,
-				filepath.Base(ruleFile),
-			)
-		}
-		// Append NIP rule to the same message (after screenshot text)
-		if strings.TrimSpace(rule) != "" {
-			message += fmt.Sprintf("\n```%s```", rule)
+		dropItem := i
+		if dropItem.IsRuneword && dropItem.IdentifiedName == "" {
+			dropItem.IdentifiedName = displayName
 		}
 		event.Send(event.ItemStashed(
-			event.WithScreenshot(ctx.Name, message, screenshot),
-			data.Drop{
-				Item:         i,
-				Rule:         rule,
-				RuleFile:     ruleFile,
-				DropLocation: dropLocation,
-			},
+			event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%d] stashed", displayName, i.Quality), screenshot),
+			data.Drop{Item: dropItem, Rule: rule, RuleFile: ruleFile, DropLocation: dropLocation},
 		))
-
 	}
 
 	return true // Item successfully stashed
@@ -1033,7 +507,7 @@ func dropExcessItems() {
 	}
 
 	if len(itemsToDrop) > 0 {
-		ctx.Logger.Debug(fmt.Sprintf("Dropping %d excess items from inventory.", len(itemsToDrop)))
+		ctx.Logger.Info(fmt.Sprintf("Dropping %d excess items from inventory.", len(itemsToDrop)))
 		// Ensure we are not in a menu before dropping
 		step.CloseAllMenus()
 
@@ -1089,17 +563,9 @@ func shouldNotifyAboutStashing(i data.Item) bool {
 	if strings.Contains(i.Desc().Type, "gem") {
 		return false
 	}
-	// Don't notify tokens (NAME-based)
-	if strings.Contains(strings.ToLower(string(i.Name)), "tokenofabsolution") {
-		return false
-	}
 
-	// Don't notify keys (NAME-based: Terror / Hate / Destruction)
-	if strings.Contains(strings.ToLower(string(i.Name)), "keyofterror") || strings.Contains(strings.ToLower(string(i.Name)), "keyofdestruction") || strings.Contains(strings.ToLower(string(i.Name)), "keyofhate") {
-		return false
-	}
 	// Skip low runes (below lem)
-	lowRunes := []string{"elrune", "eldrune", "tirrune", "nefrune", "ethrune", "ithrune", "talrune", "ralrune", "ortrune", "thulrune", "amnrune", "solrune", "shaelrune", "dolrune", "helrune", "iorune", "lumrune", "korune", "falrune", "pulrune", "lemrune"}
+	lowRunes := []string{"elrune", "eldrune", "tirrune", "nefrune", "ethrune", "ithrune", "talrune", "ralrune", "ortrune", "thulrune", "amnrune", "solrune", "shaelrune", "dolrune", "helrune", "iorune", "lumrune", "korune", "falrune"}
 	if i.Desc().Type == item.TypeRune {
 		itemName := strings.ToLower(string(i.Name))
 		for _, runeName := range lowRunes {
@@ -1349,137 +815,4 @@ func TakeItemsFromStash(stashedItems []data.Item) error {
 	}
 
 	return nil
-}
-
-// New function dedicated to upgrading gem corner safety
-func EnsureUpgradeGemCornerSafe() {
-	ctx := context.Get()
-	ctx.Logger.Debug("EnsureUpgradeGemCornerSafe called")
-
-	keepGemUnitID := data.UnitID(GetGemUnitIDToKeep())
-	if keepGemUnitID == 0 {
-		ctx.Logger.Debug("No shrine gem found to protect, skipping")
-		return
-	}
-
-	items := ctx.Data.Inventory.ByLocation(item.LocationInventory)
-
-	var gem *data.Item
-	for i := range items {
-		if items[i].UnitID == keepGemUnitID && !IsInLockedInventorySlot(items[i]) {
-			gem = &items[i]
-			ctx.Logger.Debug(
-				"Shrine gem found",
-				"name", gem.Name,
-				"x", gem.Position.X,
-				"y", gem.Position.Y,
-			)
-			break
-		}
-	}
-
-	if gem == nil {
-		ctx.Logger.Debug("Shrine gem not found or gem in locked slot")
-		return
-	}
-
-	inv := NewInventoryMask(10, 4)
-
-	// Mark protected slots
-	for y := 0; y < 4; y++ {
-		for x := 0; x < 10; x++ {
-			if ctx.CharacterCfg.Inventory.InventoryLock[y][x] == 0 {
-				inv.Grid[y][x] = true
-			}
-		}
-	}
-	ctx.Logger.Debug("Protected inventory slots marked in mask")
-
-	// Mark all other items
-	for _, it := range items {
-		if it.UnitID == gem.UnitID {
-			continue
-		}
-
-		w, h := it.Desc().InventoryWidth, it.Desc().InventoryHeight
-		if it.Position.X >= 0 && it.Position.Y >= 0 {
-			inv.Place(it.Position.X, it.Position.Y, w, h)
-		}
-	}
-	ctx.Logger.Debug("Inventory mask populated with existing items (excluding shrine gem)")
-
-	// Already safe?
-	if isCornerSafeInMask(gem.Position.X, gem.Position.Y, inv) {
-		ctx.Logger.Debug("Shrine gem already corner-safe")
-		return
-	}
-
-	// Preferred corners
-	corners := []data.Position{
-		{X: 0, Y: 0}, {X: 9, Y: 0},
-		{X: 0, Y: 3}, {X: 9, Y: 3},
-	}
-
-	var target *data.Position
-	ctx.Logger.Debug("Searching for available corner for shrine gem")
-
-	for _, c := range corners {
-		if inv.CanPlace(c.X, c.Y, gem.Desc().InventoryWidth, gem.Desc().InventoryHeight) {
-			target = &c
-			ctx.Logger.Debug("Corner found", "x", c.X, "y", c.Y)
-			break
-		}
-	}
-
-	if target == nil {
-		ctx.Logger.Debug("No available corner for shrine gem")
-		return
-	}
-
-	// Ensure inventory open
-	if !ctx.Data.OpenMenus.Inventory {
-		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
-		utils.PingSleep(utils.Light, 200)
-	}
-
-	ctx.Logger.Debug(
-		"Moving shrine gem to corner",
-		"fromX", gem.Position.X,
-		"fromY", gem.Position.Y,
-		"toX", target.X,
-		"toY", target.Y,
-	)
-
-	screenPos := ui.GetScreenCoordsForItem(*gem)
-	ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
-	utils.PingSleep(utils.Light, 200)
-
-	newPos := ui.GetScreenCoordsForInventoryPosition(*target, item.LocationInventory)
-	ctx.HID.Click(game.LeftButton, newPos.X, newPos.Y)
-	utils.PingSleep(utils.Light, 200)
-
-	step.CloseAllMenus()
-}
-
-func isCornerSafeInMask(x, y int, inv *InventoryMask) bool {
-	blocked := 0
-
-	// Left
-	if x == 0 || inv.Grid[y][x-1] {
-		blocked++
-	}
-	// Right
-	if x == inv.Width-1 || inv.Grid[y][x+1] {
-		blocked++
-	}
-	// Up
-	if y == 0 || inv.Grid[y-1][x] {
-		blocked++
-	}
-	// Down
-	if y == inv.Height-1 || inv.Grid[y+1][x] {
-		blocked++
-	}
-
-	return blocked >= 2
 }
