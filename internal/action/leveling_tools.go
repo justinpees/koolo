@@ -449,13 +449,6 @@ func HireMerc() error {
 		if ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && ctx.Data.PlayerUnit.TotalPlayerGold() > 5000 && ctx.Data.PlayerUnit.Area == area.LutGholein {
 			ctx.Logger.Info("Attempting to hire 'Prayer' mercenary...")
 
-			isLegacy := ctx.Data.LegacyGraphics
-			if !isLegacy {
-				ctx.Logger.Info("Switching to legacy mode to hire merc")
-				ctx.HID.PressKey(ctx.Data.KeyBindings.LegacyToggle.Key1[0])
-				utils.Sleep(500)
-			}
-
 			if err := InteractNPC(town.GetTownByArea(ctx.Data.PlayerUnit.Area).MercContractorNPC()); err != nil {
 				return err
 			}
@@ -488,12 +481,6 @@ func HireMerc() error {
 			}
 
 			step.CloseAllMenus()
-
-			if !isLegacy && !ctx.CharacterCfg.ClassicMode {
-				ctx.Logger.Info("Switching back to non-legacy mode")
-				ctx.HID.PressKey(ctx.Data.KeyBindings.LegacyToggle.Key1[0])
-				utils.Sleep(500)
-			}
 
 			ctx.Logger.Info("Mercenary hiring routine complete.")
 			AutoEquip()

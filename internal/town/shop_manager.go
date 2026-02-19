@@ -29,20 +29,19 @@ var questItems = []item.Name{
 func BuyConsumables(forceRefill bool) {
 	ctx := context.Get()
 
-	// --- Track missing consumables ---
-	missingHealingPotionBelt := ctx.BeltManager.GetMissingCount(data.HealingPotion)
-	missingManaPotionBelt := ctx.BeltManager.GetMissingCount(data.ManaPotion)
-	missingHealingPotionInv := ctx.Data.MissingPotionCountInInventory(data.HealingPotion)
-	missingManaPotionInv := ctx.Data.MissingPotionCountInInventory(data.ManaPotion)
+	missingHealingPotionInBelt := ctx.BeltManager.GetMissingCount(data.HealingPotion)
+	missingManaPotionInBelt := ctx.BeltManager.GetMissingCount(data.ManaPotion)
+	missingHealingPotionInInventory := ctx.Data.MissingPotionCountInInventory(data.HealingPotion)
+	missingManaPotionInInventory := ctx.Data.MissingPotionCountInInventory(data.ManaPotion)
+	shouldBuyTPs := ShouldBuyTPs()
 
-	// Find best available potions at vendor
-	healingPot, healingFound := findFirstMatch("superhealingpotion", "greaterhealingpotion", "healingpotion", "lighthealingpotion", "minorhealingpotion")
-	manaPot, manaFound := findFirstMatch("supermanapotion", "greatermanapotion", "manapotion", "lightmanapotion", "minormanapotion")
+	// We traverse the items in reverse order because vendor has the best potions at the end
+	healingPot, healingPotfound := findFirstMatch("superhealingpotion", "greaterhealingpotion", "healingpotion", "lighthealingpotion", "minorhealingpotion")
+	manaPot, manaPotfound := findFirstMatch("supermanapotion", "greatermanapotion", "manapotion", "lightmanapotion", "minormanapotion")
 
-	ctx.Logger.Debug(fmt.Sprintf("Buying: %d Healing potions and %d Mana potions for belt", missingHealingPotionBelt, missingManaPotionBelt))
+	ctx.Logger.Debug(fmt.Sprintf("Buying: %d Healing potions and %d Mana potions for belt", missingHealingPotionInBelt, missingManaPotionInBelt))
 
-	// --- Buy TP Tome if needed ---
-	if ShouldBuyTPs() || forceRefill {
+	if shouldBuyTPs || forceRefill {
 		if _, found := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory); !found && ctx.Data.PlayerUnit.TotalPlayerGold() > 450 {
 			ctx.Logger.Info("TP Tome not found, buying one...")
 			if itm, itmFound := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationVendor); itmFound {
@@ -54,100 +53,73 @@ func BuyConsumables(forceRefill bool) {
 		}
 	}
 
-	// --- Buy potions for belt ---
-	if healingFound && missingHealingPotionBelt > 0 {
-		BuyItem(healingPot, missingHealingPotionBelt)
-	}
-	if manaFound && missingManaPotionBelt > 0 {
-		BuyItem(manaPot, missingManaPotionBelt)
-	}
-
-	ctx.Logger.Debug(fmt.Sprintf("Buying: %d Healing potions and %d Mana potions for inventory", missingHealingPotionInv, missingManaPotionInv))
-
-	// --- Buy potions for inventory ---
-	if healingFound && missingHealingPotionInv > 0 {
-		BuyItem(healingPot, missingHealingPotionInv)
-	}
-	if manaFound && missingManaPotionInv > 0 {
-		BuyItem(manaPot, missingManaPotionInv)
+	// buy for belt first
+	if healingPotfound && missingHealingPotionInBelt > 0 {
+		if !buyItemOrAbortOnNoGold(healingPot, missingHealingPotionInBelt) {
+			return
+		}
+		missingHealingPotionInBelt = 0
 	}
 
-	// --- Buy Scrolls of TP ---
-	if ShouldBuyTPs() || forceRefill {
+	if manaPotfound && missingManaPotionInBelt > 0 {
+		if !buyItemOrAbortOnNoGold(manaPot, missingManaPotionInBelt) {
+			return
+		}
+		missingManaPotionInBelt = 0
+	}
+
+	ctx.Logger.Debug(fmt.Sprintf("Buying: %d Healing potions and %d Mana potions for inventory", missingHealingPotionInInventory, missingManaPotionInInventory))
+
+	// then buy for inventory
+	if healingPotfound && missingHealingPotionInInventory > 0 {
+		if !buyItemOrAbortOnNoGold(healingPot, missingHealingPotionInInventory) {
+			return
+		}
+		missingHealingPotionInInventory = 0
+	}
+
+	if manaPotfound && missingManaPotionInInventory > 0 {
+		if !buyItemOrAbortOnNoGold(manaPot, missingManaPotionInInventory) {
+			return
+		}
+		missingManaPotionInInventory = 0
+	}
+
+	if shouldBuyTPs || forceRefill {
 		ctx.Logger.Debug("Filling TP Tome...")
-
-		// Find the TP tome in inventory
-		if tpTome, found := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory); found {
-			// Check current quantity
-			qtyStat, found := tpTome.FindStat(stat.Quantity, 0)
-			currentQty := 0
-			if found {
-				currentQty = int(qtyStat.Value)
-			}
-
-			// Only buy if below your threshold
-			if currentQty < 20 {
-				if itm, found := ctx.Data.Inventory.Find(item.ScrollOfTownPortal, item.LocationVendor); found {
-					ctx.Logger.Warn("Buying Scrolls of TP to top off Tome...")
-					utils.PingSleep(utils.Light, 400)
-
-					if ctx.Data.PlayerUnit.TotalPlayerGold() > 6000 {
-						buyFullStack(itm, -1)
-					} else {
-						BuyItem(itm, 1)
-					}
+		if itm, found := ctx.Data.Inventory.Find(item.ScrollOfTownPortal, item.LocationVendor); found {
+			if ctx.Data.PlayerUnit.TotalPlayerGold() > 6000 {
+				if !buyFullStack(itm, -1) { // -1 for irrelevant currentKeysInInventory
+					return
 				}
 			} else {
-				ctx.Logger.Debug("TP Tome already full — skipping purchase")
+				if !buyItemOrAbortOnNoGold(itm, 1) {
+					return
+				}
 			}
-		} else {
-			ctx.Logger.Warn("No TP Tome found in inventory — cannot buy scrolls")
 		}
 	}
 
-	// --- Determine if IDs are disabled ---
 	disableIDs := false
-	isLeveling := false
-	if ctx.IsLevelingCharacter != nil {
-		isLeveling = *ctx.IsLevelingCharacter
-	} else {
-		isLeveling = ctx.Data.IsLevelingCharacter
+	if ctx.CharacterCfg.Game.DisableIdentifyTome {
+		isLeveling := false
+		if ctx.IsLevelingCharacter != nil {
+			isLeveling = *ctx.IsLevelingCharacter
+		} else {
+			isLeveling = ctx.Data.IsLevelingCharacter
+		}
+		disableIDs = !isLeveling
 	}
-	disableIDs = ctx.CharacterCfg.Game.DisableIdentifyTome && !isLeveling
 
-	// --- Buy Scrolls of Identify if IdentifyInField is true OR regular ID purchase ---
-	// --- Buy Scrolls of Identify if IdentifyInField is true OR regular ID purchase ---
-	if ctx.CharacterCfg.BackToTown.IdentifyInField {
-		// Ensure we have a Tome
-		if _, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory); !found && ctx.Data.PlayerUnit.TotalPlayerGold() > 360 {
-			ctx.Logger.Info("ID Tome not found, buying one due to IdentifyInField setting...")
-			if itm, itmFound := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationVendor); itmFound {
-				BuyItem(itm, 1)
-			}
-		}
+	shouldBuyIDs := false
+	if !disableIDs {
+		shouldBuyIDs = ShouldBuyIDs()
+	}
 
-		// Check how many scrolls are in the Tome
-		if idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory); found {
-			qtyStat, found := idTome.FindStat(stat.Quantity, 0)
-			currentQty := 0
-			if found {
-				currentQty = int(qtyStat.Value)
-			}
-
-			if currentQty < 20 { // Only buy if we have fewer than 20
-				if itm, found := ctx.Data.Inventory.Find(item.ScrollOfIdentify, item.LocationVendor); found {
-					ctx.Logger.Warn("Buying Scrolls of Identify to top off Tome...")
-					utils.PingSleep(utils.Light, 400)
-					buyFullStack(itm, -1)
-				}
-			} else {
-				ctx.Logger.Debug("Tome already has enough Scrolls of Identify — skipping purchase")
-			}
-		}
-	} else if disableIDs {
+	if disableIDs {
 		ctx.Logger.Debug("DisableIdentifyTome enabled – skipping ID tome/scroll purchases.")
-	} else if ShouldBuyIDs() || forceRefill {
-		// Regular ID purchase logic
+	} else if shouldBuyIDs || forceRefill {
+
 		if _, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory); !found && ctx.Data.PlayerUnit.TotalPlayerGold() > 360 {
 			ctx.Logger.Info("ID Tome not found, buying one...")
 			if itm, itmFound := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationVendor); itmFound {
@@ -156,11 +128,12 @@ func BuyConsumables(forceRefill bool) {
 				}
 			}
 		}
-
-		// Buy Scrolls of Identify based on gold threshold
+		ctx.Logger.Debug("Filling IDs Tome...")
 		if itm, found := ctx.Data.Inventory.Find(item.ScrollOfIdentify, item.LocationVendor); found {
 			if ctx.Data.PlayerUnit.TotalPlayerGold() > 16000 {
-				buyFullStack(itm, -1)
+				if !buyFullStack(itm, -1) { // -1 for irrelevant currentKeysInInventory
+					return
+				}
 			} else {
 				if !buyItemOrAbortOnNoGold(itm, 1) {
 					return
@@ -169,15 +142,20 @@ func BuyConsumables(forceRefill bool) {
 		}
 	}
 
-	// --- Buy Keys if needed ---
-	keyQty, shouldBuyKeys := ShouldBuyKeys()
-	if ctx.Data.PlayerUnit.Class != data.Assassin && (shouldBuyKeys || forceRefill) {
-		if itm, found := ctx.Data.Inventory.Find(item.Key, item.LocationVendor); found {
-			ctx.Logger.Debug("Vendor with keys detected, provisioning...")
-			utils.PingSleep(utils.Light, 400)
-			qtyVendor, _ := itm.FindStat(stat.Quantity, 0)
-			if qtyVendor.Value > 0 && keyQty < 12 {
-				buyFullStack(itm, keyQty)
+	if ctx.Data.PlayerUnit.Class != data.Assassin {
+		keyQuantity, shouldBuyKeys := ShouldBuyKeys() // keyQuantity is total keys in inventory
+		if shouldBuyKeys || forceRefill {
+			if itm, found := ctx.Data.Inventory.Find(item.Key, item.LocationVendor); found {
+				ctx.Logger.Debug("Vendor with keys detected, provisioning...")
+
+				// Only buy if vendor has keys and we have less than 12
+				qtyVendor, _ := itm.FindStat(stat.Quantity, 0)
+				if (qtyVendor.Value > 0) && (keyQuantity < 12) {
+					// Pass keyQuantity to buyFullStack so it knows how many keys we had initially
+					if !buyFullStack(itm, keyQuantity) {
+						return
+					}
+				}
 			}
 		}
 	}

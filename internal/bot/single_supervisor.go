@@ -453,6 +453,8 @@ func (s *SinglePlayerSupervisor) Start() error {
 
 					currentPos := s.bot.ctx.Data.PlayerUnit.Position
 					lastAction := s.bot.ctx.ContextDebug[s.bot.ctx.ExecutionPriority].LastAction
+
+					// Check for stat/skill allocation activities
 					isAllocating := lastAction == "AutoRespecIfNeeded" ||
 						lastAction == "EnsureStatPoints" ||
 						lastAction == "EnsureSkillPoints" ||

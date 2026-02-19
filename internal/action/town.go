@@ -345,6 +345,11 @@ func InRunReturnTownRoutine() error {
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after post-reroll Stash
 
+	if ctx.CharacterCfg.Game.Leveling.AutoEquip && isLevelingChar {
+		AutoEquip()
+		ctx.PauseIfNotPriority() // Check after AutoEquip
+	}
+
 	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation && isLevelingChar {
 		EnsureStatPoints()
 		ctx.PauseIfNotPriority()

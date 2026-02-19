@@ -560,7 +560,7 @@ func CubeRecipes() error {
 	if ctx.Data.IsDLC() {
 		locations = append(locations, item.LocationGemsTab, item.LocationMaterialsTab, item.LocationRunesTab)
 	}
-	itemsInStash := ctx.Data.Inventory.ByLocation(locations...)
+	itemsInStash := FilterDLCGhostItems(ctx.Data.Inventory.ByLocation(locations...))
 	for _, recipe := range Recipes {
 		// Check if the current recipe is Enabled
 		if !slices.Contains(ctx.CharacterCfg.CubeRecipes.EnabledRecipes, recipe.Name) {
@@ -727,7 +727,7 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	if ctx.Data.IsDLC() {
 		locations = append(locations, item.LocationGemsTab, item.LocationMaterialsTab, item.LocationRunesTab)
 	}
-	items := ctx.Data.Inventory.ByLocation(locations...)
+	items := FilterDLCGhostItems(ctx.Data.Inventory.ByLocation(locations...))
 
 	if strings.Contains(recipe.Name, "Add Sockets to") {
 		return hasItemsForSocketRecipe(ctx, recipe, items)
@@ -866,37 +866,29 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 	itemsForRecipe := []data.Item{}
 
 	// Iterate over the items in our stash to see if we have the items for the recipe.
+
 	for _, it := range items {
 		if count, ok := recipeItems[string(it.Name)]; ok {
 
 			if it.Name == "Jewel" || it.Name == "Ring" || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.SpecificItemToReroll) || it.Name == item.Name(ctx.CharacterCfg.CubeRecipes.RareSpecificItemToReroll) || it.Name == "Amulet" || it.Name == "Wirt'sLeg" || it.Name == "WirtsLeg" || it.Name == "MithrilCoil" || it.Name == "MeshBelt" || it.Name == "VampirefangBelt" || it.Name == "HeavyBracers" || it.Name == "SharkskinGloves" || it.Name == "Armet" || it.Name == "SharkskinBelt" || it.Name == "VampireboneGloves" {
 				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); result == nip.RuleResultFullMatch {
 					ctx.Logger.Debug("Skipping item that matches NIP rules for cubing recipe", "item", it.Name, "recipe", recipe.Name)
-					/* if ctx.CharacterCfg.CubeRecipes.RerollGrandCharms {
-						if it.Name == "GrandCharm" && it.Quality == item.QualityMagic {
-							fp := utils.GrandCharmFingerprint(it)
 
-							// If it’s the marked charm and it would be kept by NIP rules,
-							// we can clear the fingerprint because it’s being used now
-							if fp == ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint {
-								ctx.Logger.Warn("MARKED GRAND CHARM WILL BE KEPT — CLEARING FINGERPRINT")
-								ctx.CharacterCfg.CubeRecipes.MarkedGrandCharmFingerprint = ""
-
-								if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
-									ctx.Logger.Error("FAILED TO SAVE CharacterCfg AFTER CLEARING FINGERPRINT", "err", err)
-								}
-							}
-						}
-					} // I DONT KNOW IF I NEED THIS??? */
-					// Skip this item for cubing
 					continue
 				}
 			}
 
-			itemsForRecipe = append(itemsForRecipe, it)
+			// DLC stacked items: one entry can satisfy multiple recipe slots
+			// (e.g., a FlawlessDiamond stack of 5 satisfies 3x FlawlessDiamond).
+			// Each Ctrl+click in CubeAddItems takes one from the stack.
+			availableQty := isDLCStackedQuantity(it)
+			satisfies := min(availableQty, count)
 
-			// Check if we now have exactly the needed count before decrementing
-			count -= 1
+			for i := 0; i < satisfies; i++ {
+				itemsForRecipe = append(itemsForRecipe, it)
+			}
+
+			count -= satisfies
 			if count == 0 {
 				delete(recipeItems, string(it.Name))
 				if len(recipeItems) == 0 {
@@ -908,7 +900,7 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 		}
 	}
 
-	// We don't have all the items for the recipie.
+	// We don't have all the items for the recipe.
 	return nil, false
 }
 
@@ -951,8 +943,14 @@ func hasItemsForSocketRecipe(ctx *context.Status, recipe CubeRecipe, items []dat
 		itemName := string(itm.Name)
 
 		if count, ok := recipeItems[itemName]; ok {
-			itemsForRecipe = append(itemsForRecipe, itm)
-			count--
+			// DLC stacked items can satisfy multiple recipe slots
+			availableQty := isDLCStackedQuantity(itm)
+			satisfies := min(availableQty, count)
+
+			for i := 0; i < satisfies; i++ {
+				itemsForRecipe = append(itemsForRecipe, itm)
+			}
+			count -= satisfies
 			if count == 0 {
 				delete(recipeItems, itemName)
 			} else {
@@ -1168,7 +1166,14 @@ func hasItemsForSpecificReroll(ctx *context.Status, items []data.Item) ([]data.I
 				(ctx.CharacterCfg.CubeRecipes.SkipPerfectRubies && itm.Name == "PerfectRuby" && countRuby <= 3) || (itm.Name == "PerfectSapphire" && countSapphire <= 3) {
 				continue
 			}
-			perfectGems = append(perfectGems, itm)
+			// DLC stacked gems: one entry can fill multiple perfect gem slots
+			needed := 3 - len(perfectGems)
+			availableQty := isDLCStackedQuantity(itm)
+			satisfies := min(availableQty, needed)
+
+			for i := 0; i < satisfies; i++ {
+				perfectGems = append(perfectGems, itm)
+			}
 		}
 
 		if specificitem.Name != "" && len(perfectGems) == 3 {
@@ -1276,6 +1281,21 @@ func hasItemsForCraftedWirtsLeg(ctx *context.Status, items []data.Item) ([]data.
 
 	ctx.Logger.Debug("SKIPPING RECIPE... missing ingredients for MagicWirtsLegStep2")
 	return nil, false
+}
+
+// isDLCStackedQuantity returns how many recipe slots a single item entry can
+// satisfy. For DLC tab items it returns StackedQuantity; for regular items it
+// returns 1 (each entry is a separate physical item).
+func isDLCStackedQuantity(itm data.Item) int {
+	switch itm.Location.LocationType {
+	case item.LocationGemsTab, item.LocationMaterialsTab, item.LocationRunesTab:
+		if itm.StackedQuantity > 0 {
+			return itm.StackedQuantity
+		}
+		return 0 // ghost entry, should have been filtered
+	}
+	return 1
+
 }
 
 func isPerfectGem(item data.Item) bool {
