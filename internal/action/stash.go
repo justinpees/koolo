@@ -205,7 +205,7 @@ func stashInventory(firstRun bool) {
 	ctx := context.Get()
 	ctx.SetLastAction("stashInventory")
 
-	fullTabs := make(map[int]bool) // NEW: remember full tabs across items
+	//fullTabs := make(map[int]bool) // NEW: remember full tabs across items
 
 	// Determine starting tab based on configuration
 	startTab := 1
@@ -335,7 +335,12 @@ func stashInventory(firstRun bool) {
 			continue
 		}
 
-		targetStartTab := startTab
+		stashed := stashItemAcrossTabs(i, matchedRule, ruleFile, firstRun)
+		if !stashed {
+			ctx.Logger.Warn(fmt.Sprintf("ERROR: Item %s [%s] could not be stashed into any tab. All stash tabs might be full.", i.Desc().Name, i.Quality.ToString()))
+		}
+
+		/* targetStartTab := startTab
 
 		if (i.Name == "grandcharm" || i.Name == "smallcharm" || i.Name == "largecharm") && i.Quality == item.QualityUnique {
 			targetStartTab = 2
@@ -345,7 +350,8 @@ func stashInventory(firstRun bool) {
 		}
 
 		itemStashed := false
-		maxTab := 4
+		sharedPages := ctx.Data.Inventory.SharedStashPages
+		maxTab := 1 + sharedPages
 		name := i.Desc().Name
 		lowerName := strings.ToLower(name)
 
@@ -469,9 +475,12 @@ func stashInventory(firstRun bool) {
 					i.Desc().Name, i.Quality.ToString(),
 				))
 			}
-		}
+		} */
 	}
-
+	// Before closing menus
+	//SwitchStashTab(startTab)
+	//utils.Sleep(300)
+	//ctx.RefreshGameData()
 	step.CloseAllMenus()
 }
 
