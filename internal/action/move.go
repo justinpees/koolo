@@ -722,6 +722,20 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 								"gem", string(gemNameFound),
 							)
 
+							originalPos := ctx.Data.PlayerUnit.Position
+							safePos, ok := FindSafeOffsetPosition(originalPos, 10)
+							if !ok {
+								ctx.Logger.Warn("Could not find safe offset; returning to original position")
+								safePos = originalPos
+							}
+
+							if err := MoveToCoords(safePos, step.WithIgnoreItems()); err != nil {
+								ctx.Logger.Warn("Failed to move to safe offset near gem shrine", "error", err)
+							} else {
+								ctx.Logger.Warn("Moved to safe offset near gem shrine")
+							}
+							utils.PingSleep(utils.Critical, 100)
+
 							// Return to town
 							if err := ReturnTown(); err != nil {
 								return err
